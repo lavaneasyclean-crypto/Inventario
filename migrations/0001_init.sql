@@ -1,6 +1,34 @@
 -- Inventario / Lavandería — esquema inicial
 -- Migración desde "Datos Lavanderia.accdb" (Microsoft Access)
 -- Postgres 15+ (Supabase)
+--
+-- Idempotente: se puede re-ejecutar de manera segura. Si ya hubo un intento
+-- previo (parcial o completo), el bloque de cleanup limpia y rearma todo.
+
+-- =========================================================
+-- Extensiones (deben crearse antes de los índices que las usan)
+-- =========================================================
+create extension if not exists pg_trgm;
+
+-- =========================================================
+-- Cleanup (drop si quedó algo de un intento previo)
+-- =========================================================
+drop table if exists _import_cuarentena    cascade;
+drop table if exists auditoria             cascade;
+drop table if exists pedidos_empresa_items cascade;
+drop table if exists pedidos_empresa       cascade;
+drop table if exists pedidos_items         cascade;
+drop table if exists pedidos               cascade;
+drop table if exists clientes_empresa      cascade;
+drop table if exists clientes              cascade;
+drop table if exists productos_empresa     cascade;
+drop table if exists productos             cascade;
+
+drop type if exists estado_pedido cascade;
+drop type if exists forma_pago    cascade;
+drop type if exists tipo_servicio cascade;
+
+drop function if exists set_updated_at() cascade;
 
 -- =========================================================
 -- ENUMs
@@ -215,11 +243,6 @@ create table _import_cuarentena (
   motivo      text not null,             -- por qué se descartó
   payload     jsonb not null             -- la fila original tal cual
 );
-
--- =========================================================
--- Extensiones (Supabase suele tenerlas, pero nos aseguramos)
--- =========================================================
-create extension if not exists pg_trgm;
 
 -- =========================================================
 -- Row Level Security — acceso solo a usuarios autenticados
