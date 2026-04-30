@@ -77,7 +77,7 @@ create table productos (
   id            text primary key,
   nombre        text not null,
   tipo_servicio tipo_servicio not null,
-  precio        integer not null check (precio >= 0),
+  precio        integer not null,                     -- puede ser negativo (descuentos)
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -171,9 +171,9 @@ create table pedidos_items (
   producto_id              text,                              -- snapshot del catálogo (puede haberse desactivado)
   producto_nombre          text not null,                     -- snapshot
   producto_tipo_servicio   tipo_servicio not null,            -- snapshot
-  precio_unidad            numeric(12,2) not null check (precio_unidad >= 0),
+  precio_unidad            numeric(12,2) not null,            -- puede ser negativo (descuentos)
   cantidad                 integer not null check (cantidad > 0),
-  importe                  numeric(12,2) not null check (importe >= 0),
+  importe                  numeric(12,2) not null,            -- puede ser negativo (descuentos)
   detalle_prenda           text,
   created_at               timestamptz not null default now()
 );
