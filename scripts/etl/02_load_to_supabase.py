@@ -95,7 +95,7 @@ class Supa:
         })
         with urllib.request.urlopen(req, timeout=30) as resp:
             cr = resp.headers.get("Content-Range", "")
-        # Content-Range: 0-0/123  → 123
+        # Content-Range: 0-0/123  -> 123
         m = re.search(r"/(\d+)$", cr or "")
         return int(m.group(1)) if m else 0
 
@@ -129,7 +129,7 @@ def read_csv(name: str) -> list[dict[str, str]]:
         return list(csv.DictReader(f))
 
 def s(v: Any) -> str | None:
-    """Empty string / 'None' / whitespace → None; otherwise stripped string."""
+    """Empty string / 'None' / whitespace -> None; otherwise stripped string."""
     if v is None:
         return None
     t = str(v).strip()
@@ -195,7 +195,7 @@ def normalize_rut(raw: Any) -> str | None:
     if t is None:
         return None
     t = t.replace(".", "").replace(" ", "").upper()
-    # A veces viene sin guión: "123456785" → "12345678-5"
+    # A veces viene sin guión: "123456785" -> "12345678-5"
     if "-" not in t and t and t[-1].isalnum():
         t = t[:-1] + "-" + t[-1]
     m = RUT_RE.match(t)
@@ -363,7 +363,7 @@ def clean_pedidos(valid_ruts: set[str]) -> tuple[list[dict], set[int]]:
 
         rut = normalize_rut(row.get("Rut_Cliente"))
         if rut is not None and rut not in valid_ruts:
-            rut = None  # FK rota → cliente desconocido, pedido se conserva
+            rut = None  # FK rota -> cliente desconocido, pedido se conserva
 
         finalizado = to_bool(row.get("Finalizado"))
         retirado   = to_bool(row.get("Retirado"))
@@ -493,13 +493,13 @@ def main() -> int:
 
     supa = Supa(url, key)
 
-    print("→ Verificando estado de la base...")
+    print("-> Verificando estado de la base...")
     existing = supa.count("pedidos")
     if existing > 0 and not force:
         sys.exit(f"La tabla 'pedidos' ya tiene {existing} filas. Ejecutar con --force para truncar y recargar.")
 
     if force and existing > 0:
-        print("→ --force: truncando tablas...")
+        print("-> --force: truncando tablas...")
         # Orden importa (FKs)
         supa._req("DELETE", "/rest/v1/pedidos_items?id=not.is.null")
         supa._req("DELETE", "/rest/v1/pedidos_empresa_items?id=not.is.null")
@@ -511,7 +511,7 @@ def main() -> int:
         supa._req("DELETE", "/rest/v1/productos_empresa?id=not.is.null")
         supa._req("DELETE", "/rest/v1/_import_cuarentena?id=not.is.null")
 
-    print("→ Limpiando datos...")
+    print("-> Limpiando datos...")
     clientes              = clean_clientes()
     clientes_empresa      = clean_clientes_empresa()
     productos, _          = clean_productos()
@@ -525,7 +525,7 @@ def main() -> int:
     pedidos_empresa, valid_peids = clean_pedidos_empresa(valid_ruts_empresa)
     detalle_pe            = clean_detalle_pedidos_empresa(valid_peids)
 
-    # Cuarentena → DB
+    # Cuarentena -> DB
     cuar_rows = [
         {"origen": origen, "motivo": q["motivo"], "payload": q["payload"]}
         for origen, items in quarantine.items()
@@ -543,7 +543,7 @@ def main() -> int:
         "pedidos_empresa_items": len(detalle_pe),
         "_import_cuarentena":    len(cuar_rows),
     }
-    print("\n→ A cargar:")
+    print("\n-> A cargar:")
     for k, v in counts.items():
         print(f"     {k:.<30} {v:>6}")
 
@@ -562,7 +562,7 @@ def main() -> int:
         rows = [{"motivo": q["motivo"], **q["payload"]} for q in items]
         write_csv(QUAR_DIR / f"{origen}.csv", rows)
 
-    print("\n→ Insertando en Supabase...")
+    print("\n-> Insertando en Supabase...")
     supa.insert("clientes",              clientes)
     supa.insert("clientes_empresa",      clientes_empresa)
     supa.insert("productos",             productos)
@@ -574,7 +574,7 @@ def main() -> int:
     supa.insert("_import_cuarentena",    cuar_rows)
 
     # Verificación
-    print("\n→ Verificando counts post-load:")
+    print("\n-> Verificando counts post-load:")
     final = {t: supa.count(t) for t in counts}
     for k in counts:
         ok = "OK" if final[k] == counts[k] else "MISMATCH"
@@ -589,8 +589,8 @@ def main() -> int:
         for origen, items in quarantine.items():
             f.write(f"  {origen}: {len(items)}\n")
 
-    print(f"\n✓ Listo. Reporte en {REPORT}")
-    print("\n⚠ Después de cargar, en Supabase SQL Editor ejecutar:")
+    print(f"\n[OK] Listo. Reporte en {REPORT}")
+    print("\n[!] Después de cargar, en Supabase SQL Editor ejecutar:")
     print("    select setval('pedidos_id_seq', (select max(id) from pedidos));")
     print("    select setval('pedidos_empresa_id_seq', (select max(id) from pedidos_empresa));")
     return 0
