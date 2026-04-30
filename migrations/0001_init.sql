@@ -6,11 +6,6 @@
 -- previo (parcial o completo), el bloque de cleanup limpia y rearma todo.
 
 -- =========================================================
--- Extensiones (deben crearse antes de los índices que las usan)
--- =========================================================
-create extension if not exists pg_trgm;
-
--- =========================================================
 -- Cleanup (drop si quedó algo de un intento previo)
 -- =========================================================
 drop table if exists _import_cuarentena    cascade;
@@ -117,8 +112,8 @@ create table clientes (
 );
 create trigger clientes_updated before update on clientes
   for each row execute function set_updated_at();
-create index clientes_nombre_idx on clientes using gin (nombre gin_trgm_ops);
-create index clientes_telefono_idx on clientes (telefono) where telefono is not null;
+create index clientes_nombre_lower_idx on clientes (lower(nombre)) where nombre is not null;
+create index clientes_telefono_idx     on clientes (telefono)      where telefono is not null;
 
 create table clientes_empresa (
   rut         text primary key,
