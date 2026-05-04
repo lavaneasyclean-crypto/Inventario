@@ -55,33 +55,38 @@ export function NuevoPedidoForm({
     setError(null);
 
     start(async () => {
-      const res = await crearPedido({
-        rut_cliente:    cliente.rut,
-        nombre_cliente: cliente.nombre,
-        contacto:       cliente.telefono,
-        direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
-          .filter(Boolean)
-          .join(", ") || null,
-        fecha_entrega:  fechaEntrega ? new Date(fechaEntrega).toISOString() : null,
-        notas:          notas.trim() || null,
-        pagado:         pagar,
-        forma_pago:     pagar ? formaPago : "no_pago",
-        items: items.map((it) => ({
-          producto_id:   it.producto_id,
-          nombre:        it.nombre,
-          tipo_servicio: it.tipo_servicio,
-          precio_unidad: it.precio_unidad,
-          cantidad:      it.cantidad,
-          detalle:       it.detalle.trim() || null,
-        })),
-      });
+      try {
+        const res = await crearPedido({
+          rut_cliente:    cliente.rut,
+          nombre_cliente: cliente.nombre,
+          contacto:       cliente.telefono,
+          direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
+            .filter(Boolean)
+            .join(", ") || null,
+          fecha_entrega:  fechaEntrega ? new Date(fechaEntrega).toISOString() : null,
+          notas:          notas.trim() || null,
+          pagado:         pagar,
+          forma_pago:     pagar ? formaPago : "no_pago",
+          items: items.map((it) => ({
+            producto_id:   it.producto_id,
+            nombre:        it.nombre,
+            tipo_servicio: it.tipo_servicio,
+            precio_unidad: it.precio_unidad,
+            cantidad:      it.cantidad,
+            detalle:       it.detalle.trim() || null,
+          })),
+        });
 
-      if (!res.ok) {
-        setError(res.error);
-        return;
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        router.push(`/pedidos/${res.id}`);
+        router.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`No se pudo crear el pedido: ${msg}. Refrescá la página y volvé a intentar.`);
       }
-      router.push(`/pedidos/${res.id}`);
-      router.refresh();
     });
   };
 

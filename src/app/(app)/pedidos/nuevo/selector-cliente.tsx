@@ -216,29 +216,34 @@ function CrearClienteDialog({
       return;
     }
     start(async () => {
-      const res = await crearCliente({
-        rut: rutNorm,
-        nombre: nombre.trim(),
-        telefono: telefono.trim() || null,
-        correo: correo.trim() || null,
-        comuna: comuna.trim() || null,
-        calle: calle.trim() || null,
-        dpto: dpto.trim() || null,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await crearCliente({
+          rut: rutNorm,
+          nombre: nombre.trim(),
+          telefono: telefono.trim() || null,
+          correo: correo.trim() || null,
+          comuna: comuna.trim() || null,
+          calle: calle.trim() || null,
+          dpto: dpto.trim() || null,
+        });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        onCreated({
+          rut: rutNorm,
+          nombre: nombre.trim(),
+          telefono: telefono.trim() || null,
+          correo: correo.trim() || null,
+          comuna: comuna.trim() || null,
+          calle: calle.trim() || null,
+          dpto: dpto.trim() || null,
+        });
+        onOpenChange(false);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`No se pudo crear el cliente: ${msg}`);
       }
-      onCreated({
-        rut: rutNorm,
-        nombre: nombre.trim(),
-        telefono: telefono.trim() || null,
-        correo: correo.trim() || null,
-        comuna: comuna.trim() || null,
-        calle: calle.trim() || null,
-        dpto: dpto.trim() || null,
-      });
-      onOpenChange(false);
     });
   };
 
