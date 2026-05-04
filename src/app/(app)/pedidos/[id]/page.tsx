@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BellRing, Phone, MapPin, User } from "lucide-react";
+import { BellRing, Phone, MapPin, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { BackButton } from "@/components/back-button";
 import { getPedidoDetalle } from "@/lib/data/pedidos";
 import { formatCLP, formatDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import {
   ESTADO_LABELS,
   FORMA_PAGO_LABELS,
@@ -32,12 +30,7 @@ export default async function PedidoDetallePage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <Link
-          href="/"
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-        >
-          <ArrowLeft className="size-4" /> Volver
-        </Link>
+        <BackButton />
       </div>
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
