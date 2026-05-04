@@ -63,6 +63,14 @@ export interface Cliente {
   correo: string | null;
 }
 
+export interface Producto {
+  id: string;
+  nombre: string;
+  tipo_servicio: TipoServicio;
+  precio: number;
+  activo: boolean;
+}
+
 export const ESTADO_LABELS: Record<EstadoPedido, string> = {
   recibido: "En proceso",
   listo: "Listo para retirar",
