@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { TipoServicio, FormaPago } from "@/lib/types";
 
@@ -37,7 +36,10 @@ export type CrearPedidoResult =
 export async function crearPedido(
   input: CrearPedidoInput,
 ): Promise<CrearPedidoResult> {
+  // step trace para que aparezca en Netlify Functions logs
+  let step = "init";
   try {
+    step = "parse";
     const parsed = inputSchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -54,6 +56,7 @@ export async function crearPedido(
       return { ok: false, error: "Indicá un cliente o un nombre" };
     }
 
+    step = "supabase-client";
     const supabase = await createClient();
 
     const total = data.items.reduce(
@@ -61,8 +64,7 @@ export async function crearPedido(
       0,
     );
 
-    // Calcular el siguiente id explícitamente para evitar depender del estado
-    // de la secuencia (que puede no estar bumpeada después de la migración).
+    step = "select-max-id";
     const { data: lastRows, error: eMax } = await supabase
       .from("pedidos")
       .select("id")
@@ -73,7 +75,7 @@ export async function crearPedido(
     }
     const nextId = ((lastRows?.[0]?.id as number | undefined) ?? 0) + 1;
 
-    // 1) Insertar pedido
+    step = "insert-pedido";
     const { data: pedidoRow, error: e1 } = await supabase
       .from("pedidos")
       .insert({
@@ -105,7 +107,7 @@ export async function crearPedido(
 
     const pedidoId = pedidoRow.id as number;
 
-    // 2) Insertar items
+    step = "insert-items";
     const { error: e2 } = await supabase.from("pedidos_items").insert(
       data.items.map((it) => ({
         pedido_id:              pedidoId,
@@ -120,20 +122,20 @@ export async function crearPedido(
     );
 
     if (e2) {
-      // Rollback manual: borrar el pedido huérfano
       await supabase.from("pedidos").delete().eq("id", pedidoId);
       return { ok: false, error: `Error guardando items: ${e2.message}` };
     }
 
-    revalidatePath("/");
-    revalidatePath("/pedidos");
-    if (data.rut_cliente) revalidatePath(`/clientes/${data.rut_cliente}`);
-
+    step = "done";
     return { ok: true, id: pedidoId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[crearPedido] unhandled error:", err);
-    return { ok: false, error: `Error inesperado: ${msg}` };
+    const stack = err instanceof Error ? err.stack : "";
+    console.error(`[crearPedido] step=${step} err=`, msg, stack);
+    return {
+      ok: false,
+      error: `Error inesperado en el paso "${step}": ${msg}`,
+    };
   }
 }
 
@@ -141,7 +143,11 @@ const clienteSchema = z.object({
   rut:      z.string().regex(RUT_RE, "RUT con formato inválido"),
   nombre:   z.string().min(1, "Nombre requerido"),
   telefono: z.string().nullable(),
-  correo:   z.string().email("Correo inválido").nullable().or(z.literal("").transform(() => null)),
+  correo:   z
+    .string()
+    .email("Correo inválido")
+    .nullable()
+    .or(z.literal("").transform(() => null)),
   comuna:   z.string().nullable(),
   calle:    z.string().nullable(),
   dpto:     z.string().nullable(),
@@ -155,7 +161,9 @@ export type CrearClienteResult =
 export async function crearCliente(
   input: CrearClienteInput,
 ): Promise<CrearClienteResult> {
+  let step = "init";
   try {
+    step = "parse";
     const parsed = clienteSchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -165,7 +173,10 @@ export async function crearCliente(
     }
     const data = parsed.data;
 
+    step = "supabase-client";
     const supabase = await createClient();
+
+    step = "upsert";
     const { error } = await supabase.from("clientes").upsert(
       {
         rut:      data.rut,
@@ -181,16 +192,19 @@ export async function crearCliente(
 
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath("/clientes");
+    step = "done";
     return { ok: true, rut: data.rut };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[crearCliente] unhandled error:", err);
-    return { ok: false, error: `Error inesperado: ${msg}` };
+    const stack = err instanceof Error ? err.stack : "";
+    console.error(`[crearCliente] step=${step} err=`, msg, stack);
+    return {
+      ok: false,
+      error: `Error inesperado en el paso "${step}": ${msg}`,
+    };
   }
 }
 
-// Reusable forma_pago helper for type-safety in form code below
 export const FORMAS_PAGO_DISPONIBLES: FormaPago[] = [
   "efectivo",
   "transferencia",
