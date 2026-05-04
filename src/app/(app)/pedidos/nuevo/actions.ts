@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import type { TipoServicio, FormaPago } from "@/lib/types";
+import type { TipoServicio } from "@/lib/types";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
 
@@ -205,8 +205,3 @@ export async function crearCliente(
   }
 }
 
-export const FORMAS_PAGO_DISPONIBLES: FormaPago[] = [
-  "efectivo",
-  "transferencia",
-  "redcompra",
-];
