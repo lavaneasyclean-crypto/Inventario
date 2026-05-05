@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { Pedido, PedidoItem } from "@/lib/types";
+import type { EstadoPedido, Pedido, PedidoItem } from "@/lib/types";
 
 export interface DashboardData {
   pendientes: Pedido[];
@@ -49,6 +49,84 @@ export async function getDashboardData(): Promise<DashboardData> {
       listos: listos.count ?? 0,
       porCobrar: porCobrar.count ?? 0,
     },
+  };
+}
+
+// =========================================================
+// Lista de pedidos con filtros + paginación
+// =========================================================
+
+export const PEDIDOS_PAGE_SIZE = 50;
+
+export interface PedidosFilter {
+  q?: string;
+  estado?: EstadoPedido | "todos";
+  pago?: "pagado" | "sin_pagar" | "todos";
+  desde?: string;   // YYYY-MM-DD
+  hasta?: string;   // YYYY-MM-DD
+  page?: number;
+}
+
+export interface PedidosListResult {
+  pedidos: Pedido[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function searchPedidos(
+  f: PedidosFilter,
+): Promise<PedidosListResult> {
+  const supabase = await createClient();
+  const page = Math.max(1, f.page ?? 1);
+  const pageSize = PEDIDOS_PAGE_SIZE;
+
+  let query = supabase.from("pedidos").select("*", { count: "exact" });
+
+  // Búsqueda libre: si es solo dígitos -> buscar por id; sino -> nombre
+  if (f.q?.trim()) {
+    const term = f.q.trim();
+    if (/^\d+$/.test(term)) {
+      query = query.eq("id", Number(term));
+    } else {
+      query = query.or(
+        `nombre_cliente.ilike.%${term}%,rut_cliente.ilike.%${term}%`,
+      );
+    }
+  }
+
+  if (f.estado && f.estado !== "todos") {
+    query = query.eq("estado", f.estado);
+  }
+
+  if (f.pago === "pagado") query = query.eq("pagado", true);
+  if (f.pago === "sin_pagar") query = query.eq("pagado", false);
+
+  if (f.desde) {
+    query = query.gte("fecha_recepcion", `${f.desde}T00:00:00-03:00`);
+  }
+  if (f.hasta) {
+    // hasta inclusivo: límite es el inicio del día siguiente
+    const d = new Date(`${f.hasta}T00:00:00-03:00`);
+    d.setDate(d.getDate() + 1);
+    query = query.lt("fecha_recepcion", d.toISOString());
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, count } = await query
+    .order("fecha_recepcion", { ascending: false })
+    .range(from, to);
+
+  const total = count ?? 0;
+  return {
+    pedidos: (data ?? []) as Pedido[],
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
 }
 
