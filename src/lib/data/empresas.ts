@@ -5,6 +5,7 @@ import type {
   PedidoEmpresa,
   PedidoEmpresaItem,
   ProductoEmpresa,
+  ProductoEmpresaAdquirido,
 } from "@/lib/types";
 
 const SEARCH_LIMIT = 50;
@@ -156,4 +157,56 @@ export async function getProductosEmpresaActivos(): Promise<ProductoEmpresa[]> {
     .eq("activo", true)
     .order("nombre", { ascending: true });
   return (data ?? []) as ProductoEmpresa[];
+}
+
+/** Productos que una empresa específica ha "adquirido" + sus precios. */
+export async function getProductosDeEmpresa(
+  rut: string,
+): Promise<ProductoEmpresaAdquirido[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("empresa_productos")
+    .select("producto_empresa_id, precio, productos_empresa(nombre, activo)")
+    .eq("rut_empresa", rut);
+
+  type Row = {
+    producto_empresa_id: string;
+    precio: number | null;
+    productos_empresa: { nombre: string; activo: boolean } | null;
+  };
+
+  const rows = (data ?? []) as unknown as Row[];
+  return rows
+    .filter((r) => r.productos_empresa?.activo !== false)
+    .map((r) => ({
+      producto_empresa_id: r.producto_empresa_id,
+      nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
+      precio: r.precio,
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+}
+
+/** Productos del catálogo global que la empresa NO ha adquirido todavía. */
+export async function getProductosGlobalesDisponibles(
+  rut: string,
+): Promise<ProductoEmpresa[]> {
+  const supabase = await createClient();
+
+  const { data: adquiridos } = await supabase
+    .from("empresa_productos")
+    .select("producto_empresa_id")
+    .eq("rut_empresa", rut);
+  const yaAdquiridos = new Set(
+    (adquiridos ?? []).map((r) => r.producto_empresa_id as string),
+  );
+
+  const { data: todos } = await supabase
+    .from("productos_empresa")
+    .select("id, nombre, activo")
+    .eq("activo", true)
+    .order("nombre", { ascending: true });
+
+  return ((todos ?? []) as ProductoEmpresa[]).filter(
+    (p) => !yaAdquiridos.has(p.id),
+  );
 }

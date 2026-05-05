@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
-import { formatDate } from "@/lib/format";
+import { formatCLP, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,8 @@ export default async function PedidoEmpresaDetallePage({
 
   const { pedido, empresa, items } = data;
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
+  const totalImporte = items.reduce((s, it) => s + (it.importe ?? 0), 0);
+  const algunSinPrecio = items.some((it) => it.importe === null);
 
   return (
     <div className="p-4 sm:p-6">
@@ -73,13 +75,25 @@ export default async function PedidoEmpresaDetallePage({
           <ul className="divide-y">
             {items.map((it) => (
               <li key={it.id} className="px-4 py-3">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-sm tabular-nums">
-                    {it.cantidad}×
-                  </span>
-                  <span className="font-medium">
-                    {it.producto_empresa_nombre}
-                  </span>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-sm tabular-nums">
+                      {it.cantidad}×
+                    </span>
+                    <span className="font-medium">
+                      {it.producto_empresa_nombre}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {it.precio_unidad === null
+                        ? "—"
+                        : `${formatCLP(it.precio_unidad)} c/u`}
+                    </span>
+                    <span className="font-mono font-semibold tabular-nums">
+                      {it.importe === null ? "—" : formatCLP(it.importe)}
+                    </span>
+                  </div>
                 </div>
                 {it.detalle_prenda && (
                   <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">
@@ -90,10 +104,16 @@ export default async function PedidoEmpresaDetallePage({
             ))}
           </ul>
         )}
-        <footer className="flex items-center justify-between border-t bg-muted/40 px-4 py-3">
-          <span className="text-sm text-muted-foreground">Total unidades</span>
-          <span className="font-mono text-lg font-semibold tabular-nums">
+        <footer className="grid grid-cols-2 gap-1 border-t bg-muted/40 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Total unidades</span>
+          <span className="text-right font-mono tabular-nums">
             {totalUnidades}
+          </span>
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="text-right font-mono font-semibold tabular-nums">
+            {algunSinPrecio && totalImporte === 0
+              ? "—"
+              : formatCLP(totalImporte)}
           </span>
         </footer>
       </section>

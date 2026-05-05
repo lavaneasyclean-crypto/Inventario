@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Check, Plus, Search, X } from "lucide-react";
+import Link from "next/link";
+import { Building2, Check, Plus, Search, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,24 +14,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ClienteEmpresa, ProductoEmpresa } from "@/lib/types";
+import type {
+  ClienteEmpresa,
+  ProductoEmpresaAdquirido,
+} from "@/lib/types";
+import { formatCLP } from "@/lib/format";
 import { crearPedidoEmpresa } from "./actions";
 
 interface ItemDraft {
   key: string;
   producto_empresa_id: string;
   nombre: string;
+  precio_unidad: number | null;
   cantidad: number;
   detalle: string;
 }
 
 export function NuevoPedidoEmpresaForm({
   empresas,
-  productos,
+  productosByEmpresa,
   empresaInicial,
 }: {
   empresas: ClienteEmpresa[];
-  productos: ProductoEmpresa[];
+  productosByEmpresa: Record<string, ProductoEmpresaAdquirido[]>;
   empresaInicial: ClienteEmpresa | null;
 }) {
   const router = useRouter();
@@ -43,28 +49,41 @@ export function NuevoPedidoEmpresaForm({
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
 
+  const productosDeEsta = empresa
+    ? productosByEmpresa[empresa.rut] ?? []
+    : [];
+
   const filtered = useMemo(() => {
     const q = productoQuery.trim().toLowerCase();
-    if (!q) return [] as ProductoEmpresa[];
-    return productos
-      .filter(
-        (p) =>
-          p.nombre.toLowerCase().includes(q) ||
-          p.id.toLowerCase().includes(q),
+    if (!q) return [] as ProductoEmpresaAdquirido[];
+    return productosDeEsta
+      .filter((p) =>
+        (p.nombre + " " + p.producto_empresa_id).toLowerCase().includes(q),
       )
       .slice(0, 12);
-  }, [productos, productoQuery]);
+  }, [productosDeEsta, productoQuery]);
 
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
+  const totalImporte = items.reduce(
+    (s, it) => s + (it.precio_unidad ?? 0) * it.cantidad,
+    0,
+  );
+  const algunItemSinPrecio = items.some((it) => it.precio_unidad === null);
   const canSubmit = !!empresa && items.length > 0 && !loading;
 
-  const addItem = (p: ProductoEmpresa) => {
+  const cambiarEmpresa = (e: ClienteEmpresa | null) => {
+    setEmpresa(e);
+    setItems([]); // limpiar items porque pertenecen a la empresa anterior
+  };
+
+  const addItem = (p: ProductoEmpresaAdquirido) => {
     setItems((prev) => [
       ...prev,
       {
         key: crypto.randomUUID(),
-        producto_empresa_id: p.id,
+        producto_empresa_id: p.producto_empresa_id,
         nombre: p.nombre,
+        precio_unidad: p.precio,
         cantidad: 1,
         detalle: "",
       },
@@ -100,6 +119,7 @@ export function NuevoPedidoEmpresaForm({
         items: items.map((it) => ({
           producto_empresa_id: it.producto_empresa_id,
           nombre: it.nombre,
+          precio_unidad: it.precio_unidad,
           cantidad: it.cantidad,
           detalle: it.detalle.trim() || null,
         })),
@@ -135,7 +155,11 @@ export function NuevoPedidoEmpresaForm({
                 </div>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setEmpresa(null)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => cambiarEmpresa(null)}
+            >
               <X className="size-4" /> Cambiar
             </Button>
           </div>
@@ -144,7 +168,7 @@ export function NuevoPedidoEmpresaForm({
             value=""
             onValueChange={(v) => {
               const e = empresas.find((x) => x.rut === v);
-              if (e) setEmpresa(e);
+              if (e) cambiarEmpresa(e);
             }}
           >
             <SelectTrigger className="h-11">
@@ -165,50 +189,90 @@ export function NuevoPedidoEmpresaForm({
       </Section>
 
       <Section title="2. Items">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            value={productoQuery}
-            onChange={(e) => setProductoQuery(e.target.value)}
-            placeholder="Buscar producto empresa..."
-            className="h-11 pl-9 text-base"
-          />
-        </div>
-        {productoQuery && filtered.length > 0 && (
-          <ul className="mt-2 overflow-hidden rounded-lg border bg-background">
-            {filtered.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => addItem(p)}
-                  className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent"
-                >
-                  <div>
-                    <div className="font-medium">{p.nombre}</div>
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {p.id}
-                    </div>
-                  </div>
-                  <Plus className="size-4 text-muted-foreground" />
-                </button>
-              </li>
-            ))}
-          </ul>
+        {!empresa ? (
+          <p className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+            Elegí una empresa primero para ver sus productos.
+          </p>
+        ) : productosDeEsta.length === 0 ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-950/20">
+            <p className="font-medium text-amber-900 dark:text-amber-200">
+              {empresa.alias || empresa.nombre} no tiene productos asignados.
+            </p>
+            <p className="mt-1 text-amber-800 dark:text-amber-300">
+              Agregalos primero desde{" "}
+              <Link
+                href={`/empresas/${encodeURIComponent(empresa.rut)}`}
+                className="underline"
+              >
+                la ficha de la empresa
+              </Link>{" "}
+              y volvé acá.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={productoQuery}
+                onChange={(e) => setProductoQuery(e.target.value)}
+                placeholder={`Buscar entre ${productosDeEsta.length} productos de ${empresa.alias || empresa.nombre}...`}
+                className="h-11 pl-9 text-base"
+              />
+            </div>
+            {productoQuery && filtered.length > 0 && (
+              <ul className="mt-2 overflow-hidden rounded-lg border bg-background">
+                {filtered.map((p) => (
+                  <li key={p.producto_empresa_id}>
+                    <button
+                      type="button"
+                      onClick={() => addItem(p)}
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                    >
+                      <div>
+                        <div className="font-medium">{p.nombre}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {p.precio === null ? (
+                            <span className="text-amber-700 dark:text-amber-400">
+                              Sin precio
+                            </span>
+                          ) : (
+                            `${formatCLP(p.precio)} c/u`
+                          )}
+                        </div>
+                      </div>
+                      <Plus className="size-4 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {productoQuery && filtered.length === 0 && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Sin resultados. Probá con otro nombre o agregá el producto a la
+                empresa primero.
+              </p>
+            )}
+          </>
         )}
 
-        {items.length === 0 ? (
-          <p className="mt-3 rounded-lg border bg-background p-6 text-center text-sm text-muted-foreground">
-            Buscá productos arriba y agregalos al pedido.
-          </p>
-        ) : (
+        {items.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {items.map((it) => (
               <li key={it.key} className="rounded-lg border bg-background p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-medium">{it.nombre}</div>
+                  <div className="flex-1">
+                    <div className="font-medium">{it.nombre}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {it.precio_unidad === null ? (
+                        <span className="text-amber-700 dark:text-amber-400">
+                          ⚠ Sin precio
+                        </span>
+                      ) : (
+                        `${formatCLP(it.precio_unidad)} c/u`
+                      )}
+                    </div>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -219,7 +283,7 @@ export function NuevoPedidoEmpresaForm({
                     <X className="size-4" />
                   </Button>
                 </div>
-                <div className="mt-2 grid grid-cols-[100px_1fr] items-end gap-2">
+                <div className="mt-2 grid grid-cols-[100px_1fr_auto] items-end gap-2">
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-muted-foreground">
                       Cantidad
@@ -248,10 +312,30 @@ export function NuevoPedidoEmpresaForm({
                       className="h-10"
                     />
                   </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Importe
+                    </label>
+                    <span className="px-2 font-mono text-sm font-semibold tabular-nums">
+                      {it.precio_unidad === null
+                        ? "—"
+                        : formatCLP(it.precio_unidad * it.cantidad)}
+                    </span>
+                  </div>
                 </div>
               </li>
             ))}
           </ul>
+        )}
+
+        {algunItemSinPrecio && (
+          <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Hay items sin precio. Podés crear el pedido igual y completar
+              precios después en la ficha de la empresa.
+            </span>
+          </div>
         )}
       </Section>
 
@@ -288,9 +372,20 @@ export function NuevoPedidoEmpresaForm({
 
       <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
-          {items.length === 0
-            ? "Sin items"
-            : `${items.length} item${items.length === 1 ? "" : "s"} · ${totalUnidades} unidades`}
+          {items.length === 0 ? (
+            "Sin items"
+          ) : (
+            <>
+              {items.length} item{items.length === 1 ? "" : "s"} ·{" "}
+              {totalUnidades} unidades
+              {totalImporte > 0 && (
+                <>
+                  {" "}
+                  · <strong className="text-foreground">{formatCLP(totalImporte)}</strong>
+                </>
+              )}
+            </>
+          )}
         </div>
         <Button
           type="button"

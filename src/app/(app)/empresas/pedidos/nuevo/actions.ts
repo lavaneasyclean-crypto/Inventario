@@ -13,6 +13,7 @@ const inputSchema = z.object({
       z.object({
         producto_empresa_id: z.string().min(1),
         nombre:              z.string().min(1),
+        precio_unidad:       z.number().int().nullable(),
         cantidad:            z.number().int().positive("Cantidad > 0"),
         detalle:             z.string().nullable(),
       }),
@@ -78,6 +79,9 @@ export async function crearPedidoEmpresa(
         pedido_empresa_id:        pedidoId,
         producto_empresa_id:      it.producto_empresa_id,
         producto_empresa_nombre:  it.nombre,
+        precio_unidad:            it.precio_unidad,
+        importe:
+          it.precio_unidad === null ? null : it.precio_unidad * it.cantidad,
         cantidad:                 it.cantidad,
         detalle_prenda:           it.detalle,
       })),

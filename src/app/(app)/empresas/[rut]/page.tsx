@@ -9,10 +9,15 @@ import {
   Plus,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { getEmpresaDetalle } from "@/lib/data/empresas";
+import {
+  getEmpresaDetalle,
+  getProductosDeEmpresa,
+  getProductosGlobalesDisponibles,
+} from "@/lib/data/empresas";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditarEmpresaButton } from "../editor-empresa";
+import { ProductosManager } from "./productos-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +29,11 @@ export default async function EmpresaDetallePage({
   const { rut: rutEncoded } = await params;
   const rut = decodeURIComponent(rutEncoded);
 
-  const data = await getEmpresaDetalle(rut);
+  const [data, productosEmpresa, productosDisponibles] = await Promise.all([
+    getEmpresaDetalle(rut),
+    getProductosDeEmpresa(rut),
+    getProductosGlobalesDisponibles(rut),
+  ]);
   if (!data) notFound();
 
   const { empresa, pedidos } = data;
@@ -107,6 +116,14 @@ export default async function EmpresaDetallePage({
         >
           <Plus className="size-5" /> Nuevo pedido para {empresa.alias || empresa.nombre}
         </Link>
+      </div>
+
+      <div className="mb-6">
+        <ProductosManager
+          rut={empresa.rut}
+          productos={productosEmpresa}
+          globalesDisponibles={productosDisponibles}
+        />
       </div>
 
       <section>

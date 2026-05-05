@@ -98,6 +98,8 @@ export interface PedidoEmpresaItem {
   pedido_empresa_id: number;
   producto_empresa_id: string | null;
   producto_empresa_nombre: string;
+  precio_unidad: number | null;
+  importe: number | null;
   cantidad: number;
   detalle_prenda: string | null;
   created_at: string;
@@ -107,6 +109,16 @@ export interface ProductoEmpresa {
   id: string;
   nombre: string;
   activo: boolean;
+}
+
+/**
+ * Producto empresa con el contexto de "adquisición" de una empresa específica:
+ * el mismo producto del catálogo global puede tener distinto precio según la empresa.
+ */
+export interface ProductoEmpresaAdquirido {
+  producto_empresa_id: string;
+  nombre: string;
+  precio: number | null;
 }
 
 export const ESTADO_LABELS: Record<EstadoPedido, string> = {
