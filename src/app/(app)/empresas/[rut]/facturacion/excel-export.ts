@@ -34,6 +34,72 @@ interface Filtros {
   idHasta?: number;
 }
 
+// Paleta Easy Clean (hex sin #, ARGB para exceljs).
+const BRAND_DARK = "FF1B3A8E";   // azul "EASY"
+const BRAND_LIGHT = "FF5BC8F2";  // celeste "CLEAN"
+const BRAND_PALE = "FFE0F4FF";   // celeste palido
+const BG_ALT = "FFF6FBFE";       // alterna filas
+const BORDER_LIGHT = "FFD0DEED";
+const TEXT_WHITE = "FFFFFFFF";
+
+const thinBorder: ExcelJS.Borders = {
+  top:    { style: "thin", color: { argb: BORDER_LIGHT } },
+  left:   { style: "thin", color: { argb: BORDER_LIGHT } },
+  bottom: { style: "thin", color: { argb: BORDER_LIGHT } },
+  right:  { style: "thin", color: { argb: BORDER_LIGHT } },
+} as ExcelJS.Borders;
+
+function styleHeader(cell: ExcelJS.Cell) {
+  cell.font = { bold: true, color: { argb: TEXT_WHITE }, size: 11 };
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_DARK },
+  };
+  cell.alignment = { horizontal: "center", vertical: "middle" };
+  cell.border = thinBorder;
+}
+
+function styleSubHeader(cell: ExcelJS.Cell) {
+  cell.font = { bold: true, color: { argb: BRAND_DARK }, size: 10 };
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_PALE },
+  };
+  cell.alignment = { horizontal: "center", vertical: "middle" };
+  cell.border = thinBorder;
+}
+
+function styleDataCell(cell: ExcelJS.Cell, opts: { alt?: boolean; numeric?: boolean } = {}) {
+  cell.font = { color: { argb: BRAND_DARK }, size: 10 };
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: opts.alt ? BG_ALT : "FFFFFFFF" },
+  };
+  cell.alignment = {
+    horizontal: opts.numeric ? "right" : "left",
+    vertical: "middle",
+  };
+  cell.border = thinBorder;
+}
+
+function styleTotalRow(cell: ExcelJS.Cell, big = false) {
+  cell.font = {
+    bold: true,
+    color: { argb: TEXT_WHITE },
+    size: big ? 13 : 11,
+  };
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_DARK },
+  };
+  cell.alignment = { horizontal: "right", vertical: "middle" };
+  cell.border = thinBorder;
+}
+
 export async function exportFacturacionExcel({
   empresa,
   pedidos,
@@ -45,47 +111,88 @@ export async function exportFacturacionExcel({
   consolidado: Consolidado;
   filtros: Filtros;
 }) {
-  // Día → pedidos
-  // Cada columna del grid representa un día del mes (1..31)
-  // Si hay más de un pedido por día, sumamos cantidades.
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Inventario Lavandería";
+  wb.creator = "Easy Clean — Inventario";
   wb.created = new Date();
 
-  const ws = wb.addWorksheet("Facturación");
+  const ws = wb.addWorksheet("Facturación", {
+    views: [{ showGridLines: false }],
+  });
 
-  // ---------- Header de cliente ----------
-  ws.mergeCells("A1:R1");
+  // ============================================================
+  // 1. Título grande
+  // ============================================================
+  ws.mergeCells("A1:D2");
   const titleCell = ws.getCell("A1");
   titleCell.value = "FACTURACIÓN";
-  titleCell.font = { bold: true, size: 14 };
-  titleCell.alignment = { horizontal: "center" };
+  titleCell.font = {
+    bold: true,
+    color: { argb: TEXT_WHITE },
+    size: 22,
+    name: "Calibri",
+  };
+  titleCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_DARK },
+  };
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-  ws.getCell("A3").value = "Cliente";
-  ws.getCell("B3").value = empresa.nombre;
-  ws.getCell("A4").value = "Rut";
-  ws.getCell("B4").value = empresa.rut;
-  ws.getCell("A5").value = "Dirección";
-  ws.getCell("B5").value = [empresa.calle, empresa.comuna]
-    .filter(Boolean)
-    .join(", ");
-  ws.getCell("A6").value = "Teléfono";
-  ws.getCell("B6").value = empresa.contacto_1 ?? "";
+  // Subtitulo Easy Clean en col R..(o donde toque)
+  ws.mergeCells("E1:R2");
+  const sub = ws.getCell("E1");
+  sub.value = "Easy Clean — Lavandería";
+  sub.font = {
+    italic: true,
+    color: { argb: TEXT_WHITE },
+    size: 12,
+    name: "Calibri",
+  };
+  sub.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_LIGHT },
+  };
+  sub.alignment = { horizontal: "center", vertical: "middle" };
 
-  if (filtros.modo === "fecha") {
-    ws.getCell("A7").value = "Período";
-    ws.getCell("B7").value = `${filtros.desde} al ${filtros.hasta}`;
-  } else {
-    ws.getCell("A7").value = "Guías";
-    ws.getCell("B7").value = `${filtros.idDesde ?? ""} al ${filtros.idHasta ?? ""}`;
+  // Filas 1 y 2 mas altas
+  ws.getRow(1).height = 22;
+  ws.getRow(2).height = 22;
+
+  // ============================================================
+  // 2. Datos del cliente (filas 4..8)
+  // ============================================================
+  const clienteRows: Array<[string, string]> = [
+    ["Cliente", empresa.nombre],
+    ["RUT", empresa.rut],
+    ["Dirección", [empresa.calle, empresa.comuna].filter(Boolean).join(", ")],
+    ["Teléfono", empresa.contacto_1 ?? ""],
+    [
+      filtros.modo === "fecha" ? "Período" : "Guías",
+      filtros.modo === "fecha"
+        ? `${filtros.desde} al ${filtros.hasta}`
+        : `${filtros.idDesde ?? ""} al ${filtros.idHasta ?? ""}`,
+    ],
+  ];
+  let row = 4;
+  for (const [label, value] of clienteRows) {
+    const labelCell = ws.getCell(`A${row}`);
+    labelCell.value = label;
+    labelCell.font = { bold: true, color: { argb: BRAND_DARK }, size: 10 };
+    labelCell.alignment = { vertical: "middle" };
+
+    ws.mergeCells(`B${row}:F${row}`);
+    const valCell = ws.getCell(`B${row}`);
+    valCell.value = value;
+    valCell.font = { color: { argb: BRAND_DARK }, size: 10 };
+    valCell.alignment = { vertical: "middle" };
+    row++;
   }
-  for (const r of [3, 4, 5, 6, 7]) {
-    ws.getCell(`A${r}`).font = { bold: true };
-  }
 
-  // ---------- Grid de items por día ----------
-  // Días del mes: derivamos de las fechas de los pedidos
-  const dayOfPedido = new Map<number, number>(); // pedido_id -> día del mes
+  // ============================================================
+  // 3. Grid de items por día
+  // ============================================================
+  const dayOfPedido = new Map<number, number>();
   let minDay = 32;
   let maxDay = 0;
   for (const { pedido } of pedidos) {
@@ -97,15 +204,11 @@ export async function exportFacturacionExcel({
   const startDay = pedidos.length === 0 ? 1 : minDay;
   const endDay = pedidos.length === 0 ? 31 : maxDay;
 
-  // Productos únicos en orden alfabético (basado en consolidado.lineas)
   const productNames = consolidado.lineas.map((l) => l.nombre);
   const productIndex = new Map(productNames.map((n, i) => [n, i]));
-
-  // Matriz [producto][día] = cantidad
   const grid: number[][] = productNames.map(() =>
     Array.from({ length: endDay - startDay + 1 }, () => 0),
   );
-
   for (const { pedido, items } of pedidos) {
     const day = dayOfPedido.get(pedido.id);
     if (day === undefined) continue;
@@ -117,116 +220,207 @@ export async function exportFacturacionExcel({
     }
   }
 
-  // Encabezado del grid
-  const gridStartRow = 9;
-  ws.getCell(`A${gridStartRow}`).value = "Mantelería";
-  ws.getCell(`A${gridStartRow}`).font = { bold: true };
-  for (let d = startDay; d <= endDay; d++) {
-    const col = 2 + (d - startDay); // B=2, C=3, ...
-    ws.getCell(gridStartRow, col).value = d;
-    ws.getCell(gridStartRow, col).font = { bold: true };
-    ws.getCell(gridStartRow, col).alignment = { horizontal: "center" };
-  }
+  const gridStartRow = row + 1; // dejar un espacio
   const totalCol = 2 + (endDay - startDay) + 1;
-  ws.getCell(gridStartRow, totalCol).value = "TOTAL";
-  ws.getCell(gridStartRow, totalCol).font = { bold: true };
-  ws.getCell(gridStartRow, totalCol).alignment = { horizontal: "right" };
 
-  // Filas del grid
+  // Header del grid
+  const headerRow = ws.getRow(gridStartRow);
+  ws.getCell(gridStartRow, 1).value = "Mantelería";
+  styleHeader(ws.getCell(gridStartRow, 1));
+  for (let d = startDay; d <= endDay; d++) {
+    const col = 2 + (d - startDay);
+    ws.getCell(gridStartRow, col).value = d;
+    styleSubHeader(ws.getCell(gridStartRow, col));
+  }
+  ws.getCell(gridStartRow, totalCol).value = "TOTAL";
+  styleHeader(ws.getCell(gridStartRow, totalCol));
+  headerRow.height = 22;
+
+  // Filas de productos
   for (let i = 0; i < productNames.length; i++) {
-    const row = gridStartRow + 1 + i;
-    ws.getCell(`A${row}`).value = productNames[i];
+    const r = gridStartRow + 1 + i;
+    const altRow = i % 2 === 1;
+    ws.getCell(r, 1).value = productNames[i];
+    styleDataCell(ws.getCell(r, 1), { alt: altRow });
+    ws.getCell(r, 1).font = {
+      color: { argb: BRAND_DARK },
+      size: 10,
+      bold: true,
+    };
+
     let total = 0;
     for (let d = startDay; d <= endDay; d++) {
       const col = 2 + (d - startDay);
       const val = grid[i][d - startDay];
-      if (val > 0) {
-        ws.getCell(row, col).value = val;
-        ws.getCell(row, col).alignment = { horizontal: "center" };
-      }
+      const cell = ws.getCell(r, col);
+      if (val > 0) cell.value = val;
+      styleDataCell(cell, { alt: altRow, numeric: true });
+      cell.alignment = { horizontal: "center", vertical: "middle" };
       total += val;
     }
-    ws.getCell(row, totalCol).value = total;
-    ws.getCell(row, totalCol).font = { bold: true };
-    ws.getCell(row, totalCol).alignment = { horizontal: "right" };
+    const totalCell = ws.getCell(r, totalCol);
+    totalCell.value = total;
+    styleDataCell(totalCell, { alt: altRow, numeric: true });
+    totalCell.font = { bold: true, color: { argb: BRAND_DARK }, size: 11 };
+    totalCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: BRAND_PALE },
+    };
   }
 
-  // Fila de "Guías" con los IDs
+  // Fila Guías
   const guiasRow = gridStartRow + 1 + productNames.length + 1;
-  ws.getCell(`A${guiasRow}`).value = "Guías";
-  ws.getCell(`A${guiasRow}`).font = { bold: true };
-  for (const { pedido } of pedidos) {
-    const day = dayOfPedido.get(pedido.id);
-    if (day === undefined) continue;
-    const col = 2 + (day - startDay);
-    const cur = ws.getCell(guiasRow, col).value;
-    const nuevo = `#${pedido.id}`;
-    ws.getCell(guiasRow, col).value = cur ? `${cur}, ${nuevo}` : nuevo;
-    ws.getCell(guiasRow, col).alignment = { horizontal: "center" };
-    ws.getCell(guiasRow, col).font = { size: 9 };
-  }
-
-  // ---------- Tabla de facturación ----------
-  let row = guiasRow + 3;
-  ws.getCell(`A${row}`).value = "Facturación";
-  ws.getCell(`A${row}`).font = { bold: true, size: 12 };
-  row += 1;
-
-  ws.getCell(`A${row}`).value = "Producto";
-  ws.getCell(`B${row}`).value = "CANTIDAD";
-  ws.getCell(`C${row}`).value = "PRECIO UNITARIO";
-  ws.getCell(`D${row}`).value = "PRECIO TOTAL";
-  for (const c of ["A", "B", "C", "D"]) {
-    ws.getCell(`${c}${row}`).font = { bold: true };
-    ws.getCell(`${c}${row}`).alignment = { horizontal: c === "A" ? "left" : "right" };
-  }
-  row += 1;
-
-  for (const linea of consolidado.lineas) {
-    ws.getCell(`A${row}`).value = linea.nombre;
-    ws.getCell(`B${row}`).value = linea.cantidad;
-    ws.getCell(`B${row}`).alignment = { horizontal: "right" };
-    if (linea.precio_unidad !== null) {
-      ws.getCell(`C${row}`).value = linea.precio_unidad;
-      ws.getCell(`C${row}`).numFmt = '"$"#,##0';
+  ws.getCell(guiasRow, 1).value = "Guías";
+  styleHeader(ws.getCell(guiasRow, 1));
+  for (let d = startDay; d <= endDay; d++) {
+    const col = 2 + (d - startDay);
+    const cell = ws.getCell(guiasRow, col);
+    let val = "";
+    for (const { pedido } of pedidos) {
+      if (dayOfPedido.get(pedido.id) === d) {
+        val = val ? `${val}, #${pedido.id}` : `#${pedido.id}`;
+      }
     }
-    ws.getCell(`D${row}`).value = linea.importe;
-    ws.getCell(`D${row}`).numFmt = '"$"#,##0';
-    row += 1;
+    if (val) cell.value = val;
+    cell.font = { color: { argb: BRAND_DARK }, size: 8, italic: true };
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    cell.border = thinBorder;
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: BRAND_PALE },
+    };
+  }
+  ws.getCell(guiasRow, totalCol).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_PALE },
+  };
+  ws.getCell(guiasRow, totalCol).border = thinBorder;
+
+  // ============================================================
+  // 4. Tabla de facturación
+  // ============================================================
+  let r = guiasRow + 3;
+
+  // Header de seccion
+  ws.mergeCells(`A${r}:D${r}`);
+  const facturaHeader = ws.getCell(`A${r}`);
+  facturaHeader.value = "FACTURACIÓN";
+  facturaHeader.font = {
+    bold: true,
+    color: { argb: TEXT_WHITE },
+    size: 14,
+  };
+  facturaHeader.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: BRAND_DARK },
+  };
+  facturaHeader.alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(r).height = 22;
+  r++;
+
+  // Header columnas
+  ws.getCell(`A${r}`).value = "Producto";
+  ws.getCell(`B${r}`).value = "CANTIDAD";
+  ws.getCell(`C${r}`).value = "PRECIO UNITARIO";
+  ws.getCell(`D${r}`).value = "PRECIO TOTAL";
+  for (const col of ["A", "B", "C", "D"]) {
+    styleHeader(ws.getCell(`${col}${r}`));
+  }
+  ws.getRow(r).height = 22;
+  r++;
+
+  // Filas
+  consolidado.lineas.forEach((linea, i) => {
+    const altRow = i % 2 === 1;
+    ws.getCell(`A${r}`).value = linea.nombre;
+    styleDataCell(ws.getCell(`A${r}`), { alt: altRow });
+    ws.getCell(`A${r}`).font = {
+      color: { argb: BRAND_DARK },
+      size: 10,
+      bold: true,
+    };
+
+    ws.getCell(`B${r}`).value = linea.cantidad;
+    styleDataCell(ws.getCell(`B${r}`), { alt: altRow, numeric: true });
+
+    if (linea.precio_unidad !== null) {
+      ws.getCell(`C${r}`).value = linea.precio_unidad;
+      ws.getCell(`C${r}`).numFmt = '"$"#,##0';
+    }
+    styleDataCell(ws.getCell(`C${r}`), { alt: altRow, numeric: true });
+
+    ws.getCell(`D${r}`).value = linea.importe;
+    ws.getCell(`D${r}`).numFmt = '"$"#,##0';
+    styleDataCell(ws.getCell(`D${r}`), { alt: altRow, numeric: true });
+    ws.getCell(`D${r}`).font = {
+      bold: true,
+      color: { argb: BRAND_DARK },
+      size: 10,
+    };
+    r++;
+  });
+
+  // Espacio
+  r++;
+
+  // TOTAL NETO
+  ws.mergeCells(`A${r}:C${r}`);
+  ws.getCell(`A${r}`).value = "TOTAL NETO";
+  styleHeader(ws.getCell(`A${r}`));
+  ws.getCell(`A${r}`).alignment = { horizontal: "right", vertical: "middle" };
+  ws.getCell(`D${r}`).value = consolidado.neto;
+  ws.getCell(`D${r}`).numFmt = '"$"#,##0';
+  styleHeader(ws.getCell(`D${r}`));
+  r++;
+
+  // IVA
+  ws.mergeCells(`A${r}:C${r}`);
+  ws.getCell(`A${r}`).value = "IVA 19%";
+  styleHeader(ws.getCell(`A${r}`));
+  ws.getCell(`A${r}`).alignment = { horizontal: "right", vertical: "middle" };
+  ws.getCell(`D${r}`).value = consolidado.iva;
+  ws.getCell(`D${r}`).numFmt = '"$"#,##0';
+  styleHeader(ws.getCell(`D${r}`));
+  r++;
+
+  // TOTAL FINAL grande
+  ws.mergeCells(`A${r}:C${r}`);
+  ws.getCell(`A${r}`).value = "TOTAL";
+  styleTotalRow(ws.getCell(`A${r}`), true);
+  ws.getCell(`D${r}`).value = consolidado.total;
+  ws.getCell(`D${r}`).numFmt = '"$"#,##0';
+  styleTotalRow(ws.getCell(`D${r}`), true);
+  ws.getRow(r).height = 28;
+
+  // ============================================================
+  // Anchos de columna
+  // ============================================================
+  ws.getColumn(1).width = 32; // producto
+  for (let c = 2; c <= totalCol - 1; c++) {
+    ws.getColumn(c).width = 6; // dias
+  }
+  ws.getColumn(totalCol).width = 11; // TOTAL del grid
+
+  // Para la facturacion: B=cantidad, C=precio unit, D=total
+  // necesitamos que sean anchas (sino sale ####)
+  if (totalCol < 4) {
+    ws.getColumn(2).width = 12;
+    ws.getColumn(3).width = 18;
+    ws.getColumn(4).width = 18;
+  } else {
+    // Si el grid usa esas columnas, las ensanchamos solo si no hay conflicto
+    if (ws.getColumn(2).width! < 12) ws.getColumn(2).width = 12;
+    if (ws.getColumn(3).width! < 18) ws.getColumn(3).width = 18;
+    if (ws.getColumn(4).width! < 18) ws.getColumn(4).width = 18;
   }
 
-  row += 1;
-  ws.getCell(`C${row}`).value = "TOTAL NETO";
-  ws.getCell(`C${row}`).font = { bold: true };
-  ws.getCell(`C${row}`).alignment = { horizontal: "right" };
-  ws.getCell(`D${row}`).value = consolidado.neto;
-  ws.getCell(`D${row}`).numFmt = '"$"#,##0';
-  ws.getCell(`D${row}`).font = { bold: true };
-  row += 1;
-
-  ws.getCell(`C${row}`).value = "IVA 19%";
-  ws.getCell(`C${row}`).font = { bold: true };
-  ws.getCell(`C${row}`).alignment = { horizontal: "right" };
-  ws.getCell(`D${row}`).value = consolidado.iva;
-  ws.getCell(`D${row}`).numFmt = '"$"#,##0';
-  ws.getCell(`D${row}`).font = { bold: true };
-  row += 1;
-
-  ws.getCell(`C${row}`).value = "TOTAL";
-  ws.getCell(`C${row}`).font = { bold: true, size: 12 };
-  ws.getCell(`C${row}`).alignment = { horizontal: "right" };
-  ws.getCell(`D${row}`).value = consolidado.total;
-  ws.getCell(`D${row}`).numFmt = '"$"#,##0';
-  ws.getCell(`D${row}`).font = { bold: true, size: 12 };
-
-  // Anchos
-  ws.getColumn(1).width = 30;
-  for (let c = 2; c <= totalCol; c++) {
-    ws.getColumn(c).width = 6;
-  }
-  ws.getColumn(totalCol).width = 10;
-
+  // ============================================================
   // Generar y descargar
+  // ============================================================
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer as BlobPart], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
