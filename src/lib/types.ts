@@ -71,6 +71,44 @@ export interface Producto {
   activo: boolean;
 }
 
+export interface ClienteEmpresa {
+  rut: string;
+  nombre: string;
+  alias: string | null;
+  comuna: string | null;
+  calle: string | null;
+  contacto_1: string | null;
+  contacto_2: string | null;
+  correo: string | null;
+  activo: boolean;
+}
+
+export interface PedidoEmpresa {
+  id: number;
+  rut_empresa: string | null;
+  alias: string | null;
+  fecha: string;
+  detalle: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PedidoEmpresaItem {
+  id: number;
+  pedido_empresa_id: number;
+  producto_empresa_id: string | null;
+  producto_empresa_nombre: string;
+  cantidad: number;
+  detalle_prenda: string | null;
+  created_at: string;
+}
+
+export interface ProductoEmpresa {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 export const ESTADO_LABELS: Record<EstadoPedido, string> = {
   recibido: "En proceso",
   listo: "Listo para retirar",
