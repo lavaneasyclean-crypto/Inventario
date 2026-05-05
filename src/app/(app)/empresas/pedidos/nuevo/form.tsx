@@ -217,62 +217,12 @@ export function NuevoPedidoEmpresaForm({
               y volvé acá.
             </p>
           </div>
+        ) : items.length === 0 ? (
+          <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+            Buscá productos abajo y agregalos al pedido.
+          </p>
         ) : (
-          <>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={productoInputRef}
-                value={productoQuery}
-                onChange={(e) => setProductoQuery(e.target.value)}
-                onFocus={() => setProductoFocused(true)}
-                onBlur={() =>
-                  // delay para que el click en un item se registre antes de cerrar
-                  setTimeout(() => setProductoFocused(false), 150)
-                }
-                placeholder={`Tocá para ver ${productosDeEsta.length} productos de ${empresa.alias || empresa.nombre}...`}
-                className="h-11 pl-9 text-base"
-              />
-            </div>
-            {showDropdown && (
-              <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
-                {filtered.length === 0 ? (
-                  <li className="px-3 py-3 text-sm text-muted-foreground">
-                    Sin resultados para &ldquo;{productoQuery}&rdquo;.
-                  </li>
-                ) : (
-                  filtered.map((p) => (
-                    <li key={p.producto_empresa_id}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => addItem(p)}
-                        className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent"
-                      >
-                        <div>
-                          <div className="font-medium">{p.nombre}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {p.precio === null ? (
-                              <span className="text-amber-700 dark:text-amber-400">
-                                Sin precio
-                              </span>
-                            ) : (
-                              `${formatCLP(p.precio)} c/u`
-                            )}
-                          </div>
-                        </div>
-                        <Plus className="size-4 text-muted-foreground" />
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            )}
-          </>
-        )}
-
-        {items.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="flex flex-col gap-2">
             {items.map((it) => (
               <li key={it.key} className="rounded-lg border bg-background p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -341,6 +291,65 @@ export function NuevoPedidoEmpresaForm({
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Buscador para agregar items — siempre al final, asi el usuario
+            no tiene que volver arriba despues de cargar uno. */}
+        {empresa && productosDeEsta.length > 0 && (
+          <div className="mt-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={productoInputRef}
+                value={productoQuery}
+                onChange={(e) => setProductoQuery(e.target.value)}
+                onFocus={() => setProductoFocused(true)}
+                onBlur={() =>
+                  setTimeout(() => setProductoFocused(false), 150)
+                }
+                placeholder={
+                  items.length === 0
+                    ? `Tocá para ver ${productosDeEsta.length} productos...`
+                    : "Agregar otro item..."
+                }
+                className="h-11 pl-9 text-base"
+              />
+            </div>
+            {showDropdown && (
+              <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
+                {filtered.length === 0 ? (
+                  <li className="px-3 py-3 text-sm text-muted-foreground">
+                    Sin resultados para &ldquo;{productoQuery}&rdquo;.
+                  </li>
+                ) : (
+                  filtered.map((p) => (
+                    <li key={p.producto_empresa_id}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => addItem(p)}
+                        className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                      >
+                        <div>
+                          <div className="font-medium">{p.nombre}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {p.precio === null ? (
+                              <span className="text-amber-700 dark:text-amber-400">
+                                Sin precio
+                              </span>
+                            ) : (
+                              `${formatCLP(p.precio)} c/u`
+                            )}
+                          </div>
+                        </div>
+                        <Plus className="size-4 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+          </div>
         )}
 
         {algunItemSinPrecio && (
