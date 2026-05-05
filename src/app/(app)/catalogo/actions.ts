@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Producto } from "@/lib/types";
+import type { Producto, TipoServicio } from "@/lib/types";
 
 const TIPOS = [
   "lavado",
@@ -18,7 +18,44 @@ const TIPOS = [
   "secado",
 ] as const;
 
-const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+// Prefijos según el patrón histórico del Access:
+//   Lavado / Secado: SC (servicio completo)
+//   Lavado en seco:  LES
+//   Planchado:       PL
+//   Resto:           AA
+const PREFIX_BY_TIPO: Record<TipoServicio, string> = {
+  lavado:          "SC",
+  secado:          "SC",
+  seco:            "LES",
+  planchado:       "PL",
+  manchas:         "AA",
+  aplicaciones:    "AA",
+  ganchos:         "AA",
+  delivery:        "AA",
+  pedido_especial: "AA",
+  descuento:       "AA",
+};
+
+async function generarIdProducto(tipo: TipoServicio): Promise<string> {
+  const prefix = PREFIX_BY_TIPO[tipo];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("productos")
+    .select("id")
+    .like("id", `${prefix}%`);
+
+  let max = 0;
+  for (const row of data ?? []) {
+    const id = (row as { id: string }).id;
+    const numPart = id.slice(prefix.length);
+    if (/^\d+$/.test(numPart)) {
+      const n = parseInt(numPart, 10);
+      if (n > max) max = n;
+    }
+  }
+  const next = max + 1;
+  return `${prefix}${String(next).padStart(3, "0")}`;
+}
 
 const baseSchema = z.object({
   nombre:        z.string().min(1, "Nombre requerido"),
@@ -27,18 +64,13 @@ const baseSchema = z.object({
   activo:        z.boolean(),
 });
 
-const createSchema = baseSchema.extend({
-  id: z
-    .string()
-    .regex(ID_RE, "ID solo letras, números, guión o guión bajo (1-40)"),
-});
-
+const createSchema = baseSchema; // ID se genera automáticamente
 const updateSchema = baseSchema;
 
 export type CrearProductoInput = z.input<typeof createSchema>;
 export type EditarProductoInput = z.input<typeof updateSchema>;
 export type ProductoActionResult =
-  | { ok: true }
+  | { ok: true; id?: string }
   | { ok: false; error: string };
 
 async function logAuditoria(
@@ -84,25 +116,32 @@ export async function crearProducto(
     step = "supabase";
     const supabase = await createClient();
 
-    step = "check-exists";
-    const { data: existing } = await supabase
-      .from("productos")
-      .select("id")
-      .eq("id", data.id)
-      .maybeSingle();
-    if (existing) {
-      return { ok: false, error: `Ya existe un producto con ID "${data.id}"` };
+    // Reintenta una vez si hay colisión (poco probable pero posible si dos
+    // productos se crean al mismo tiempo).
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      step = "generar-id";
+      const id = await generarIdProducto(data.tipo_servicio);
+      const fullRow = { id, ...data };
+
+      step = "insert";
+      const { error } = await supabase.from("productos").insert(fullRow);
+      if (!error) {
+        step = "audit";
+        await logAuditoria("producto", id, "create", null, fullRow);
+        revalidatePath("/catalogo");
+        return { ok: true, id };
+      }
+      // Si fue colisión de id (raro), reintenta. Sino, fallar.
+      if (!error.message.toLowerCase().includes("duplicate")) {
+        return { ok: false, error: error.message };
+      }
+      lastError = error.message;
     }
-
-    step = "insert";
-    const { error } = await supabase.from("productos").insert(data);
-    if (error) return { ok: false, error: error.message };
-
-    step = "audit";
-    await logAuditoria("producto", data.id, "create", null, data);
-
-    revalidatePath("/catalogo");
-    return { ok: true };
+    return {
+      ok: false,
+      error: lastError ?? "No se pudo generar un ID único",
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[crearProducto] step=${step}`, err);

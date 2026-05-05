@@ -92,7 +92,6 @@ function ProductoDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [id, setId] = useState("");
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<TipoServicio>("lavado");
   const [precio, setPrecio] = useState<string>("0");
@@ -102,13 +101,11 @@ function ProductoDialog({
   useEffect(() => {
     if (!open) return;
     if (mode === "edit" && producto) {
-      setId(producto.id);
       setNombre(producto.nombre);
       setTipo(producto.tipo_servicio);
       setPrecio(String(producto.precio));
       setActivo(producto.activo);
     } else {
-      setId("");
       setNombre("");
       setTipo("lavado");
       setPrecio("0");
@@ -131,7 +128,6 @@ function ProductoDialog({
       let res;
       if (mode === "create") {
         res = await crearProducto({
-          id: id.trim(),
           nombre: nombre.trim(),
           tipo_servicio: tipo,
           precio: precioNum,
@@ -165,39 +161,30 @@ function ProductoDialog({
           <DialogTitle>
             {mode === "create" ? "Nuevo producto" : `Editar ${producto?.nombre}`}
           </DialogTitle>
-          {mode === "edit" && (
+          {mode === "edit" ? (
             <DialogDescription>
               ID <span className="font-mono">{producto?.id}</span> · los cambios
               quedan registrados en el historial de auditoría.
+            </DialogDescription>
+          ) : (
+            <DialogDescription>
+              El ID se asigna solo según el tipo de servicio: lavado/secado →{" "}
+              <span className="font-mono">SC</span>, lavado en seco →{" "}
+              <span className="font-mono">LES</span>, planchado →{" "}
+              <span className="font-mono">PL</span>, otros →{" "}
+              <span className="font-mono">AA</span>.
             </DialogDescription>
           )}
         </DialogHeader>
 
         <div className="grid gap-3">
-          {mode === "create" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="prod-id">ID del producto</Label>
-              <Input
-                id="prod-id"
-                value={id}
-                onChange={(e) => setId(e.target.value.toUpperCase())}
-                placeholder="Ej: AA001, LAV001, etc."
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                Letras, números, guión o guión bajo. Es la referencia interna que
-                aparecerá en los pedidos.
-              </p>
-            </div>
-          )}
-
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="prod-nombre">Nombre</Label>
             <Input
               id="prod-nombre"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              autoFocus={mode === "edit"}
+              autoFocus
             />
           </div>
 
