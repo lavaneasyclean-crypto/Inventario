@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Building2, Check, Plus, Search, X, AlertCircle } from "lucide-react";
@@ -49,6 +49,7 @@ export function NuevoPedidoEmpresaForm({
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
   const [productoFocused, setProductoFocused] = useState(false);
+  const productoInputRef = useRef<HTMLInputElement>(null);
 
   const productosDeEsta = empresa
     ? productosByEmpresa[empresa.rut] ?? []
@@ -92,6 +93,10 @@ export function NuevoPedidoEmpresaForm({
       },
     ]);
     setProductoQuery("");
+    // Cerrar el dropdown asi el usuario ve el item recien agregado y
+    // pone cantidad sin riesgo de seleccionar otro por error.
+    setProductoFocused(false);
+    productoInputRef.current?.blur();
   };
 
   const updateItem = (key: string, patch: Partial<ItemDraft>) =>
@@ -217,6 +222,7 @@ export function NuevoPedidoEmpresaForm({
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                ref={productoInputRef}
                 value={productoQuery}
                 onChange={(e) => setProductoQuery(e.target.value)}
                 onFocus={() => setProductoFocused(true)}

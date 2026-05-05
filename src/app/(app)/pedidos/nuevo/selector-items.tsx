@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export function SelectorItems({
 }) {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -56,6 +57,8 @@ export function SelectorItems({
     };
     onChange([...items, newItem]);
     setQuery("");
+    setFocused(false);
+    inputRef.current?.blur();
   };
 
   const updateItem = (key: string, patch: Partial<ItemDraft>) => {
@@ -75,6 +78,7 @@ export function SelectorItems({
             aria-hidden
           />
           <Input
+            ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
