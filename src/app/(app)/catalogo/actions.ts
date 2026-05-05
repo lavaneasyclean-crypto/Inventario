@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Producto, TipoServicio } from "@/lib/types";
+import { nextProductoId, PREFIX_BY_TIPO } from "@/lib/producto-id";
 
 const TIPOS = [
   "lavado",
@@ -18,24 +19,6 @@ const TIPOS = [
   "secado",
 ] as const;
 
-// Prefijos según el patrón histórico del Access:
-//   Lavado / Secado: SC (servicio completo)
-//   Lavado en seco:  LES
-//   Planchado:       PL
-//   Resto:           AA
-const PREFIX_BY_TIPO: Record<TipoServicio, string> = {
-  lavado:          "SC",
-  secado:          "SC",
-  seco:            "LES",
-  planchado:       "PL",
-  manchas:         "AA",
-  aplicaciones:    "AA",
-  ganchos:         "AA",
-  delivery:        "AA",
-  pedido_especial: "AA",
-  descuento:       "AA",
-};
-
 async function generarIdProducto(tipo: TipoServicio): Promise<string> {
   const prefix = PREFIX_BY_TIPO[tipo];
   const supabase = await createClient();
@@ -43,18 +26,8 @@ async function generarIdProducto(tipo: TipoServicio): Promise<string> {
     .from("productos")
     .select("id")
     .like("id", `${prefix}%`);
-
-  let max = 0;
-  for (const row of data ?? []) {
-    const id = (row as { id: string }).id;
-    const numPart = id.slice(prefix.length);
-    if (/^\d+$/.test(numPart)) {
-      const n = parseInt(numPart, 10);
-      if (n > max) max = n;
-    }
-  }
-  const next = max + 1;
-  return `${prefix}${String(next).padStart(3, "0")}`;
+  const ids = (data ?? []).map((r) => (r as { id: string }).id);
+  return nextProductoId(tipo, ids);
 }
 
 const baseSchema = z.object({
@@ -64,7 +37,7 @@ const baseSchema = z.object({
   activo:        z.boolean(),
 });
 
-const createSchema = baseSchema; // ID se genera automáticamente
+const createSchema = baseSchema;
 const updateSchema = baseSchema;
 
 export type CrearProductoInput = z.input<typeof createSchema>;
@@ -94,7 +67,7 @@ async function logAuditoria(
       user_email: user?.email ?? null,
     });
   } catch {
-    // No bloquear la operación principal por un fallo de auditoría
+    // No bloquear la operacion principal por un fallo de auditoria
   }
 }
 
@@ -108,7 +81,7 @@ export async function crearProducto(
     if (!parsed.success) {
       return {
         ok: false,
-        error: parsed.error.issues[0]?.message ?? "Datos inválidos",
+        error: parsed.error.issues[0]?.message ?? "Datos invalidos",
       };
     }
     const data = parsed.data;
@@ -116,8 +89,6 @@ export async function crearProducto(
     step = "supabase";
     const supabase = await createClient();
 
-    // Reintenta una vez si hay colisión (poco probable pero posible si dos
-    // productos se crean al mismo tiempo).
     let lastError: string | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       step = "generar-id";
@@ -132,7 +103,6 @@ export async function crearProducto(
         revalidatePath("/catalogo");
         return { ok: true, id };
       }
-      // Si fue colisión de id (raro), reintenta. Sino, fallar.
       if (!error.message.toLowerCase().includes("duplicate")) {
         return { ok: false, error: error.message };
       }
@@ -140,7 +110,7 @@ export async function crearProducto(
     }
     return {
       ok: false,
-      error: lastError ?? "No se pudo generar un ID único",
+      error: lastError ?? "No se pudo generar un ID unico",
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -160,7 +130,7 @@ export async function actualizarProducto(
     if (!parsed.success) {
       return {
         ok: false,
-        error: parsed.error.issues[0]?.message ?? "Datos inválidos",
+        error: parsed.error.issues[0]?.message ?? "Datos invalidos",
       };
     }
     const data = parsed.data;

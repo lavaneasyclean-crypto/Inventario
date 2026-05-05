@@ -10,6 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Logo } from "@/components/logo";
 import { SidebarNav } from "./sidebar-nav";
 
 export function TopBar({ userEmail }: { userEmail: string }) {
@@ -32,13 +33,16 @@ export function TopBar({ userEmail }: { userEmail: string }) {
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="border-b p-4">
-            <SheetTitle>Inventario</SheetTitle>
+            <SheetTitle className="flex items-center gap-2">
+              <Logo size={28} /> Inventario
+            </SheetTitle>
           </SheetHeader>
           <SidebarNav onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
 
-      <h1 className="text-lg font-semibold tracking-tight">Inventario</h1>
+      <Logo size={32} className="hidden md:block" />
+      <h1 className="text-lg font-bold tracking-tight">Inventario</h1>
 
       <div className="ml-auto flex items-center gap-2">
         <span className="hidden text-sm text-muted-foreground sm:block">

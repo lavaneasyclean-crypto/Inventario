@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <radialGradient id="bubble" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#E5F6FF" />
+      <stop offset="50%" stop-color="#7FD0FF" />
+      <stop offset="100%" stop-color="#3FA9F5" />
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="92" fill="url(#bubble)" />
+  <circle cx="68" cy="60" r="14" fill="#FFFFFF" opacity="0.7" />
+  <circle cx="80" cy="48" r="6" fill="#FFFFFF" opacity="0.85" />
+  <text
+    x="100" y="100"
+    text-anchor="middle"
+    font-family="Nunito, system-ui, sans-serif"
+    font-weight="900"
+    font-size="42"
+    fill="#1B3A8E"
+    letter-spacing="-1"
+  >EASY</text>
+  <text
+    x="100" y="138"
+    text-anchor="middle"
+    font-family="Nunito, system-ui, sans-serif"
+    font-weight="800"
+    font-size="32"
+    fill="#5BC8F2"
+    letter-spacing="2"
+  >CLEAN</text>
+</svg>

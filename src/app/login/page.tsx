@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/browser";
 
 export default function LoginPage() {
@@ -37,10 +38,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-secondary to-background p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader>
+        <CardHeader className="items-center text-center">
+          <Logo size={80} className="mb-2" />
           <CardTitle className="text-2xl">Inventario</CardTitle>
+          <p className="text-sm text-muted-foreground">Easy Clean</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
