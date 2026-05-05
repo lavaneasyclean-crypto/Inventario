@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { searchEmpresas } from "@/lib/data/empresas";
 import { formatDateShort } from "@/lib/format";
+import { NuevaEmpresaButton } from "./editor-empresa";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,14 @@ export default async function EmpresasPage({
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Empresas</h1>
-        <p className="text-sm text-muted-foreground">
-          Buscá por nombre, alias, RUT o contacto
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Empresas</h1>
+          <p className="text-sm text-muted-foreground">
+            Buscá por nombre, alias, RUT o contacto
+          </p>
+        </div>
+        <NuevaEmpresaButton />
       </div>
 
       <form className="mb-6 flex gap-2" action="/empresas" method="get">

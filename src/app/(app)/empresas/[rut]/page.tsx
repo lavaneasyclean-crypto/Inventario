@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getEmpresaDetalle } from "@/lib/data/empresas";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { EditarEmpresaButton } from "../editor-empresa";
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +42,20 @@ export default async function EmpresaDetallePage({
       </div>
 
       <header className="mb-6 rounded-xl border bg-background p-4">
-        <h1 className="text-2xl font-semibold">{empresa.nombre}</h1>
-        {empresa.alias && empresa.alias !== empresa.nombre && (
-          <p className="text-sm text-muted-foreground">Alias: {empresa.alias}</p>
-        )}
-        <p className="font-mono text-sm text-muted-foreground">{empresa.rut}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">{empresa.nombre}</h1>
+            {empresa.alias && empresa.alias !== empresa.nombre && (
+              <p className="text-sm text-muted-foreground">
+                Alias: {empresa.alias}
+              </p>
+            )}
+            <p className="font-mono text-sm text-muted-foreground">
+              {empresa.rut}
+            </p>
+          </div>
+          <EditarEmpresaButton empresa={empresa} />
+        </div>
 
         <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
           {direccion && (
