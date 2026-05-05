@@ -48,6 +48,7 @@ export function NuevoPedidoEmpresaForm({
   const [detalle, setDetalle] = useState("");
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
+  const [productoFocused, setProductoFocused] = useState(false);
 
   const productosDeEsta = empresa
     ? productosByEmpresa[empresa.rut] ?? []
@@ -55,13 +56,15 @@ export function NuevoPedidoEmpresaForm({
 
   const filtered = useMemo(() => {
     const q = productoQuery.trim().toLowerCase();
-    if (!q) return [] as ProductoEmpresaAdquirido[];
-    return productosDeEsta
-      .filter((p) =>
-        (p.nombre + " " + p.producto_empresa_id).toLowerCase().includes(q),
-      )
-      .slice(0, 12);
+    if (!q) return productosDeEsta;
+    return productosDeEsta.filter((p) =>
+      (p.nombre + " " + p.producto_empresa_id).toLowerCase().includes(q),
+    );
   }, [productosDeEsta, productoQuery]);
+  const showDropdown =
+    !!empresa &&
+    productosDeEsta.length > 0 &&
+    (productoFocused || productoQuery.trim().length > 0);
 
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
   const totalImporte = items.reduce(
@@ -216,42 +219,48 @@ export function NuevoPedidoEmpresaForm({
               <Input
                 value={productoQuery}
                 onChange={(e) => setProductoQuery(e.target.value)}
-                placeholder={`Buscar entre ${productosDeEsta.length} productos de ${empresa.alias || empresa.nombre}...`}
+                onFocus={() => setProductoFocused(true)}
+                onBlur={() =>
+                  // delay para que el click en un item se registre antes de cerrar
+                  setTimeout(() => setProductoFocused(false), 150)
+                }
+                placeholder={`Tocá para ver ${productosDeEsta.length} productos de ${empresa.alias || empresa.nombre}...`}
                 className="h-11 pl-9 text-base"
               />
             </div>
-            {productoQuery && filtered.length > 0 && (
-              <ul className="mt-2 overflow-hidden rounded-lg border bg-background">
-                {filtered.map((p) => (
-                  <li key={p.producto_empresa_id}>
-                    <button
-                      type="button"
-                      onClick={() => addItem(p)}
-                      className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent"
-                    >
-                      <div>
-                        <div className="font-medium">{p.nombre}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {p.precio === null ? (
-                            <span className="text-amber-700 dark:text-amber-400">
-                              Sin precio
-                            </span>
-                          ) : (
-                            `${formatCLP(p.precio)} c/u`
-                          )}
-                        </div>
-                      </div>
-                      <Plus className="size-4 text-muted-foreground" />
-                    </button>
+            {showDropdown && (
+              <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
+                {filtered.length === 0 ? (
+                  <li className="px-3 py-3 text-sm text-muted-foreground">
+                    Sin resultados para &ldquo;{productoQuery}&rdquo;.
                   </li>
-                ))}
+                ) : (
+                  filtered.map((p) => (
+                    <li key={p.producto_empresa_id}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => addItem(p)}
+                        className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                      >
+                        <div>
+                          <div className="font-medium">{p.nombre}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {p.precio === null ? (
+                              <span className="text-amber-700 dark:text-amber-400">
+                                Sin precio
+                              </span>
+                            ) : (
+                              `${formatCLP(p.precio)} c/u`
+                            )}
+                          </div>
+                        </div>
+                        <Plus className="size-4 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))
+                )}
               </ul>
-            )}
-            {productoQuery && filtered.length === 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Sin resultados. Probá con otro nombre o agregá el producto a la
-                empresa primero.
-              </p>
             )}
           </>
         )}

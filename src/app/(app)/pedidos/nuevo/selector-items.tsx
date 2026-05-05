@@ -28,19 +28,19 @@ export function SelectorItems({
   onChange: (next: ItemDraft[]) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [] as Producto[];
-    return productos
-      .filter(
-        (p) =>
-          p.nombre.toLowerCase().includes(q) ||
-          p.id.toLowerCase().includes(q) ||
-          TIPO_SERVICIO_LABELS[p.tipo_servicio].toLowerCase().includes(q),
-      )
-      .slice(0, 12);
+    if (!q) return productos;
+    return productos.filter(
+      (p) =>
+        p.nombre.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        TIPO_SERVICIO_LABELS[p.tipo_servicio].toLowerCase().includes(q),
+    );
   }, [productos, query]);
+  const showDropdown = focused || query.trim().length > 0;
 
   const total = items.reduce((s, it) => s + it.precio_unidad * it.cantidad, 0);
 
@@ -77,40 +77,44 @@ export function SelectorItems({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar producto..."
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            placeholder={`Tocá para ver ${productos.length} productos...`}
             className="h-11 pl-9 text-base"
           />
         </div>
-        {query && filtered.length > 0 && (
-          <ul className="mt-2 overflow-hidden rounded-lg border bg-background">
-            {filtered.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => addItem(p)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent"
-                >
-                  <div>
-                    <div className="font-medium">{p.nombre}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {TIPO_SERVICIO_LABELS[p.tipo_servicio]}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm tabular-nums">
-                      {formatCLP(p.precio)}
-                    </span>
-                    <Plus className="size-4 text-muted-foreground" />
-                  </div>
-                </button>
+        {showDropdown && (
+          <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-sm text-muted-foreground">
+                Sin productos para &ldquo;{query}&rdquo;.
               </li>
-            ))}
+            ) : (
+              filtered.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => addItem(p)}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                  >
+                    <div>
+                      <div className="font-medium">{p.nombre}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {TIPO_SERVICIO_LABELS[p.tipo_servicio]}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm tabular-nums">
+                        {formatCLP(p.precio)}
+                      </span>
+                      <Plus className="size-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                </li>
+              ))
+            )}
           </ul>
-        )}
-        {query && filtered.length === 0 && (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sin productos para &ldquo;{query}&rdquo;.
-          </p>
         )}
       </div>
 
