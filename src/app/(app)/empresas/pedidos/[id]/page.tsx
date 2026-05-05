@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
 import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { formatCLP, formatDate } from "@/lib/format";
+import { AccionesPedidoEmpresa } from "./acciones-pedido-empresa";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,9 @@ export default async function PedidoEmpresaDetallePage({
         <div className="flex items-baseline gap-3">
           <h1 className="font-mono text-3xl font-semibold">#{pedido.id}</h1>
           <span className="text-sm text-muted-foreground">Pedido empresa</span>
+          {pedido.anulado && (
+            <Badge variant="destructive">Anulado</Badge>
+          )}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {formatDate(pedido.fecha)}
@@ -119,13 +124,20 @@ export default async function PedidoEmpresaDetallePage({
       </section>
 
       {pedido.detalle && (
-        <section className="rounded-xl border bg-background p-4">
+        <section className="mb-6 rounded-xl border bg-background p-4">
           <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
             Detalle / Notas
           </h2>
           <p className="whitespace-pre-wrap text-sm">{pedido.detalle}</p>
         </section>
       )}
+
+      <section className="rounded-xl border bg-background p-4">
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Acciones
+        </h2>
+        <AccionesPedidoEmpresa id={pedido.id} anulado={pedido.anulado} />
+      </section>
     </div>
   );
 }

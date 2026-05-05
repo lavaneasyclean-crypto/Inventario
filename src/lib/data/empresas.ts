@@ -149,6 +149,68 @@ export async function getPedidoEmpresaDetalle(id: number): Promise<{
   };
 }
 
+export interface PedidoEmpresaConItems {
+  pedido: PedidoEmpresa;
+  items: PedidoEmpresaItem[];
+}
+
+export async function getPedidosEmpresaParaFacturacion(
+  rut: string,
+  filtros: {
+    desde?: string; // YYYY-MM-DD
+    hasta?: string; // YYYY-MM-DD
+    idDesde?: number;
+    idHasta?: number;
+  },
+): Promise<PedidoEmpresaConItems[]> {
+  const supabase = await createClient();
+
+  let q = supabase
+    .from("pedidos_empresa")
+    .select("*")
+    .eq("rut_empresa", rut)
+    .order("fecha", { ascending: true })
+    .limit(500);
+
+  if (filtros.desde) {
+    q = q.gte("fecha", `${filtros.desde}T00:00:00-03:00`);
+  }
+  if (filtros.hasta) {
+    const d = new Date(`${filtros.hasta}T00:00:00-03:00`);
+    d.setDate(d.getDate() + 1);
+    q = q.lt("fecha", d.toISOString());
+  }
+  if (filtros.idDesde !== undefined) {
+    q = q.gte("id", filtros.idDesde);
+  }
+  if (filtros.idHasta !== undefined) {
+    q = q.lte("id", filtros.idHasta);
+  }
+
+  const { data: pedidos } = await q;
+  const lista = (pedidos ?? []) as PedidoEmpresa[];
+  if (lista.length === 0) return [];
+
+  const ids = lista.map((p) => p.id);
+  const { data: items } = await supabase
+    .from("pedidos_empresa_items")
+    .select("*")
+    .in("pedido_empresa_id", ids)
+    .order("id", { ascending: true });
+
+  const itemsByPedido = new Map<number, PedidoEmpresaItem[]>();
+  for (const it of (items ?? []) as PedidoEmpresaItem[]) {
+    const arr = itemsByPedido.get(it.pedido_empresa_id) ?? [];
+    arr.push(it);
+    itemsByPedido.set(it.pedido_empresa_id, arr);
+  }
+
+  return lista.map((p) => ({
+    pedido: p,
+    items: itemsByPedido.get(p.id) ?? [],
+  }));
+}
+
 export async function getProductosEmpresaActivos(): Promise<ProductoEmpresa[]> {
   const supabase = await createClient();
   const { data } = await supabase

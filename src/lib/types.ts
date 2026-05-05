@@ -89,6 +89,7 @@ export interface PedidoEmpresa {
   alias: string | null;
   fecha: string;
   detalle: string | null;
+  anulado: boolean;
   created_at: string;
   updated_at: string;
 }

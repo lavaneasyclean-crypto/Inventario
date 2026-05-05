@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  FileSpreadsheet,
   MapPin,
   Mail,
   Phone,
@@ -109,12 +110,21 @@ export default async function EmpresaDetallePage({
         </div>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap gap-2">
         <Link
           href={`/empresas/pedidos/nuevo?rut=${encodeURIComponent(empresa.rut)}`}
           className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
         >
-          <Plus className="size-5" /> Nuevo pedido para {empresa.alias || empresa.nombre}
+          <Plus className="size-5" /> Nuevo pedido
+        </Link>
+        <Link
+          href={`/empresas/${encodeURIComponent(empresa.rut)}/facturacion`}
+          className={cn(
+            buttonVariants({ variant: "outline", size: "lg" }),
+            "h-11 px-4 text-base",
+          )}
+        >
+          <FileSpreadsheet className="size-5" /> Facturar período
         </Link>
       </div>
 
