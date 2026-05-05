@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function NuevoPedidoForm({
   clienteInicial: Cliente | null;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [cliente, setCliente] = useState<Cliente | null>(clienteInicial);
@@ -41,9 +41,9 @@ export function NuevoPedidoForm({
     (s, it) => s + it.precio_unidad * it.cantidad,
     0,
   );
-  const canSubmit = !!cliente && items.length > 0 && !pending;
+  const canSubmit = !!cliente && items.length > 0 && !loading;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!cliente) {
       setError("Seleccioná o creá un cliente.");
       return;
@@ -53,41 +53,49 @@ export function NuevoPedidoForm({
       return;
     }
     setError(null);
+    setLoading(true);
 
-    start(async () => {
-      try {
-        const res = await crearPedido({
-          rut_cliente:    cliente.rut,
-          nombre_cliente: cliente.nombre,
-          contacto:       cliente.telefono,
-          direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
-            .filter(Boolean)
-            .join(", ") || null,
-          fecha_entrega:  fechaEntrega ? new Date(fechaEntrega).toISOString() : null,
-          notas:          notas.trim() || null,
-          pagado:         pagar,
-          forma_pago:     pagar ? formaPago : "no_pago",
-          items: items.map((it) => ({
-            producto_id:   it.producto_id,
-            nombre:        it.nombre,
-            tipo_servicio: it.tipo_servicio,
-            precio_unidad: it.precio_unidad,
-            cantidad:      it.cantidad,
-            detalle:       it.detalle.trim() || null,
-          })),
-        });
+    try {
+      console.log("[nuevo-pedido] enviando crearPedido");
+      const res = await crearPedido({
+        rut_cliente:    cliente.rut,
+        nombre_cliente: cliente.nombre,
+        contacto:       cliente.telefono,
+        direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
+          .filter(Boolean)
+          .join(", ") || null,
+        fecha_entrega:  fechaEntrega ? new Date(fechaEntrega).toISOString() : null,
+        notas:          notas.trim() || null,
+        pagado:         pagar,
+        forma_pago:     pagar ? formaPago : "no_pago",
+        items: items.map((it) => ({
+          producto_id:   it.producto_id,
+          nombre:        it.nombre,
+          tipo_servicio: it.tipo_servicio,
+          precio_unidad: it.precio_unidad,
+          cantidad:      it.cantidad,
+          detalle:       it.detalle.trim() || null,
+        })),
+      });
+      console.log("[nuevo-pedido] resultado:", res);
 
-        if (!res.ok) {
-          setError(res.error);
-          return;
-        }
-        router.push(`/pedidos/${res.id}`);
-        router.refresh();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(`No se pudo crear el pedido: ${msg}. Refrescá la página y volvé a intentar.`);
+      // Liberamos el botón antes de navegar para que el usuario nunca lo
+      // vea atascado. La navegación a /pedidos/[id] usará su propio loading.
+      setLoading(false);
+
+      if (!res.ok) {
+        setError(res.error);
+        return;
       }
-    });
+      router.push(`/pedidos/${res.id}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[nuevo-pedido] excepcion:", err);
+      setError(
+        `No se pudo crear el pedido: ${msg}. Refrescá la página y volvé a intentar.`,
+      );
+      setLoading(false);
+    }
   };
 
   return (
@@ -193,7 +201,7 @@ export function NuevoPedidoForm({
           className="h-11 px-6 text-base"
         >
           <Check className="size-5" />
-          {pending ? "Creando…" : "Crear pedido"}
+          {loading ? "Creando…" : "Crear pedido"}
         </Button>
       </div>
     </div>
