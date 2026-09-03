@@ -41,17 +41,17 @@ Inventario/
    - Abrir SQL Editor en el dashboard de Supabase
    - Pegar todo el contenido de `migrations/0001_init.sql`
    - Ejecutar
+   - Después, aplicar en orden el resto de `migrations/` (ver
+     `migrations/README.md`)
 
 4. **Migrar datos del Access** (una sola vez)
    ```bash
    pwsh ./scripts/etl/01_export_access.ps1
    python ./scripts/etl/02_load_to_supabase.py
    ```
-   Después, ejecutar en SQL Editor:
-   ```sql
-   select setval('pedidos_id_seq', (select max(id) from pedidos));
-   select setval('pedidos_empresa_id_seq', (select max(id) from pedidos_empresa));
-   ```
+   El ETL inserta ids explícitos sin avanzar las secuencias, así que después
+   hay que resincronizarlas. Eso lo hace `migrations/0006_crear_pedido_atomico.sql`,
+   que conviene aplicar al final.
 
 5. **Crear cuenta de usuario** en Supabase Auth
    - Authentication → Users → Add user
