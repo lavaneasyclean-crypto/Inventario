@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,31 +81,37 @@ function EmpresaDialog({
   const [correo, setCorreo] = useState("");
   const [activo, setActivo] = useState(true);
 
-  useEffect(() => {
-    if (!open) return;
-    if (mode === "edit" && empresa) {
-      setRut(empresa.rut);
-      setNombre(empresa.nombre);
-      setAlias(empresa.alias ?? "");
-      setComuna(empresa.comuna ?? "");
-      setCalle(empresa.calle ?? "");
-      setContacto1(empresa.contacto_1 ?? "");
-      setContacto2(empresa.contacto_2 ?? "");
-      setCorreo(empresa.correo ?? "");
-      setActivo(empresa.activo);
-    } else {
-      setRut("");
-      setNombre("");
-      setAlias("");
-      setComuna("");
-      setCalle("");
-      setContacto1("");
-      setContacto2("");
-      setCorreo("");
-      setActivo(true);
+  // Reset al abrir. Se ajusta durante el render y no en un efecto: no hay
+  // ningún sistema externo con el que sincronizar, y en un efecto React tiene
+  // que pintar el diálogo con los valores viejos antes de corregirlos.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) {
+      if (mode === "edit" && empresa) {
+        setRut(empresa.rut);
+        setNombre(empresa.nombre);
+        setAlias(empresa.alias ?? "");
+        setComuna(empresa.comuna ?? "");
+        setCalle(empresa.calle ?? "");
+        setContacto1(empresa.contacto_1 ?? "");
+        setContacto2(empresa.contacto_2 ?? "");
+        setCorreo(empresa.correo ?? "");
+        setActivo(empresa.activo);
+      } else {
+        setRut("");
+        setNombre("");
+        setAlias("");
+        setComuna("");
+        setCalle("");
+        setContacto1("");
+        setContacto2("");
+        setCorreo("");
+        setActivo(true);
+      }
+      setError(null);
     }
-    setError(null);
-  }, [open, mode, empresa]);
+  }
 
   const submit = async () => {
     setError(null);

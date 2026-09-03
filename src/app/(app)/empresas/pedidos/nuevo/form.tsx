@@ -52,9 +52,12 @@ export function NuevoPedidoEmpresaForm({
   const [productoFocused, setProductoFocused] = useState(false);
   const productoInputRef = useRef<HTMLInputElement>(null);
 
-  const productosDeEsta = empresa
-    ? productosByEmpresa[empresa.rut] ?? []
-    : [];
+  // Memoizado porque es dependencia del useMemo de abajo: sin esto la lista
+  // es un array nuevo en cada render y el filtro se recalcula siempre.
+  const productosDeEsta = useMemo(
+    () => (empresa ? productosByEmpresa[empresa.rut] ?? [] : []),
+    [empresa, productosByEmpresa],
+  );
 
   const filtered = useMemo(() => {
     const q = productoQuery.trim().toLowerCase();

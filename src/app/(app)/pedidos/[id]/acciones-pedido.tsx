@@ -69,7 +69,7 @@ function BotonEstado({ pedido }: { pedido: Pedido }) {
         <form action={marcarEnProceso}>
           <input type="hidden" name="id" value={pedido.id} />
           <Button type="submit" size="sm" variant="ghost" className="w-full">
-            <Undo2 className="size-4" /> Volver a "en proceso"
+            <Undo2 className="size-4" /> Volver a “en proceso”
           </Button>
         </form>
       </div>
@@ -180,7 +180,7 @@ function BotonAnular({ pedido }: { pedido: Pedido }) {
         <DialogHeader>
           <DialogTitle>¿Anular el pedido #{pedido.id}?</DialogTitle>
           <DialogDescription>
-            Esta acción cambia el estado a "Anulado". Los datos no se borran y
+            Esta acción cambia el estado a “Anulado”. Los datos no se borran y
             podés revertirlo después.
           </DialogDescription>
         </DialogHeader>

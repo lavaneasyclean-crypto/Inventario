@@ -88,7 +88,7 @@ export async function getEmpresaDetalle(
   const pedidos = (pedidosRes.data ?? []) as PedidoEmpresa[];
   const pedidoIds = pedidos.map((p) => p.id);
 
-  let itemsByPedido = new Map<number, { count: number; unidades: number }>();
+  const itemsByPedido = new Map<number, { count: number; unidades: number }>();
   if (pedidoIds.length > 0) {
     const { data: items } = await supabase
       .from("pedidos_empresa_items")
