@@ -176,21 +176,44 @@ export async function crearCliente(
     step = "supabase-client";
     const supabase = await createClient();
 
-    step = "upsert";
-    const { error } = await supabase.from("clientes").upsert(
-      {
-        rut:      data.rut,
-        nombre:   data.nombre,
-        telefono: data.telefono || null,
-        correo:   data.correo || null,
-        comuna:   data.comuna || null,
-        calle:    data.calle || null,
-        dpto:     data.dpto || null,
-      },
-      { onConflict: "rut" },
-    );
+    // Antes esto era un upsert, y como el wizard manda null en todo lo que no
+    // se llenó, tipear un RUT ya existente borraba el teléfono, el correo y la
+    // dirección que ya estaban guardados. Ahora se escribe solo lo que el
+    // usuario efectivamente completó.
+    const campos = {
+      nombre:   data.nombre,
+      telefono: data.telefono || null,
+      correo:   data.correo || null,
+      comuna:   data.comuna || null,
+      calle:    data.calle || null,
+      dpto:     data.dpto || null,
+    };
 
-    if (error) return { ok: false, error: error.message };
+    step = "buscar-existente";
+    const { data: existente, error: eSel } = await supabase
+      .from("clientes")
+      .select("rut")
+      .eq("rut", data.rut)
+      .maybeSingle();
+    if (eSel) return { ok: false, error: eSel.message };
+
+    if (existente) {
+      step = "update";
+      const parche = Object.fromEntries(
+        Object.entries(campos).filter(([, v]) => v !== null),
+      );
+      const { error } = await supabase
+        .from("clientes")
+        .update(parche)
+        .eq("rut", data.rut);
+      if (error) return { ok: false, error: error.message };
+    } else {
+      step = "insert";
+      const { error } = await supabase
+        .from("clientes")
+        .insert({ rut: data.rut, ...campos });
+      if (error) return { ok: false, error: error.message };
+    }
 
     step = "done";
     return { ok: true, rut: data.rut };

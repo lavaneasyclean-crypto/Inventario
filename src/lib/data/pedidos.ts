@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
+import { filtroContiene } from "@/lib/postgrest";
 import type { EstadoPedido, Pedido, PedidoItem } from "@/lib/types";
 
 export interface DashboardData {
@@ -91,9 +92,7 @@ export async function searchPedidos(
     if (/^\d+$/.test(term)) {
       query = query.eq("id", Number(term));
     } else {
-      query = query.or(
-        `nombre_cliente.ilike.%${term}%,rut_cliente.ilike.%${term}%`,
-      );
+      query = query.or(filtroContiene(["nombre_cliente", "rut_cliente"], term));
     }
   }
 

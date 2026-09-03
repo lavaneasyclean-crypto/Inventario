@@ -5,6 +5,7 @@ import { Search, X, UserPlus, User, Phone, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { filtroContienePorCampo } from "@/lib/postgrest";
 import {
   Dialog,
   DialogContent,
@@ -53,13 +54,16 @@ export function SelectorCliente({
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       const supabase = createClient();
-      const term = `%${query}%`;
-      const rutTerm = `%${normalizeRut(query)}%`;
       const { data } = await supabase
         .from("clientes")
         .select("rut, nombre, telefono, correo, comuna, calle, dpto")
         .or(
-          `rut.ilike.${rutTerm},nombre.ilike.${term},telefono.ilike.${term}`,
+          filtroContienePorCampo([
+            // normalizeRut devuelve null mientras el texto no parezca un RUT.
+            ["rut", normalizeRut(query) ?? query],
+            ["nombre", query],
+            ["telefono", query],
+          ]),
         )
         .limit(8);
       setResults((data ?? []) as Cliente[]);

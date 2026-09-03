@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
+import { filtroContiene } from "@/lib/postgrest";
 import type {
   ClienteEmpresa,
   PedidoEmpresa,
@@ -26,9 +27,11 @@ export async function searchEmpresas(query: string): Promise<EmpresaResultado[]>
     .limit(SEARCH_LIMIT);
 
   if (q) {
-    const term = `%${q}%`;
     baseQuery = baseQuery.or(
-      `rut.ilike.${term},nombre.ilike.${term},alias.ilike.${term},contacto_1.ilike.${term},contacto_2.ilike.${term}`,
+      filtroContiene(
+        ["rut", "nombre", "alias", "contacto_1", "contacto_2"],
+        q,
+      ),
     );
   }
 
