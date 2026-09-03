@@ -14,7 +14,7 @@ describe("patronContiene", () => {
     expect(patronContiene("Perez, Juan")).toBe('"%Perez, Juan%"');
   });
 
-  it("los parentesis no cierran el or()", () => {
+  it("los parentesis viajan tal cual", () => {
     expect(patronContiene("Lavaseco (centro)")).toBe('"%Lavaseco (centro)%"');
   });
 

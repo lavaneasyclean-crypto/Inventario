@@ -3,13 +3,17 @@
  * por el usuario.
  *
  * El valor de cada filtro se interpola dentro de una lista separada por comas
- * y delimitada por paréntesis, así que un término con coma o paréntesis
- * —"Pérez, Juan", "Lavaseco (centro)"— rompe la gramática: la consulta falla o,
- * peor, termina filtrando por algo distinto de lo que se escribió.
+ * y delimitada por paréntesis. Comprobado contra PostgREST: una coma en el
+ * término parte la lista y la consulta se cae con PGRST100 ("failed to parse
+ * logic tree"), así que buscar "Pérez, Juan" devolvía un error. Los paréntesis
+ * en cambio pasan sin romper nada.
+ *
+ * Los comodines de LIKE son el caso silencioso: un `%` tipeado no da error,
+ * simplemente ensancha la búsqueda y devuelve cualquier cosa.
  *
  * PostgREST acepta el valor entre comillas dobles; ahí adentro solo hay que
- * escapar la comilla y la barra invertida. Aparte, `%` y `_` son comodines de
- * LIKE, así que se escapan para que se busquen como caracteres literales.
+ * escapar la comilla y la barra invertida. `%` y `_` se escapan aparte para
+ * que se busquen como caracteres literales.
  */
 
 /** Escapa los comodines de LIKE para que se busquen literalmente. */
