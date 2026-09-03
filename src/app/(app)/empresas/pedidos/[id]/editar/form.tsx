@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fechaEnChile, mediodiaChile } from "@/lib/fecha";
 import { Check, Plus, Search, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export function EditarPedidoEmpresaForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [fecha, setFecha] = useState(() => pedido.fecha.slice(0, 10));
+  const [fecha, setFecha] = useState(() => fechaEnChile(new Date(pedido.fecha)));
   const [detalle, setDetalle] = useState(pedido.detalle ?? "");
   const [items, setItems] = useState<ItemDraft[]>(() =>
     itemsIniciales.map((it) => ({
@@ -103,7 +104,7 @@ export function EditarPedidoEmpresaForm({
     setLoading(true);
     try {
       const res = await actualizarPedidoEmpresa(pedido.id, {
-        fecha: new Date(`${fecha}T12:00:00-03:00`).toISOString(),
+        fecha: mediodiaChile(fecha),
         detalle: detalle.trim() || null,
         items: items.map((it) => ({
           producto_empresa_id: it.producto_empresa_id,

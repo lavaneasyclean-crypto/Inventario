@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
 import type {
   ClienteEmpresa,
   PedidoEmpresa,
@@ -172,13 +173,11 @@ export async function getPedidosEmpresaParaFacturacion(
     .order("fecha", { ascending: true })
     .limit(500);
 
-  if (filtros.desde) {
-    q = q.gte("fecha", `${filtros.desde}T00:00:00-03:00`);
+  if (esFechaValida(filtros.desde)) {
+    q = q.gte("fecha", inicioDeDiaChile(filtros.desde));
   }
-  if (filtros.hasta) {
-    const d = new Date(`${filtros.hasta}T00:00:00-03:00`);
-    d.setDate(d.getDate() + 1);
-    q = q.lt("fecha", d.toISOString());
+  if (esFechaValida(filtros.hasta)) {
+    q = q.lt("fecha", finDeDiaChile(filtros.hasta));
   }
   if (filtros.idDesde !== undefined) {
     q = q.gte("id", filtros.idDesde);

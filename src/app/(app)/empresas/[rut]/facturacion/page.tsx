@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rangoDelMes } from "@/lib/fecha";
 import {
   getPedidosEmpresaParaFacturacion,
 } from "@/lib/data/empresas";
@@ -10,12 +11,8 @@ import { FacturacionClient } from "./facturacion-cliente";
 export const dynamic = "force-dynamic";
 
 function defaultMonthRange(): { desde: string; hasta: string } {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const desde = new Date(y, m, 1).toISOString().slice(0, 10);
-  const hasta = new Date(y, m + 1, 0).toISOString().slice(0, 10);
-  return { desde, hasta };
+  // El mes por defecto es el mes en curso en Chile, no el del reloj del server.
+  return rangoDelMes();
 }
 
 export default async function FacturacionPage({
