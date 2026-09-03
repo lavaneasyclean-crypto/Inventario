@@ -101,10 +101,8 @@ describe("asignarProducto — un producto ya existente del catalogo", () => {
 });
 
 describe("crearYAsignarProducto — producto nuevo del catalogo", () => {
-  it("crea el producto y lo asigna a la empresa", async () => {
-    const fake = montar({
-      "productos_empresa.select": { data: [{ id: "001" }, { id: "007" }] },
-    });
+  it("crea el producto y lo asigna con una sola llamada atomica", async () => {
+    const fake = montar({ "rpc.crear_producto_empresa": { data: "008" } });
     const res = await crearYAsignarProducto({
       rut_empresa: RUT,
       nombre: "Mantel rectangular",
@@ -112,57 +110,67 @@ describe("crearYAsignarProducto — producto nuevo del catalogo", () => {
     });
 
     expect(res).toEqual({ ok: true, id: "008" });
-    expect(fake.ultima("productos_empresa", "insert")?.payload).toEqual({
-      id: "008",
-      nombre: "Mantel rectangular",
-      activo: true,
+    expect(fake.rpcs).toHaveLength(1);
+    expect(fake.rpcs[0]).toEqual({
+      funcion: "crear_producto_empresa",
+      args: {
+        p_rut_empresa: RUT,
+        p_nombre: "Mantel rectangular",
+        p_precio: 2500,
+      },
     });
-    expect(fake.ultima("empresa_productos", "insert")?.payload).toEqual({
-      rut_empresa: RUT,
-      producto_empresa_id: "008",
-      precio: 2500,
-    });
+    // Ya no se trae el catalogo entero para numerar, ni se inserta por partes.
+    expect(fake.llamadas).toHaveLength(0);
   });
 
-  it("numera con tres digitos arrancando del 001", async () => {
-    montar({ "productos_empresa.select": { data: [] } });
+  it("no numera desde la app: el id lo devuelve la base", async () => {
+    const fake = montar({ "rpc.crear_producto_empresa": { data: "EMP1042" } });
+    const res = await crearYAsignarProducto({
+      rut_empresa: RUT,
+      nombre: "Cubrecama",
+      precio: null,
+    });
+
+    expect(res).toMatchObject({ id: "EMP1042" });
+    expect(fake.ultima("productos_empresa", "select")).toBeUndefined();
+  });
+
+  it("deja pasar un producto sin precio acordado", async () => {
+    const fake = montar({ "rpc.crear_producto_empresa": { data: "009" } });
     const res = await crearYAsignarProducto({
       rut_empresa: RUT,
       nombre: "Sabana C/E",
       precio: null,
     });
 
-    expect(res).toMatchObject({ ok: true, id: "001" });
+    expect(res.ok).toBe(true);
+    expect(fake.rpcs[0].args.p_precio).toBeNull();
   });
 
-  it("ignora los ids que no son numericos al buscar el siguiente", async () => {
+  it("avisa cuando el nombre ya esta en el catalogo", async () => {
     montar({
-      "productos_empresa.select": {
-        data: [{ id: "012" }, { id: "EMP1700000000000" }, { id: "003" }],
+      "rpc.crear_producto_empresa": {
+        error: {
+          code: "23505",
+          message: 'Ya existe el producto "Sabana C/E" con id 004',
+        },
       },
     });
     const res = await crearYAsignarProducto({
       rut_empresa: RUT,
-      nombre: "Toalla",
-      precio: 900,
+      nombre: "sabana c/e",
+      precio: 1000,
     });
 
-    expect(res).toMatchObject({ id: "013" });
+    expect(res.ok).toBe(false);
+    const error = (res as { error: string }).error;
+    expect(error).toMatch(/ya existe un producto con ese nombre/i);
+    // Manda a buscarlo en vez de dejar el catalogo con dos iguales.
+    expect(error).toMatch(/catálogo/i);
   });
 
-  it("pasado el 999 cambia a un id con timestamp", async () => {
-    montar({ "productos_empresa.select": { data: [{ id: "999" }] } });
-    const res = await crearYAsignarProducto({
-      rut_empresa: RUT,
-      nombre: "Cubrecama",
-      precio: 3000,
-    });
-
-    expect((res as { id: string }).id).toMatch(/^EMP\d+$/);
-  });
-
-  it("exige nombre", async () => {
-    const fake = montar({ "productos_empresa.select": { data: [] } });
+  it("exige nombre y no llega a tocar la base", async () => {
+    const fake = montar();
     const res = await crearYAsignarProducto({
       rut_empresa: RUT,
       nombre: "",
@@ -170,14 +178,17 @@ describe("crearYAsignarProducto — producto nuevo del catalogo", () => {
     });
 
     expect(res).toEqual({ ok: false, error: "Nombre requerido" });
-    expect(fake.ultima("productos_empresa", "insert")).toBeUndefined();
+    expect(fake.rpcs).toHaveLength(0);
   });
 
-  it("si la asignacion falla borra el producto que acababa de crear", async () => {
-    const fake = montar({
-      "productos_empresa.select": { data: [{ id: "004" }] },
-      "empresa_productos.insert": {
-        error: { code: "23503", message: "foreign key violation" },
+  it("no filtra el error crudo cuando falla por otra cosa", async () => {
+    montar({
+      "rpc.crear_producto_empresa": {
+        error: {
+          code: "23503",
+          message:
+            'violates foreign key constraint "empresa_productos_rut_empresa_fkey"',
+        },
       },
     });
     const res = await crearYAsignarProducto({
@@ -186,26 +197,38 @@ describe("crearYAsignarProducto — producto nuevo del catalogo", () => {
       precio: 300,
     });
 
-    expect(res.ok).toBe(false);
-    const borrado = fake.ultima("productos_empresa", "delete");
-    expect(borrado?.filtros).toContainEqual({ metodo: "eq", args: ["id", "005"] });
+    const error = (res as { error: string }).error;
+    expect(error).toBe("El registro relacionado no existe o fue eliminado.");
+    expect(error).not.toMatch(/constraint|fkey/i);
   });
 
-  it("si falla la creacion del producto no intenta asignarlo", async () => {
-    const fake = montar({
-      "productos_empresa.select": { data: [] },
-      "productos_empresa.insert": {
-        error: { code: "23505", message: "duplicate key" },
+  it("avisa si falta aplicar la migracion", async () => {
+    montar({
+      "rpc.crear_producto_empresa": {
+        error: {
+          code: "PGRST202",
+          message: "Could not find the function public.crear_producto_empresa",
+        },
       },
     });
     const res = await crearYAsignarProducto({
       rut_empresa: RUT,
-      nombre: "Repetido",
-      precio: 100,
+      nombre: "Toalla",
+      precio: 900,
+    });
+
+    expect((res as { error: string }).error).toMatch(/migración/i);
+  });
+
+  it("no da por creado el producto si no vuelve un id", async () => {
+    montar({ "rpc.crear_producto_empresa": { data: null } });
+    const res = await crearYAsignarProducto({
+      rut_empresa: RUT,
+      nombre: "Toalla",
+      precio: 900,
     });
 
     expect(res.ok).toBe(false);
-    expect(fake.ultima("empresa_productos", "insert")).toBeUndefined();
   });
 });
 
