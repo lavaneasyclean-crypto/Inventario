@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 
 export type ProductoEmpresaActionResult =
   | { ok: true }
@@ -60,14 +61,12 @@ export async function asignarProducto(
       },
       { onConflict: "rut_empresa,producto_empresa_id" },
     );
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("asignarProducto", step, error);
 
     revalidatePath(`/empresas/${data.rut_empresa}`);
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[asignarProducto] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("asignarProducto", step, err);
   }
 }
 
@@ -108,7 +107,7 @@ export async function crearYAsignarProducto(
         .from("productos_empresa")
         .insert({ id, nombre: data.nombre, activo: true }));
     }
-    if (e1) return { ok: false, error: e1.message };
+    if (e1) return fallo("crearYAsignarProducto", step, e1);
 
     step = "asignar";
     const { error: e2 } = await supabase.from("empresa_productos").insert({
@@ -119,15 +118,13 @@ export async function crearYAsignarProducto(
     if (e2) {
       // Rollback del producto si falla la asignación
       await supabase.from("productos_empresa").delete().eq("id", id);
-      return { ok: false, error: e2.message };
+      return fallo("crearYAsignarProducto", step, e2);
     }
 
     revalidatePath(`/empresas/${data.rut_empresa}`);
     return { ok: true, id };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crearYAsignarProducto] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("crearYAsignarProducto", step, err);
   }
 }
 
@@ -158,13 +155,11 @@ export async function desasignarProducto(
       .delete()
       .eq("rut_empresa", data.rut_empresa)
       .eq("producto_empresa_id", data.producto_empresa_id);
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("desasignarProducto", step, error);
 
     revalidatePath(`/empresas/${data.rut_empresa}`);
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[desasignarProducto] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("desasignarProducto", step, err);
   }
 }

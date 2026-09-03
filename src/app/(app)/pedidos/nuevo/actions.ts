@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 import type { TipoServicio } from "@/lib/types";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
@@ -97,7 +98,7 @@ export async function crearPedido(
       })),
     });
 
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("crearPedido", step, error);
 
     const pedidoId = Number(nuevoId);
     if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
@@ -107,13 +108,7 @@ export async function crearPedido(
     step = "done";
     return { ok: true, id: pedidoId };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : "";
-    console.error(`[crearPedido] step=${step} err=`, msg, stack);
-    return {
-      ok: false,
-      error: `Error inesperado en el paso "${step}": ${msg}`,
-    };
+    return fallo("crearPedido", step, err);
   }
 }
 
@@ -173,7 +168,7 @@ export async function crearCliente(
       .select("rut")
       .eq("rut", data.rut)
       .maybeSingle();
-    if (eSel) return { ok: false, error: eSel.message };
+    if (eSel) return fallo("crearCliente", step, eSel);
 
     if (existente) {
       step = "update";
@@ -184,25 +179,19 @@ export async function crearCliente(
         .from("clientes")
         .update(parche)
         .eq("rut", data.rut);
-      if (error) return { ok: false, error: error.message };
+      if (error) return fallo("crearCliente", step, error);
     } else {
       step = "insert";
       const { error } = await supabase
         .from("clientes")
         .insert({ rut: data.rut, ...campos });
-      if (error) return { ok: false, error: error.message };
+      if (error) return fallo("crearCliente", step, error);
     }
 
     step = "done";
     return { ok: true, rut: data.rut };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : "";
-    console.error(`[crearCliente] step=${step} err=`, msg, stack);
-    return {
-      ok: false,
-      error: `Error inesperado en el paso "${step}": ${msg}`,
-    };
+    return fallo("crearCliente", step, err);
   }
 }
 

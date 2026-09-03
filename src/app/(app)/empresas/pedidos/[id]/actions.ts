@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 
 export type PedidoEmpresaActionResult =
   | { ok: true }
@@ -17,13 +18,12 @@ export async function anularPedidoEmpresa(
       .from("pedidos_empresa")
       .update({ anulado: true })
       .eq("id", id);
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("anularPedidoEmpresa", "anularPedidoEmpresa", error);
     revalidatePath(`/empresas/pedidos/${id}`);
     revalidatePath("/empresas");
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: msg };
+    return fallo("anularPedidoEmpresa", "anularPedidoEmpresa", err);
   }
 }
 
@@ -36,13 +36,12 @@ export async function desanularPedidoEmpresa(
       .from("pedidos_empresa")
       .update({ anulado: false })
       .eq("id", id);
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("desanularPedidoEmpresa", "desanularPedidoEmpresa", error);
     revalidatePath(`/empresas/pedidos/${id}`);
     revalidatePath("/empresas");
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: msg };
+    return fallo("desanularPedidoEmpresa", "desanularPedidoEmpresa", err);
   }
 }
 
@@ -97,14 +96,14 @@ export async function actualizarPedidoEmpresa(
         detalle: data.detalle,
       })
       .eq("id", id);
-    if (ePed) return { ok: false, error: ePed.message };
+    if (ePed) return fallo("actualizarPedidoEmpresa", step, ePed);
 
     step = "delete-items";
     const { error: eDel } = await supabase
       .from("pedidos_empresa_items")
       .delete()
       .eq("pedido_empresa_id", id);
-    if (eDel) return { ok: false, error: eDel.message };
+    if (eDel) return fallo("actualizarPedidoEmpresa", step, eDel);
 
     step = "insert-items";
     const { error: eIns } = await supabase
@@ -121,14 +120,12 @@ export async function actualizarPedidoEmpresa(
           detalle_prenda:           it.detalle,
         })),
       );
-    if (eIns) return { ok: false, error: eIns.message };
+    if (eIns) return fallo("actualizarPedidoEmpresa", step, eIns);
 
     revalidatePath(`/empresas/pedidos/${id}`);
     revalidatePath("/empresas");
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[actualizarPedidoEmpresa] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("actualizarPedidoEmpresa", step, err);
   }
 }

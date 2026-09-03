@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 
 const inputSchema = z.object({
   rut_empresa: z.string().min(1, "Empresa requerida"),
@@ -66,7 +67,7 @@ export async function crearPedidoEmpresa(
       },
     );
 
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("crearPedidoEmpresa", step, error);
 
     const pedidoId = Number(nuevoId);
     if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
@@ -75,8 +76,6 @@ export async function crearPedidoEmpresa(
 
     return { ok: true, id: pedidoId };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crearPedidoEmpresa] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("crearPedidoEmpresa", step, err);
   }
 }
