@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +43,12 @@ export function EditarCliente({ cliente }: { cliente: Cliente }) {
         <form
           action={(fd) => {
             start(async () => {
-              await actualizarCliente(fd);
+              const res = await actualizarCliente(fd);
+              if (!res.ok) {
+                toast.error(res.error);
+                return; // no se cierra: lo escrito no se pierde
+              }
+              toast.success("Datos del cliente actualizados");
               setOpen(false);
             });
           }}

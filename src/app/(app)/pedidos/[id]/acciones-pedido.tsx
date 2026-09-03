@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { CheckCircle2, Package, Truck, Undo2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +30,23 @@ import {
   marcarPagado,
   marcarSinPagar,
   anularPedido,
+  type AccionPedidoResult,
 } from "./actions";
+
+/**
+ * Envuelve una acción para que el resultado se vea. Antes el botón respondía
+ * igual cuando la escritura fallaba y el pedido quedaba sin marcar.
+ */
+function conAviso(
+  accion: (fd: FormData) => Promise<AccionPedidoResult>,
+  exito: string,
+) {
+  return async (fd: FormData) => {
+    const res = await accion(fd);
+    if (res.ok) toast.success(exito);
+    else toast.error(res.error);
+  };
+}
 
 export function AccionesPedido({ pedido }: { pedido: Pedido }) {
   return (
@@ -48,7 +65,7 @@ function BotonEstado({ pedido }: { pedido: Pedido }) {
 
   if (pedido.estado === "recibido") {
     return (
-      <form action={marcarListo}>
+      <form action={conAviso(marcarListo, "Pedido listo para retirar")}>
         <input type="hidden" name="id" value={pedido.id} />
         <Button type="submit" size="lg" className="w-full">
           <CheckCircle2 className="size-5" /> Marcar listo para retirar
@@ -60,13 +77,13 @@ function BotonEstado({ pedido }: { pedido: Pedido }) {
   if (pedido.estado === "listo") {
     return (
       <div className="grid gap-2 sm:col-span-1">
-        <form action={marcarEntregado}>
+        <form action={conAviso(marcarEntregado, "Pedido entregado")}>
           <input type="hidden" name="id" value={pedido.id} />
           <Button type="submit" size="lg" className="w-full">
             <Truck className="size-5" /> Marcar entregado al cliente
           </Button>
         </form>
-        <form action={marcarEnProceso}>
+        <form action={conAviso(marcarEnProceso, "Pedido de vuelta en proceso")}>
           <input type="hidden" name="id" value={pedido.id} />
           <Button type="submit" size="sm" variant="ghost" className="w-full">
             <Undo2 className="size-4" /> Volver a “en proceso”
@@ -78,7 +95,7 @@ function BotonEstado({ pedido }: { pedido: Pedido }) {
 
   // entregado
   return (
-    <form action={marcarListo}>
+    <form action={conAviso(marcarListo, "Entrega revertida")}>
       <input type="hidden" name="id" value={pedido.id} />
       <Button type="submit" size="lg" variant="outline" className="w-full">
         <Undo2 className="size-5" /> Revertir entrega
@@ -94,7 +111,7 @@ function BotonPago({ pedido }: { pedido: Pedido }) {
 
   if (pedido.pagado) {
     return (
-      <form action={marcarSinPagar}>
+      <form action={conAviso(marcarSinPagar, "Pedido marcado como no pagado")}>
         <input type="hidden" name="id" value={pedido.id} />
         <Button type="submit" size="lg" variant="outline" className="w-full">
           <Undo2 className="size-5" /> Marcar como no pagado
@@ -128,7 +145,12 @@ function BotonPago({ pedido }: { pedido: Pedido }) {
             fd.set("forma_pago", forma);
             fd.set("total", String(pedido.total_venta));
             start(async () => {
-              await marcarPagado(fd);
+              const res = await marcarPagado(fd);
+              if (!res.ok) {
+                toast.error(res.error);
+                return; // el diálogo queda abierto para reintentar
+              }
+              toast.success("Pago registrado");
               setOpen(false);
             });
           }}
@@ -196,7 +218,12 @@ function BotonAnular({ pedido }: { pedido: Pedido }) {
           <form
             action={(fd) => {
               start(async () => {
-                await anularPedido(fd);
+                const res = await anularPedido(fd);
+                if (!res.ok) {
+                  toast.error(res.error);
+                  return;
+                }
+                toast.success("Pedido anulado");
                 setOpen(false);
               });
             }}

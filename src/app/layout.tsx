@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nunito, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 const nunito = Nunito({
   variable: "--font-sans",
@@ -29,7 +30,12 @@ export default function RootLayout({
       lang="es-CL"
       className={`${nunito.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/* Arriba y al centro: en el mostrador un aviso abajo a la derecha
+            pasa desapercibido, y estos avisan que algo NO se guardó. */}
+        <Toaster position="top-center" />
+      </body>
     </html>
   );
 }
