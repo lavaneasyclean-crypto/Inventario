@@ -63,6 +63,27 @@ describe("mediodiaChile", () => {
   });
 });
 
+describe("mediodiaChile vs. el atajo ingenuo", () => {
+  it("un <input type=\"date\" no se puede pasar por new Date().toISOString()", () => {
+    // Este era el bug del wizard: new Date("2026-09-05") parsea como medianoche
+    // UTC, que en Chile todavia es el 4 a las 20:00. La fecha de entrega
+    // prometida se guardaba corrida un dia para atras.
+    const elegido = "2026-09-05";
+
+    const ingenuo = new Date(elegido).toISOString();
+    expect(ingenuo).toBe("2026-09-05T00:00:00.000Z");
+    expect(fechaEnChile(new Date(ingenuo))).toBe("2026-09-04"); // <- corrido
+
+    const correcto = mediodiaChile(elegido);
+    expect(fechaEnChile(new Date(correcto))).toBe("2026-09-05");
+  });
+
+  it("aguanta el dia del cambio de hora", () => {
+    // El 6-sep-2026 arranca el horario de verano; al mediodia ya no importa.
+    expect(fechaEnChile(new Date(mediodiaChile("2026-09-06")))).toBe("2026-09-06");
+  });
+});
+
 describe("fechaEnChile", () => {
   it("de noche el dia sigue siendo el de Chile, no el UTC", () => {
     // 22:30 del 3-sep en Chile ya es 4-sep en UTC.

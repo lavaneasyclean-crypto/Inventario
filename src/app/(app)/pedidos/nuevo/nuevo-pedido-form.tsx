@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { mediodiaChile } from "@/lib/fecha";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +65,7 @@ export function NuevoPedidoForm({
         direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
           .filter(Boolean)
           .join(", ") || null,
-        fecha_entrega:  fechaEntrega ? new Date(fechaEntrega).toISOString() : null,
+        fecha_entrega:  fechaEntrega ? mediodiaChile(fechaEntrega) : null,
         notas:          notas.trim() || null,
         pagado:         pagar,
         forma_pago:     pagar ? formaPago : "no_pago",
