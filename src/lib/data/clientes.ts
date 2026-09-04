@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { filtroContienePorCampo } from "@/lib/postgrest";
 import type { Cliente, Pedido } from "@/lib/types";
 
 const SEARCH_LIMIT = 50;
@@ -25,10 +26,12 @@ export async function searchClientes(query: string): Promise<ClienteResultado[]>
   if (q) {
     // Normalizar RUT: si parece un RUT, quitar puntos para matchear formato canónico
     const rutNorm = q.replace(/\./g, "").toUpperCase();
-    const term = `%${q}%`;
-    const rutTerm = `%${rutNorm}%`;
     baseQuery = baseQuery.or(
-      `rut.ilike.${rutTerm},nombre.ilike.${term},telefono.ilike.${term}`,
+      filtroContienePorCampo([
+        ["rut", rutNorm],
+        ["nombre", q],
+        ["telefono", q],
+      ]),
     );
   }
 

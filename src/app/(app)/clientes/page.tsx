@@ -45,7 +45,7 @@ export default async function ClientesPage({
 
       {q && resultados.length === 0 ? (
         <div className="rounded-xl border bg-background p-12 text-center">
-          <p className="text-base font-medium">Sin resultados para "{q}"</p>
+          <p className="text-base font-medium">Sin resultados para “{q}”</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Probá con otra parte del nombre, el RUT sin puntos o el teléfono.
           </p>

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 
 const inputSchema = z.object({
   rut_empresa: z.string().min(1, "Empresa requerida"),
@@ -44,57 +45,37 @@ export async function crearPedidoEmpresa(
     step = "supabase";
     const supabase = await createClient();
 
-    step = "next-id";
-    const { data: lastRows } = await supabase
-      .from("pedidos_empresa")
-      .select("id")
-      .order("id", { ascending: false })
-      .limit(1);
-    const nextId = ((lastRows?.[0]?.id as number | undefined) ?? 0) + 1;
-
-    step = "insert-pedido";
-    const { data: pedidoRow, error: e1 } = await supabase
-      .from("pedidos_empresa")
-      .insert({
-        id:          nextId,
-        rut_empresa: data.rut_empresa,
-        alias:       data.alias,
-        fecha:       data.fecha,
-        detalle:     data.detalle,
-      })
-      .select("id")
-      .single();
-
-    if (e1 || !pedidoRow) {
-      return {
-        ok: false,
-        error: e1?.message ?? "No se pudo crear el pedido",
-      };
-    }
-    const pedidoId = pedidoRow.id as number;
-
-    step = "insert-items";
-    const { error: e2 } = await supabase.from("pedidos_empresa_items").insert(
-      data.items.map((it) => ({
-        pedido_empresa_id:        pedidoId,
-        producto_empresa_id:      it.producto_empresa_id,
-        producto_empresa_nombre:  it.nombre,
-        precio_unidad:            it.precio_unidad,
-        importe:
-          it.precio_unidad === null ? null : it.precio_unidad * it.cantidad,
-        cantidad:                 it.cantidad,
-        detalle_prenda:           it.detalle,
-      })),
+    step = "rpc-crear-pedido-empresa";
+    // crear_pedido_empresa (migrations/0006) hace pedido + items en una sola
+    // transacción y deja que la secuencia asigne el id.
+    const { data: nuevoId, error } = await supabase.rpc(
+      "crear_pedido_empresa",
+      {
+        p_pedido: {
+          rut_empresa: data.rut_empresa,
+          alias:       data.alias,
+          fecha:       data.fecha,
+          detalle:     data.detalle,
+        },
+        p_items: data.items.map((it) => ({
+          producto_empresa_id:     it.producto_empresa_id,
+          producto_empresa_nombre: it.nombre,
+          precio_unidad:           it.precio_unidad,
+          cantidad:                it.cantidad,
+          detalle_prenda:          it.detalle,
+        })),
+      },
     );
-    if (e2) {
-      await supabase.from("pedidos_empresa").delete().eq("id", pedidoId);
-      return { ok: false, error: `Error guardando items: ${e2.message}` };
+
+    if (error) return fallo("crearPedidoEmpresa", step, error);
+
+    const pedidoId = Number(nuevoId);
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      return { ok: false, error: "No se pudo crear el pedido (sin id)" };
     }
 
     return { ok: true, id: pedidoId };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crearPedidoEmpresa] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("crearPedidoEmpresa", step, err);
   }
 }

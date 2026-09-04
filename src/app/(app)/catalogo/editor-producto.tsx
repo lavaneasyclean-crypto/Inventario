@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,22 +96,27 @@ function ProductoDialog({
   const [precio, setPrecio] = useState<string>("0");
   const [activo, setActivo] = useState(true);
 
-  // Reset al abrir
-  useEffect(() => {
-    if (!open) return;
-    if (mode === "edit" && producto) {
-      setNombre(producto.nombre);
-      setTipo(producto.tipo_servicio);
-      setPrecio(String(producto.precio));
-      setActivo(producto.activo);
-    } else {
-      setNombre("");
-      setTipo("lavado");
-      setPrecio("0");
-      setActivo(true);
+  // Reset al abrir. Se ajusta durante el render y no en un efecto: no hay
+  // ningún sistema externo con el que sincronizar, y en un efecto React tiene
+  // que pintar el diálogo con los valores viejos antes de corregirlos.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) {
+      if (mode === "edit" && producto) {
+        setNombre(producto.nombre);
+        setTipo(producto.tipo_servicio);
+        setPrecio(String(producto.precio));
+        setActivo(producto.activo);
+      } else {
+        setNombre("");
+        setTipo("lavado");
+        setPrecio("0");
+        setActivo(true);
+      }
+      setError(null);
     }
-    setError(null);
-  }, [open, mode, producto]);
+  }
 
   const submit = async () => {
     setError(null);

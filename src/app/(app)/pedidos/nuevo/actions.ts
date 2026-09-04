@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 import type { TipoServicio } from "@/lib/types";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
@@ -64,22 +65,15 @@ export async function crearPedido(
       0,
     );
 
-    step = "select-max-id";
-    const { data: lastRows, error: eMax } = await supabase
-      .from("pedidos")
-      .select("id")
-      .order("id", { ascending: false })
-      .limit(1);
-    if (eMax) {
-      return { ok: false, error: `Error consultando último id: ${eMax.message}` };
-    }
-    const nextId = ((lastRows?.[0]?.id as number | undefined) ?? 0) + 1;
+    const ahora = new Date().toISOString();
 
-    step = "insert-pedido";
-    const { data: pedidoRow, error: e1 } = await supabase
-      .from("pedidos")
-      .insert({
-        id:              nextId,
+    step = "rpc-crear-pedido";
+    // crear_pedido (migrations/0006) inserta el pedido y sus items en una
+    // sola transacción y deja que la secuencia asigne el id. Antes esto eran
+    // tres viajes: max(id)+1, insert del pedido e insert de los items, con un
+    // delete "a mano" si lo último fallaba.
+    const { data: nuevoId, error } = await supabase.rpc("crear_pedido", {
+      p_pedido: {
         rut_cliente:     data.rut_cliente,
         nombre_cliente:  data.nombre_cliente,
         contacto:        data.contacto,
@@ -89,53 +83,32 @@ export async function crearPedido(
         forma_pago:      data.pagado ? data.forma_pago : "no_pago",
         monto_abonado:   data.pagado ? total : 0,
         total_venta:     total,
-        aviso_enviado:   false,
-        fecha_recepcion: new Date().toISOString(),
-        fecha_pago:      data.pagado ? new Date().toISOString() : null,
+        fecha_recepcion: ahora,
+        fecha_pago:      data.pagado ? ahora : null,
         fecha_entrega:   data.fecha_entrega ?? null,
         notas:           data.notas,
-      })
-      .select("id")
-      .single();
-
-    if (e1 || !pedidoRow) {
-      return {
-        ok: false,
-        error: e1?.message ?? "No se pudo crear el pedido (sin detalle)",
-      };
-    }
-
-    const pedidoId = pedidoRow.id as number;
-
-    step = "insert-items";
-    const { error: e2 } = await supabase.from("pedidos_items").insert(
-      data.items.map((it) => ({
-        pedido_id:              pedidoId,
+      },
+      p_items: data.items.map((it) => ({
         producto_id:            it.producto_id,
         producto_nombre:        it.nombre,
         producto_tipo_servicio: it.tipo_servicio as TipoServicio,
         precio_unidad:          it.precio_unidad,
         cantidad:               it.cantidad,
-        importe:                it.precio_unidad * it.cantidad,
         detalle_prenda:         it.detalle,
       })),
-    );
+    });
 
-    if (e2) {
-      await supabase.from("pedidos").delete().eq("id", pedidoId);
-      return { ok: false, error: `Error guardando items: ${e2.message}` };
+    if (error) return fallo("crearPedido", step, error);
+
+    const pedidoId = Number(nuevoId);
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      return { ok: false, error: "No se pudo crear el pedido (sin id)" };
     }
 
     step = "done";
     return { ok: true, id: pedidoId };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : "";
-    console.error(`[crearPedido] step=${step} err=`, msg, stack);
-    return {
-      ok: false,
-      error: `Error inesperado en el paso "${step}": ${msg}`,
-    };
+    return fallo("crearPedido", step, err);
   }
 }
 
@@ -176,32 +149,49 @@ export async function crearCliente(
     step = "supabase-client";
     const supabase = await createClient();
 
-    step = "upsert";
-    const { error } = await supabase.from("clientes").upsert(
-      {
-        rut:      data.rut,
-        nombre:   data.nombre,
-        telefono: data.telefono || null,
-        correo:   data.correo || null,
-        comuna:   data.comuna || null,
-        calle:    data.calle || null,
-        dpto:     data.dpto || null,
-      },
-      { onConflict: "rut" },
-    );
+    // Antes esto era un upsert, y como el wizard manda null en todo lo que no
+    // se llenó, tipear un RUT ya existente borraba el teléfono, el correo y la
+    // dirección que ya estaban guardados. Ahora se escribe solo lo que el
+    // usuario efectivamente completó.
+    const campos = {
+      nombre:   data.nombre,
+      telefono: data.telefono || null,
+      correo:   data.correo || null,
+      comuna:   data.comuna || null,
+      calle:    data.calle || null,
+      dpto:     data.dpto || null,
+    };
 
-    if (error) return { ok: false, error: error.message };
+    step = "buscar-existente";
+    const { data: existente, error: eSel } = await supabase
+      .from("clientes")
+      .select("rut")
+      .eq("rut", data.rut)
+      .maybeSingle();
+    if (eSel) return fallo("crearCliente", step, eSel);
+
+    if (existente) {
+      step = "update";
+      const parche = Object.fromEntries(
+        Object.entries(campos).filter(([, v]) => v !== null),
+      );
+      const { error } = await supabase
+        .from("clientes")
+        .update(parche)
+        .eq("rut", data.rut);
+      if (error) return fallo("crearCliente", step, error);
+    } else {
+      step = "insert";
+      const { error } = await supabase
+        .from("clientes")
+        .insert({ rut: data.rut, ...campos });
+      if (error) return fallo("crearCliente", step, error);
+    }
 
     step = "done";
     return { ok: true, rut: data.rut };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : "";
-    console.error(`[crearCliente] step=${step} err=`, msg, stack);
-    return {
-      ok: false,
-      error: `Error inesperado en el paso "${step}": ${msg}`,
-    };
+    return fallo("crearCliente", step, err);
   }
 }
 

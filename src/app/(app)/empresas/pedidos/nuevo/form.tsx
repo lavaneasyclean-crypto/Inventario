@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { hoyEnChile, mediodiaChile } from "@/lib/fecha";
 import Link from "next/link";
 import { Building2, Check, Plus, Search, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,16 +45,19 @@ export function NuevoPedidoEmpresaForm({
   const [error, setError] = useState<string | null>(null);
 
   const [empresa, setEmpresa] = useState<ClienteEmpresa | null>(empresaInicial);
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(hoyEnChile);
   const [detalle, setDetalle] = useState("");
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
   const [productoFocused, setProductoFocused] = useState(false);
   const productoInputRef = useRef<HTMLInputElement>(null);
 
-  const productosDeEsta = empresa
-    ? productosByEmpresa[empresa.rut] ?? []
-    : [];
+  // Memoizado porque es dependencia del useMemo de abajo: sin esto la lista
+  // es un array nuevo en cada render y el filtro se recalcula siempre.
+  const productosDeEsta = useMemo(
+    () => (empresa ? productosByEmpresa[empresa.rut] ?? [] : []),
+    [empresa, productosByEmpresa],
+  );
 
   const filtered = useMemo(() => {
     const q = productoQuery.trim().toLowerCase();
@@ -122,7 +126,7 @@ export function NuevoPedidoEmpresaForm({
       const res = await crearPedidoEmpresa({
         rut_empresa: empresa.rut,
         alias: empresa.alias,
-        fecha: new Date(`${fecha}T12:00:00-03:00`).toISOString(),
+        fecha: mediodiaChile(fecha),
         detalle: detalle.trim() || null,
         items: items.map((it) => ({
           producto_empresa_id: it.producto_empresa_id,

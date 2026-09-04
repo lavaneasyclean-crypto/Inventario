@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
+import { filtroContiene } from "@/lib/postgrest";
 import type {
   ClienteEmpresa,
   PedidoEmpresa,
@@ -25,9 +27,11 @@ export async function searchEmpresas(query: string): Promise<EmpresaResultado[]>
     .limit(SEARCH_LIMIT);
 
   if (q) {
-    const term = `%${q}%`;
     baseQuery = baseQuery.or(
-      `rut.ilike.${term},nombre.ilike.${term},alias.ilike.${term},contacto_1.ilike.${term},contacto_2.ilike.${term}`,
+      filtroContiene(
+        ["rut", "nombre", "alias", "contacto_1", "contacto_2"],
+        q,
+      ),
     );
   }
 
@@ -84,7 +88,7 @@ export async function getEmpresaDetalle(
   const pedidos = (pedidosRes.data ?? []) as PedidoEmpresa[];
   const pedidoIds = pedidos.map((p) => p.id);
 
-  let itemsByPedido = new Map<number, { count: number; unidades: number }>();
+  const itemsByPedido = new Map<number, { count: number; unidades: number }>();
   if (pedidoIds.length > 0) {
     const { data: items } = await supabase
       .from("pedidos_empresa_items")
@@ -172,13 +176,11 @@ export async function getPedidosEmpresaParaFacturacion(
     .order("fecha", { ascending: true })
     .limit(500);
 
-  if (filtros.desde) {
-    q = q.gte("fecha", `${filtros.desde}T00:00:00-03:00`);
+  if (esFechaValida(filtros.desde)) {
+    q = q.gte("fecha", inicioDeDiaChile(filtros.desde));
   }
-  if (filtros.hasta) {
-    const d = new Date(`${filtros.hasta}T00:00:00-03:00`);
-    d.setDate(d.getDate() + 1);
-    q = q.lt("fecha", d.toISOString());
+  if (esFechaValida(filtros.hasta)) {
+    q = q.lt("fecha", finDeDiaChile(filtros.hasta));
   }
   if (filtros.idDesde !== undefined) {
     q = q.gte("id", filtros.idDesde);

@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
+import { filtroContiene } from "@/lib/postgrest";
 import type { EstadoPedido, Pedido, PedidoItem } from "@/lib/types";
 
 export interface DashboardData {
@@ -90,9 +92,7 @@ export async function searchPedidos(
     if (/^\d+$/.test(term)) {
       query = query.eq("id", Number(term));
     } else {
-      query = query.or(
-        `nombre_cliente.ilike.%${term}%,rut_cliente.ilike.%${term}%`,
-      );
+      query = query.or(filtroContiene(["nombre_cliente", "rut_cliente"], term));
     }
   }
 
@@ -103,14 +103,14 @@ export async function searchPedidos(
   if (f.pago === "pagado") query = query.eq("pagado", true);
   if (f.pago === "sin_pagar") query = query.eq("pagado", false);
 
-  if (f.desde) {
-    query = query.gte("fecha_recepcion", `${f.desde}T00:00:00-03:00`);
+  // Los rangos vienen de la query string, así que se descarta lo que no sea
+  // una fecha real en vez de mandarle basura a Postgres.
+  if (esFechaValida(f.desde)) {
+    query = query.gte("fecha_recepcion", inicioDeDiaChile(f.desde));
   }
-  if (f.hasta) {
-    // hasta inclusivo: límite es el inicio del día siguiente
-    const d = new Date(`${f.hasta}T00:00:00-03:00`);
-    d.setDate(d.getDate() + 1);
-    query = query.lt("fecha_recepcion", d.toISOString());
+  if (esFechaValida(f.hasta)) {
+    // "hasta" es inclusivo: el límite es el inicio del día siguiente.
+    query = query.lt("fecha_recepcion", finDeDiaChile(f.hasta));
   }
 
   const from = (page - 1) * pageSize;

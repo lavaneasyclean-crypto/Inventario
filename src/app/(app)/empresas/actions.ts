@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
 
@@ -83,14 +84,12 @@ export async function crearEmpresa(
       correo:     data.correo || null,
       activo:     data.activo,
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("crearEmpresa", step, error);
 
     revalidatePath("/empresas");
     return { ok: true, rut: data.rut };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crearEmpresa] step=${step}`, err);
-    return { ok: false, error: `Error inesperado en "${step}": ${msg}` };
+    return fallo("crearEmpresa", step, err);
   }
 }
 
@@ -128,14 +127,12 @@ export async function actualizarEmpresa(
       })
       .eq("rut", rut);
 
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("actualizarEmpresa", step, error);
 
     revalidatePath("/empresas");
     revalidatePath(`/empresas/${rut}`);
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[actualizarEmpresa] step=${step}`, err);
-    return { ok: false, error: `Error inesperado en "${step}": ${msg}` };
+    return fallo("actualizarEmpresa", step, err);
   }
 }

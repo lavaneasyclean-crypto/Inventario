@@ -3,31 +3,11 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 
 export type ProductoEmpresaActionResult =
   | { ok: true }
   | { ok: false; error: string };
-
-/**
- * Genera el siguiente ID secuencial global para productos_empresa.
- * Mantiene el formato de 3 dígitos del Access (001, 002, ..., 999).
- * Si se llega a 999 cae al formato libre con timestamp.
- */
-async function generarIdProductoEmpresa(): Promise<string> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("productos_empresa").select("id");
-  let max = 0;
-  for (const row of data ?? []) {
-    const id = (row as { id: string }).id;
-    if (/^\d+$/.test(id)) {
-      const n = parseInt(id, 10);
-      if (n > max) max = n;
-    }
-  }
-  const next = max + 1;
-  if (next < 1000) return String(next).padStart(3, "0");
-  return `EMP${Date.now()}`;
-}
 
 const asignarSchema = z.object({
   rut_empresa:         z.string().min(1),
@@ -60,14 +40,12 @@ export async function asignarProducto(
       },
       { onConflict: "rut_empresa,producto_empresa_id" },
     );
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("asignarProducto", step, error);
 
     revalidatePath(`/empresas/${data.rut_empresa}`);
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[asignarProducto] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("asignarProducto", step, err);
   }
 }
 
@@ -93,41 +71,40 @@ export async function crearYAsignarProducto(
     step = "supabase";
     const supabase = await createClient();
 
-    step = "generar-id";
-    let id = await generarIdProductoEmpresa();
-
-    step = "insert-producto";
-    let { error: e1 } = await supabase
-      .from("productos_empresa")
-      .insert({ id, nombre: data.nombre, activo: true });
-
-    // Reintenta una vez si hay colisión rara
-    if (e1 && e1.message.toLowerCase().includes("duplicate")) {
-      id = await generarIdProductoEmpresa();
-      ({ error: e1 } = await supabase
-        .from("productos_empresa")
-        .insert({ id, nombre: data.nombre, activo: true }));
-    }
-    if (e1) return { ok: false, error: e1.message };
-
-    step = "asignar";
-    const { error: e2 } = await supabase.from("empresa_productos").insert({
-      rut_empresa:         data.rut_empresa,
-      producto_empresa_id: id,
-      precio:              data.precio,
+    step = "rpc-crear-producto";
+    // crear_producto_empresa (migrations/0007) numera con una secuencia, se
+    // niega a repetir un nombre y crea el producto junto con su asignación en
+    // una sola transacción. Antes esto eran tres viajes: traer todos los ids
+    // del catálogo para sacar el máximo, insertar el producto e insertarlo en
+    // la empresa, con un borrado de compensación si lo último fallaba.
+    const { data: id, error } = await supabase.rpc("crear_producto_empresa", {
+      p_rut_empresa: data.rut_empresa,
+      p_nombre:      data.nombre,
+      p_precio:      data.precio,
     });
-    if (e2) {
-      // Rollback del producto si falla la asignación
-      await supabase.from("productos_empresa").delete().eq("id", id);
-      return { ok: false, error: e2.message };
+
+    if (error) {
+      // La función levanta unique_violation cuando el nombre ya está en el
+      // catálogo. Es el único 23505 que puede salir de acá: el choque de id se
+      // reintenta adentro y cualquier otro se propaga con su propio código.
+      if (error.code === "23505") {
+        return {
+          ok: false,
+          error:
+            "Ya existe un producto con ese nombre en el catálogo. Buscalo en la pestaña del catálogo en vez de crearlo de nuevo.",
+        };
+      }
+      return fallo("crearYAsignarProducto", step, error);
+    }
+
+    if (typeof id !== "string" || !id) {
+      return { ok: false, error: "No se pudo crear el producto." };
     }
 
     revalidatePath(`/empresas/${data.rut_empresa}`);
     return { ok: true, id };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crearYAsignarProducto] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("crearYAsignarProducto", step, err);
   }
 }
 
@@ -158,13 +135,11 @@ export async function desasignarProducto(
       .delete()
       .eq("rut_empresa", data.rut_empresa)
       .eq("producto_empresa_id", data.producto_empresa_id);
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("desasignarProducto", step, error);
 
     revalidatePath(`/empresas/${data.rut_empresa}`);
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[desasignarProducto] step=${step}`, err);
-    return { ok: false, error: `Error en "${step}": ${msg}` };
+    return fallo("desasignarProducto", step, err);
   }
 }

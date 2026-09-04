@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Search, X, UserPlus, User, Phone, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { filtroContienePorCampo } from "@/lib/postgrest";
 import {
   Dialog,
   DialogContent,
@@ -36,39 +37,39 @@ export function SelectorCliente({
   const [results, setResults] = useState<Cliente[]>([]);
   const [searching, setSearching] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Al elegir un cliente el buscador se limpia. Ajustado durante el render en
+  // vez de en un efecto: no hay sistema externo con el que sincronizar.
+  const [clientePrevio, setClientePrevio] = useState(cliente);
+  if (cliente !== clientePrevio) {
+    setClientePrevio(cliente);
+    if (cliente) setQuery("");
+  }
 
   useEffect(() => {
-    if (cliente) {
-      setQuery("");
-      setResults([]);
-      return;
-    }
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
+    if (cliente || !query.trim()) return;
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
+    // El propio cleanup del efecto cancela el debounce pendiente.
+    const debounce = setTimeout(async () => {
       setSearching(true);
       const supabase = createClient();
-      const term = `%${query}%`;
-      const rutTerm = `%${normalizeRut(query)}%`;
       const { data } = await supabase
         .from("clientes")
         .select("rut, nombre, telefono, correo, comuna, calle, dpto")
         .or(
-          `rut.ilike.${rutTerm},nombre.ilike.${term},telefono.ilike.${term}`,
+          filtroContienePorCampo([
+            // normalizeRut devuelve null mientras el texto no parezca un RUT.
+            ["rut", normalizeRut(query) ?? query],
+            ["nombre", query],
+            ["telefono", query],
+          ]),
         )
         .limit(8);
       setResults((data ?? []) as Cliente[]);
       setSearching(false);
     }, 200);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => clearTimeout(debounce);
   }, [query, cliente]);
 
   if (cliente) {
@@ -191,7 +192,10 @@ function CrearClienteDialog({
   const [calle, setCalle] = useState("");
   const [dpto, setDpto] = useState("");
 
-  useEffect(() => {
+  // Reset al abrir, ajustado durante el render en vez de en un efecto.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
     if (open) {
       setRut(RUT_RE.test(rutHint) ? rutHint : "");
       setNombre("");
@@ -202,7 +206,7 @@ function CrearClienteDialog({
       setDpto("");
       setError(null);
     }
-  }, [open, rutHint]);
+  }
 
   const handleSubmit = () => {
     setError(null);

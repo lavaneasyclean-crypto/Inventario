@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { fallo } from "@/lib/errores";
 import type { Producto, TipoServicio } from "@/lib/types";
 import { nextProductoId, PREFIX_BY_TIPO } from "@/lib/producto-id";
 
@@ -104,7 +105,7 @@ export async function crearProducto(
         return { ok: true, id };
       }
       if (!error.message.toLowerCase().includes("duplicate")) {
-        return { ok: false, error: error.message };
+        return fallo("crearProducto", step, error);
       }
       lastError = error.message;
     }
@@ -113,9 +114,7 @@ export async function crearProducto(
       error: lastError ?? "No se pudo generar un ID unico",
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crearProducto] step=${step}`, err);
-    return { ok: false, error: `Error inesperado en "${step}": ${msg}` };
+    return fallo("crearProducto", step, err);
   }
 }
 
@@ -151,7 +150,7 @@ export async function actualizarProducto(
       .from("productos")
       .update(data)
       .eq("id", id);
-    if (error) return { ok: false, error: error.message };
+    if (error) return fallo("actualizarProducto", step, error);
 
     step = "audit";
     const accion =
@@ -167,8 +166,6 @@ export async function actualizarProducto(
     revalidatePath("/catalogo");
     return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[actualizarProducto] step=${step}`, err);
-    return { ok: false, error: `Error inesperado en "${step}": ${msg}` };
+    return fallo("actualizarProducto", step, err);
   }
 }
