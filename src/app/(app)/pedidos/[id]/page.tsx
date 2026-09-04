@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
-import { BellRing, Phone, MapPin, User } from "lucide-react";
+import {
+  BellRing,
+  CalendarClock,
+  MapPin,
+  PackageCheck,
+  Phone,
+  User,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
 import { getPedidoDetalle } from "@/lib/data/pedidos";
-import { formatCLP, formatDate } from "@/lib/format";
+import { formatCLP, formatDate, formatDateShort } from "@/lib/format";
 import {
   ESTADO_LABELS,
   FORMA_PAGO_LABELS,
@@ -60,9 +67,21 @@ export default async function PedidoDetallePage({
               </Badge>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Recibido el {formatDate(pedido.fecha_recepcion)}
-          </p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <span>Recibido el {formatDate(pedido.fecha_recepcion)}</span>
+            {pedido.fecha_entrega && (
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarClock className="size-4" />
+                Entrega prometida: {formatDateShort(pedido.fecha_entrega)}
+              </span>
+            )}
+            {pedido.fecha_retiro && (
+              <span className="inline-flex items-center gap-1.5">
+                <PackageCheck className="size-4" />
+                Retirado el {formatDate(pedido.fecha_retiro)}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
