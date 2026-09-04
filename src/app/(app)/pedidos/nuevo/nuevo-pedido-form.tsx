@@ -17,7 +17,13 @@ import {
 import type { Cliente, FormaPago, Producto } from "@/lib/types";
 import { FORMA_PAGO_LABELS } from "@/lib/types";
 import { SelectorCliente } from "./selector-cliente";
-import { SelectorItems, type ItemDraft } from "./selector-items";
+import {
+  SelectorItems,
+  importeDeItem,
+  itemsSinMedida,
+  parseMedida,
+  type ItemDraft,
+} from "./selector-items";
 import { crearPedido } from "./actions";
 
 export function NuevoPedidoForm({
@@ -38,11 +44,11 @@ export function NuevoPedidoForm({
   const [pagar, setPagar] = useState(false);
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
 
-  const total = items.reduce(
-    (s, it) => s + it.precio_unidad * it.cantidad,
-    0,
-  );
-  const canSubmit = !!cliente && items.length > 0 && !loading;
+  const total = items.reduce((s, it) => s + (importeDeItem(it) ?? 0), 0);
+  // Una alfombra sin medidas no tiene precio: no se puede cerrar el pedido.
+  const sinMedida = itemsSinMedida(items);
+  const canSubmit =
+    !!cliente && items.length > 0 && sinMedida.length === 0 && !loading;
 
   const handleSubmit = async () => {
     if (!cliente) {
@@ -51,6 +57,12 @@ export function NuevoPedidoForm({
     }
     if (items.length === 0) {
       setError("Agregá al menos un item.");
+      return;
+    }
+    if (sinMedida.length > 0) {
+      setError(
+        `Falta la medida de: ${sinMedida.map((it) => it.nombre).join(", ")}.`,
+      );
       return;
     }
     setError(null);
@@ -73,6 +85,9 @@ export function NuevoPedidoForm({
           producto_id:   it.producto_id,
           nombre:        it.nombre,
           tipo_servicio: it.tipo_servicio,
+          unidad_cobro:  it.unidad_cobro,
+          ancho:         parseMedida(it.ancho),
+          largo:         parseMedida(it.largo),
           precio_unidad: it.precio_unidad,
           cantidad:      it.cantidad,
           detalle:       it.detalle.trim() || null,

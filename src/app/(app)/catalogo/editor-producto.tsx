@@ -12,6 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  UNIDAD_COBRO_LABELS,
+  UNIDAD_PRECIO_LABELS,
+  type UnidadCobro,
+} from "@/lib/medidas";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -94,6 +99,7 @@ function ProductoDialog({
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<TipoServicio>("lavado");
   const [precio, setPrecio] = useState<string>("0");
+  const [unidad, setUnidad] = useState<UnidadCobro>("unidad");
   const [activo, setActivo] = useState(true);
 
   // Reset al abrir. Se ajusta durante el render y no en un efecto: no hay
@@ -107,11 +113,13 @@ function ProductoDialog({
         setNombre(producto.nombre);
         setTipo(producto.tipo_servicio);
         setPrecio(String(producto.precio));
+        setUnidad(producto.unidad_cobro);
         setActivo(producto.activo);
       } else {
         setNombre("");
         setTipo("lavado");
         setPrecio("0");
+        setUnidad("unidad");
         setActivo(true);
       }
       setError(null);
@@ -135,6 +143,7 @@ function ProductoDialog({
           nombre: nombre.trim(),
           tipo_servicio: tipo,
           precio: precioNum,
+          unidad_cobro: unidad,
           activo,
         });
       } else {
@@ -142,6 +151,7 @@ function ProductoDialog({
           nombre: nombre.trim(),
           tipo_servicio: tipo,
           precio: precioNum,
+          unidad_cobro: unidad,
           activo,
         });
       }
@@ -212,7 +222,9 @@ function ProductoDialog({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="prod-precio">Precio (CLP)</Label>
+              <Label htmlFor="prod-precio">
+                Precio (CLP) {UNIDAD_PRECIO_LABELS[unidad]}
+              </Label>
               <Input
                 id="prod-precio"
                 type="number"
@@ -224,6 +236,30 @@ function ProductoDialog({
                 Puede ser negativo si es un descuento.
               </p>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prod-unidad">Cómo se cobra</Label>
+            <Select
+              value={unidad}
+              onValueChange={(v) => setUnidad((v as UnidadCobro) ?? "unidad")}
+            >
+              <SelectTrigger id="prod-unidad">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["unidad", "m2", "metro_lineal"] as const).map((u) => (
+                  <SelectItem key={u} value={u}>
+                    {UNIDAD_COBRO_LABELS[u]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Las alfombras suelen ir por m² y las cortinas por metro lineal. Al
+              tomar el pedido se piden las medidas y el precio sale de
+              multiplicar, redondeando hacia arriba al medio metro.
+            </p>
           </div>
 
           <label className="mt-1 flex items-center gap-2 text-sm">

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
 import { getPedidoDetalle } from "@/lib/data/pedidos";
 import { formatCLP, formatDate, formatDateShort } from "@/lib/format";
+import { UNIDAD_PRECIO_LABELS, describirMedida } from "@/lib/medidas";
 import {
   ESTADO_LABELS,
   FORMA_PAGO_LABELS,
@@ -141,7 +142,16 @@ export default async function PedidoDetallePage({
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {TIPO_SERVICIO_LABELS[it.producto_tipo_servicio]} ·{" "}
-                      {formatCLP(it.precio_unidad)} c/u
+                      {formatCLP(it.precio_unidad)}{" "}
+                      {UNIDAD_PRECIO_LABELS[it.unidad_cobro]}
+                      {(() => {
+                        const medida = describirMedida(
+                          it.unidad_cobro,
+                          it.ancho === null ? null : Number(it.ancho),
+                          it.largo === null ? null : Number(it.largo),
+                        );
+                        return medida ? ` · ${medida}` : null;
+                      })()}
                     </div>
                   </div>
                   <div className="font-mono text-sm font-semibold tabular-nums">

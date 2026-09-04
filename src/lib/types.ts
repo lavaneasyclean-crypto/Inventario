@@ -1,3 +1,6 @@
+import type { UnidadCobro } from "./medidas";
+export type { UnidadCobro };
+
 /**
  * Tipos del dominio. No autogenerados — escritos a mano para mantener
  * legibilidad. Si crece la complejidad consideramos `supabase gen types`.
@@ -46,7 +49,12 @@ export interface PedidoItem {
   producto_id: string | null;
   producto_nombre: string;
   producto_tipo_servicio: TipoServicio;
+  /** Snapshot: cómo se cobraba el producto cuando se tomó el pedido. */
+  unidad_cobro: UnidadCobro;
+  ancho: string | null;
+  largo: string | null;
   precio_unidad: string;
+  /** Piezas. La medida va aparte, en ancho/largo. */
   cantidad: number;
   importe: string;
   detalle_prenda: string | null;
@@ -67,7 +75,9 @@ export interface Producto {
   id: string;
   nombre: string;
   tipo_servicio: TipoServicio;
+  /** Precio por unidad de cobro: por pieza, por m² o por metro lineal. */
   precio: number;
+  unidad_cobro: UnidadCobro;
   activo: boolean;
 }
 

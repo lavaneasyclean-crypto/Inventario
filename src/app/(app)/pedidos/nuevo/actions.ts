@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
+import { importeLinea } from "@/lib/medidas";
 import type { TipoServicio } from "@/lib/types";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
@@ -23,6 +24,9 @@ const inputSchema = z.object({
       "lavado","seco","planchado","manchas","aplicaciones",
       "ganchos","delivery","pedido_especial","descuento","secado",
     ]),
+    unidad_cobro:  z.enum(["unidad", "m2", "metro_lineal"]).default("unidad"),
+    ancho:         z.number().positive().nullable().default(null),
+    largo:         z.number().positive().nullable().default(null),
     precio_unidad: z.number(),
     cantidad:      z.number().int().positive("Cantidad debe ser > 0"),
     detalle:       z.string().nullable(),
@@ -60,10 +64,23 @@ export async function crearPedido(
     step = "supabase-client";
     const supabase = await createClient();
 
-    const total = data.items.reduce(
-      (s, it) => s + it.precio_unidad * it.cantidad,
-      0,
-    );
+    // Cada línea puede cobrarse por pieza, por m² o por metro lineal. La base
+    // recalcula el importe con la misma fórmula (migrations/0008); acá se
+    // necesita el total para el monto abonado cuando el pedido se paga al tomarlo.
+    let total = 0;
+    for (const it of data.items) {
+      const importe = importeLinea({
+        unidad:       it.unidad_cobro,
+        precioUnidad: it.precio_unidad,
+        cantidad:     it.cantidad,
+        ancho:        it.ancho,
+        largo:        it.largo,
+      });
+      if (importe === null) {
+        return { ok: false, error: `Falta la medida de "${it.nombre}"` };
+      }
+      total += importe;
+    }
 
     const ahora = new Date().toISOString();
 
@@ -92,6 +109,9 @@ export async function crearPedido(
         producto_id:            it.producto_id,
         producto_nombre:        it.nombre,
         producto_tipo_servicio: it.tipo_servicio as TipoServicio,
+        unidad_cobro:           it.unidad_cobro,
+        ancho:                  it.ancho,
+        largo:                  it.largo,
         precio_unidad:          it.precio_unidad,
         cantidad:               it.cantidad,
         detalle_prenda:         it.detalle,
