@@ -35,6 +35,7 @@ const baseSchema = z.object({
   nombre:        z.string().min(1, "Nombre requerido"),
   tipo_servicio: z.enum(TIPOS),
   precio:        z.number().int(),
+  unidad_cobro:  z.enum(["unidad", "m2", "metro_lineal"]),
   activo:        z.boolean(),
 });
 

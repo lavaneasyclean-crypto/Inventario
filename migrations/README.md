@@ -27,9 +27,10 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0005_pedidos_empresa_anulado.sql` | Columna `anulado` en `pedidos_empresa` |
 | `0006_crear_pedido_atomico.sql` | Funciones `crear_pedido` / `crear_pedido_empresa` + resync de secuencias |
 | `0007_producto_empresa_atomico.sql` | Función `crear_producto_empresa`, secuencia de numeración y nombres únicos en el catálogo |
+| `0008_productos_por_medida.sql` | `unidad_cobro` en productos, medidas en los items y `crear_pedido` recalculado |
 
-⚠️ **`0006` y `0007` hay que aplicarlas antes de desplegar el código que las
-usa.** La app crea los pedidos y los productos de empresa llamando a esas
+⚠️ **`0006`, `0007` y `0008` hay que aplicarlas antes de desplegar el código
+que las usa.** La app crea los pedidos y los productos de empresa llamando a esas
 funciones; si no existen todavía, los botones de guardar fallan con el aviso
 "falta aplicar una migración".
 

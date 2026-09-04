@@ -206,6 +206,109 @@ describe("crearPedido — lo que se manda a la base", () => {
   });
 });
 
+describe("crearPedido — productos por medida", () => {
+  function alfombra(extra: Record<string, unknown> = {}) {
+    return {
+      producto_id: "SC050",
+      nombre: "Alfombra base dura",
+      tipo_servicio: "lavado" as const,
+      unidad_cobro: "m2" as const,
+      ancho: 1.4,
+      largo: 2.1,
+      precio_unidad: 8000,
+      cantidad: 1,
+      detalle: null,
+      ...extra,
+    };
+  }
+
+  it("cobra la superficie redondeada al medio m2", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({ ...pedidoBase(), items: [alfombra()] });
+
+    const { p_pedido } = fake.rpcs[0].args as { p_pedido: Record<string, unknown> };
+    // 1,4 x 2,1 = 2,94 m2 -> se cobra 3,0 -> 3 x 8.000
+    expect(p_pedido.total_venta).toBe(24000);
+  });
+
+  it("manda las medidas y la unidad a la base", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({ ...pedidoBase(), items: [alfombra()] });
+
+    const { p_items } = fake.rpcs[0].args as { p_items: Record<string, unknown>[] };
+    expect(p_items[0]).toMatchObject({
+      unidad_cobro: "m2",
+      ancho: 1.4,
+      largo: 2.1,
+      precio_unidad: 8000,
+      cantidad: 1,
+    });
+    // El importe lo calcula la funcion SQL, no viaja desde acá.
+    expect(p_items[0]).not.toHaveProperty("importe");
+  });
+
+  it("una cortina solo necesita el largo", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({
+      ...pedidoBase(),
+      items: [
+        alfombra({
+          nombre: "Cortina",
+          unidad_cobro: "metro_lineal",
+          ancho: null,
+          largo: 2.3,
+          precio_unidad: 4000,
+        }),
+      ],
+    });
+
+    const { p_pedido } = fake.rpcs[0].args as { p_pedido: Record<string, unknown> };
+    expect(p_pedido.total_venta).toBe(10000); // 2,3 -> 2,5 x 4.000
+  });
+
+  it("multiplica por las piezas", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({
+      ...pedidoBase(),
+      items: [alfombra({ ancho: 2, largo: 3, cantidad: 2 })],
+    });
+
+    const { p_pedido } = fake.rpcs[0].args as { p_pedido: Record<string, unknown> };
+    expect(p_pedido.total_venta).toBe(96000); // 6 m2 x 2 piezas x 8.000
+  });
+
+  it("no deja cerrar el pedido si falta una medida", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    const res = await crearPedido({
+      ...pedidoBase(),
+      items: [alfombra({ largo: null })],
+    });
+
+    expect(res).toEqual({
+      ok: false,
+      error: 'Falta la medida de "Alfombra base dura"',
+    });
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it("los productos por unidad siguen andando sin medidas", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido(pedidoBase());
+
+    const { p_items } = fake.rpcs[0].args as { p_items: Record<string, unknown>[] };
+    expect(p_items[0]).toMatchObject({ unidad_cobro: "unidad", ancho: null, largo: null });
+  });
+
+  it("mezcla piezas y medidas en el mismo pedido", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    const base = pedidoBase();
+    await crearPedido({ ...base, items: [base.items[0], alfombra()] });
+
+    const { p_pedido } = fake.rpcs[0].args as { p_pedido: Record<string, unknown> };
+    expect(p_pedido.total_venta).toBe(3500 * 2 + 24000);
+  });
+});
+
 describe("crearPedido — errores", () => {
   it("no filtra el mensaje crudo de Postgres a la pantalla", async () => {
     montar({

@@ -6,7 +6,7 @@ export async function getProductosActivos(): Promise<Producto[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("productos")
-    .select("id, nombre, tipo_servicio, precio, activo")
+    .select("id, nombre, tipo_servicio, precio, unidad_cobro, activo")
     .eq("activo", true)
     .order("tipo_servicio", { ascending: true })
     .order("nombre", { ascending: true });
@@ -18,7 +18,7 @@ export async function getAllProductos(): Promise<Producto[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("productos")
-    .select("id, nombre, tipo_servicio, precio, activo")
+    .select("id, nombre, tipo_servicio, precio, unidad_cobro, activo")
     .order("activo", { ascending: false })
     .order("tipo_servicio", { ascending: true })
     .order("nombre", { ascending: true });

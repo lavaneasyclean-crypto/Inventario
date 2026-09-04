@@ -5,6 +5,13 @@ import { Search, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatCLP } from "@/lib/format";
+import {
+  UNIDAD_PRECIO_LABELS,
+  describirMedida,
+  importeLinea,
+  medidasQueRequiere,
+  type UnidadCobro,
+} from "@/lib/medidas";
 import type { Producto } from "@/lib/types";
 import { TIPO_SERVICIO_LABELS } from "@/lib/types";
 
@@ -13,9 +20,39 @@ export interface ItemDraft {
   producto_id: string;
   nombre: string;
   tipo_servicio: Producto["tipo_servicio"];
+  unidad_cobro: UnidadCobro;
   precio_unidad: number;
+  /** Piezas. La medida de cada pieza va en ancho/largo. */
   cantidad: number;
+  /** Se guardan como texto: es lo que la persona va tipeando. */
+  ancho: string;
+  largo: string;
   detalle: string;
+}
+
+/**
+ * Las medidas se tipean, así que hay que tolerar el estado intermedio ("1,",
+ * vacío) y la coma decimal, que es lo natural en Chile.
+ */
+export function parseMedida(texto: string): number | null {
+  const n = parseFloat(texto.replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Importe de la línea, o null si todavía faltan medidas. */
+export function importeDeItem(it: ItemDraft): number | null {
+  return importeLinea({
+    unidad: it.unidad_cobro,
+    precioUnidad: it.precio_unidad,
+    cantidad: it.cantidad,
+    ancho: parseMedida(it.ancho),
+    largo: parseMedida(it.largo),
+  });
+}
+
+/** Los que todavía no se pueden cobrar porque les falta una medida. */
+export function itemsSinMedida(items: ItemDraft[]): ItemDraft[] {
+  return items.filter((it) => importeDeItem(it) === null);
 }
 
 export function SelectorItems({
@@ -43,7 +80,7 @@ export function SelectorItems({
   }, [productos, query]);
   const showDropdown = focused || query.trim().length > 0;
 
-  const total = items.reduce((s, it) => s + it.precio_unidad * it.cantidad, 0);
+  const total = items.reduce((s, it) => s + (importeDeItem(it) ?? 0), 0);
 
   const addItem = (p: Producto) => {
     const newItem: ItemDraft = {
@@ -51,8 +88,11 @@ export function SelectorItems({
       producto_id: p.id,
       nombre: p.nombre,
       tipo_servicio: p.tipo_servicio,
+      unidad_cobro: p.unidad_cobro,
       precio_unidad: p.precio,
       cantidad: 1,
+      ancho: "",
+      largo: "",
       detalle: "",
     };
     onChange([...items, newItem]);
@@ -87,7 +127,22 @@ export function SelectorItems({
                   <div className="font-medium">{it.nombre}</div>
                   <div className="text-xs text-muted-foreground">
                     {TIPO_SERVICIO_LABELS[it.tipo_servicio]} ·{" "}
-                    {formatCLP(it.precio_unidad)} c/u
+                    {formatCLP(it.precio_unidad)}{" "}
+                    {UNIDAD_PRECIO_LABELS[it.unidad_cobro]}
+                    {describirMedida(
+                      it.unidad_cobro,
+                      parseMedida(it.ancho),
+                      parseMedida(it.largo),
+                    ) && (
+                      <>
+                        {" · "}
+                        {describirMedida(
+                          it.unidad_cobro,
+                          parseMedida(it.ancho),
+                          parseMedida(it.largo),
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
                 <Button
@@ -101,10 +156,49 @@ export function SelectorItems({
                 </Button>
               </div>
 
+              {(() => {
+                const pide = medidasQueRequiere(it.unidad_cobro);
+                if (!pide.ancho && !pide.largo) return null;
+                return (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {pide.ancho && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-muted-foreground">
+                          Ancho (m)
+                        </label>
+                        <Input
+                          inputMode="decimal"
+                          value={it.ancho}
+                          onChange={(e) =>
+                            updateItem(it.key, { ancho: e.target.value })
+                          }
+                          placeholder="1,40"
+                          className="h-10"
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Largo (m)
+                      </label>
+                      <Input
+                        inputMode="decimal"
+                        value={it.largo}
+                        onChange={(e) =>
+                          updateItem(it.key, { largo: e.target.value })
+                        }
+                        placeholder="2,10"
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="mt-2 grid grid-cols-[100px_1fr] items-end gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Cantidad
+                    {it.unidad_cobro === "unidad" ? "Cantidad" : "Piezas"}
                   </label>
                   <Input
                     type="number"
@@ -134,10 +228,18 @@ export function SelectorItems({
               </div>
 
               <div className="mt-2 flex items-baseline justify-end gap-1 text-sm">
-                <span className="text-muted-foreground">Importe</span>
-                <span className="font-mono font-semibold tabular-nums">
-                  {formatCLP(it.precio_unidad * it.cantidad)}
-                </span>
+                {importeDeItem(it) === null ? (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    Falta la medida para calcular el precio
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-muted-foreground">Importe</span>
+                    <span className="font-mono font-semibold tabular-nums">
+                      {formatCLP(importeDeItem(it))}
+                    </span>
+                  </>
+                )}
               </div>
             </li>
           ))}
