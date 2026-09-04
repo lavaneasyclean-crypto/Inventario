@@ -63,7 +63,14 @@ Inventario/
    npm run dev
    ```
 
-## Deploy (Netlify)
+## Deploy
+
+Producción es **Netlify**. El repo también estuvo conectado a Vercel, que
+buildeaba en paralelo detrás de su propio SSO sin que nadie lo usara; `vercel.json`
+desactiva esos deploys. Para desconectarlo del todo hay que sacar el proyecto
+desde el dashboard de Vercel.
+
+### Netlify
 
 - Conectar el repo en Netlify
 - Variables de entorno: copiar las de `.env.local` (sin `SUPABASE_DB_URL`, no hace falta en runtime)
