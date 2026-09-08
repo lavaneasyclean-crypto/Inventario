@@ -36,7 +36,9 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
 import sys
+import unicodedata
 import urllib.request
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -62,6 +64,65 @@ PEDIDOS_DE_PRUEBA = [11868, 11869]
 # color blanco", "bajado de cama"...). Estandarizarlos contra el catalogo
 # borraria justamente el dato util, asi que se los deja como estan.
 PRODUCTOS_CAJON_DE_SASTRE = {"AA001"}
+
+
+# Lineas de empresa que quedaron sin codigo en el Access, pero cuyo texto es un
+# producto que YA existe en el catalogo: cambia el plural, una tilde, un
+# espacio o hay un dedazo. La clave va normalizada (minusculas, sin tildes, un
+# solo espacio entre palabras).
+#
+# Deliberadamente NO esta "toalla bano": el parecido con "Toalla Mano" es del
+# 91% porque difieren en una letra, pero son cosas distintas y el catalogo no
+# tiene toalla de bano. Esas lineas quedan sin codigo para revisarlas a mano.
+#
+# Lo que NO entra aca son los productos que directamente no existen —
+# "mantel blanco circular", "piecera", "toallones"—: esos hay que crearlos en
+# el catalogo y no se pueden resolver con un alias.
+ALIAS_PRODUCTO_EMPRESA = {
+    "arpilleras":            "044",  # 64 -> Aspilleras
+    "fundas cojin larga":    "030",  # 44 -> Funda cojin larga
+    "fundas cojin pequena":  "029",  # 21 -> Funda cojin pequena
+    "fundas cojin largas":   "030",  # 19 -> Funda cojin larga
+    "toalla piso":           "006",  #  7 -> Toalla Piso
+    "sabanas super king":    "049",  #  6 -> Sabana Superking
+    "carpetas":              "002",  #  6 -> Carpeta
+    "fundas cojin pequenas": "029",  #  6 -> Funda cojin pequena
+    "toallas piso":          "006",  #  3
+    "toalla piuso":          "006",  #  3  (dedazo)
+    "toallas mano":          "005",  #  3
+    "toala piso":            "006",  #  3  (dedazo)
+    "funda de cojin larga":  "030",  #  2
+    "toallas cuerpo":        "004",  #  2
+    "toallas repaso":        "039",  #  2
+    "cortina visillo":       "059",  #  2
+    "toaalla cuerpo":        "004",  #  2  (dedazo)
+    "funnda almohada":       "011",  #  2  (dedazo)
+    "toallam piso":          "006",  #  2  (dedazo)
+    "toalla puiso":          "006",  #  2  (dedazo)
+}
+
+
+def normalizar_nombre(texto: str) -> str:
+    """Minusculas, sin tildes, un solo espacio. Igual que en 04_guia."""
+    t = unicodedata.normalize("NFD", texto or "")
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn").lower()
+    return re.sub(r"[^a-z0-9]+", " ", t).strip()
+
+
+def aplicar_alias(items: list[dict], catalogo: dict[str, str]) -> Counter:
+    """Le pone el codigo del catalogo a las lineas que quedaron sin uno y cuyo
+    texto figura en ALIAS_PRODUCTO_EMPRESA."""
+    aplicados: Counter = Counter()
+    for it in items:
+        if it.get("producto_empresa_id"):
+            continue
+        codigo = ALIAS_PRODUCTO_EMPRESA.get(normalizar_nombre(it["producto_empresa_nombre"]))
+        if not codigo or codigo not in catalogo:
+            continue
+        aplicados[(it["producto_empresa_nombre"], codigo)] += 1
+        it["producto_empresa_id"] = codigo
+        it["producto_empresa_nombre"] = catalogo[codigo]
+    return aplicados
 
 
 # ---------------------------------------------------------------------------
@@ -190,6 +251,10 @@ def main() -> int:
 
     cat = mapa_nombres(productos)
     cat_emp = mapa_nombres(productos_emp)
+
+    # Primero se recuperan las lineas sin codigo que tienen alias conocido;
+    # despues la estandarizacion normal les pone el nombre del catalogo.
+    alias = aplicar_alias(items_emp, cat_emp)
     cambios = estandarizar(items, "producto_id", "producto_nombre", cat)
     cambios_emp = estandarizar(items_emp, "producto_empresa_id", "producto_empresa_nombre", cat_emp)
 
@@ -206,6 +271,7 @@ def main() -> int:
     print(f"\nEstandarizacion de nombres")
     print(f"  lineas mostrador corregidas   {sum(cambios.values()):>6}  ({len(cambios)} variantes distintas)")
     print(f"  lineas empresa corregidas     {sum(cambios_emp.values()):>6}  ({len(cambios_emp)} variantes distintas)")
+    print(f"  lineas empresa con codigo recuperado {sum(alias.values()):>4}  ({len(alias)} textos distintos)")
 
     # --- 3. Que hay hoy en Supabase ----------------------------------------
     ya = {p["id"] for p in supa.traer("pedidos", "id")}
