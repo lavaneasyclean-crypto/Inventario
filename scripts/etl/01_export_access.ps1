@@ -3,18 +3,30 @@
 #
 # Uso (desde la raíz del proyecto):
 #   pwsh ./scripts/etl/01_export_access.ps1
+#   pwsh ./scripts/etl/01_export_access.ps1 -DbPath "C:\carpeta\export.accdb"
 #
-# Requiere que "_legacy/Datos Lavanderia.accdb" exista.
+# Sin -DbPath usa "_legacy/Datos Lavanderia.accdb".
+
+param(
+  # Ruta al .accdb. Por defecto el historico en _legacy/, pero se le puede
+  # pasar cualquier export nuevo sin copiarlo al repo.
+  [string]$DbPath
+)
 
 $ErrorActionPreference = "Stop"
 
-$root   = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$dbPath = Join-Path $root "_legacy\Datos Lavanderia.accdb"
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+if ([string]::IsNullOrWhiteSpace($DbPath)) {
+  $dbPath = Join-Path $root "_legacy\Datos Lavanderia.accdb"
+} else {
+  $dbPath = $DbPath
+}
 $outDir = Join-Path $PSScriptRoot "_out\raw"
 
 if (-not (Test-Path $dbPath)) {
   throw "No se encontró el Access en $dbPath"
 }
+Write-Host "Leyendo: $dbPath"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 $tables = @(

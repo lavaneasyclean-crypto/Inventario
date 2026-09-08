@@ -215,6 +215,10 @@ TIPO_SERVICIO_MAP = {
     "aplicaciones": "aplicaciones",
     "ganchos": "ganchos",
     "delivery": "delivery",
+    # En el Access se usaron los dos nombres para lo mismo: 332 lineas dicen
+    # "Delivery" y 28 dicen "Envio". Sin esta entrada esas 28 se descartaban.
+    "envío": "delivery",
+    "envio": "delivery",
     "pedido especial": "pedido_especial",
     "descuento": "descuento",
     "secado": "secado",
