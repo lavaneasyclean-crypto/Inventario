@@ -99,6 +99,18 @@ ALIAS_PRODUCTO_EMPRESA = {
     "funnda almohada":       "011",  #  2  (dedazo)
     "toallam piso":          "006",  #  2  (dedazo)
     "toalla puiso":          "006",  #  2  (dedazo)
+
+    # --- Confirmados por el usuario contra los Excel de facturacion ---
+    # El Excel de cada empresa usa su propio vocabulario para el mismo
+    # producto del catalogo.
+    "mantel blanco circular": "019",  # -> Mantel Ovalado      (Alma)
+    "mantel blanco gigante":  "042",  # -> Tablero Blanco 2,5x6 (Alma)
+    "repasadores":            "038",  # -> Mantel Repaso       (Alma)
+    "arpillera":              "044",  # -> Aspilleras          (Alma)
+    "faldon cama":            "047",  # -> Faldon              (Acacias)
+    "bata toalla":            "055",  # -> Bata / "Batas"      (Acacias)
+    "cortina bano":           "048",  # -> Cortina bano blanca pequena (Acacias)
+    "cubre plumon":           "015",  # -> Cubre Plumon King   (Gran Parador y Bianco)
 }
 
 
