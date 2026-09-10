@@ -15,6 +15,13 @@ Este script en cambio solo hace UPSERT sobre lo que viene del Access y no toca
 nada mas. Las lineas de pedido si se reemplazan, porque no tienen clave natural
 para hacer upsert.
 
+Alcance desde septiembre 2026
+-----------------------------
+Los pedidos de EMPRESA ya no salen del Access: la fuente son las planillas de
+facturacion, que se cargan con 05_cargar_guias_excel.py respetando el numero de
+guia. Este script solo sincroniza los pedidos de MOSTRADOR. Si volviera a
+escribir pedidos_empresa se llevaria puesto lo cargado desde las planillas.
+
 Nombres de producto
 -------------------
 El Access guarda Nombre_Producto como texto libre en cada linea, y con los anos
@@ -338,13 +345,15 @@ def main() -> int:
     supa.upsert("productos", productos, "id");                print(f"  productos           {len(productos):>6}")
     supa.upsert("productos_empresa", productos_emp, "id");    print(f"  productos empresa   {len(productos_emp):>6}")
     supa.upsert("pedidos", pedidos, "id");                    print(f"  pedidos             {len(pedidos):>6}")
-    supa.upsert("pedidos_empresa", pedidos_emp, "id");        print(f"  pedidos empresa     {len(pedidos_emp):>6}")
 
     # Las lineas no tienen clave natural: se reemplazan enteras.
     supa.borrar_donde("pedidos_items", "id=not.is.null")
     supa.insert("pedidos_items", items);                      print(f"  lineas              {len(items):>6}")
-    supa.borrar_donde("pedidos_empresa_items", "id=not.is.null")
-    supa.insert("pedidos_empresa_items", items_emp);          print(f"  lineas empresa      {len(items_emp):>6}")
+
+    # Los pedidos de empresa NO se tocan: desde septiembre 2026 la fuente son
+    # las planillas de facturacion, que se cargan con 05_cargar_guias_excel.py.
+    # El Access sigue mandando solo en los pedidos de mostrador.
+    print(f"  pedidos empresa     {'(omitidos)':>10}  la fuente es la planilla, no el Access")
 
     print("\nListo. En el SQL Editor de Supabase, resincronizar las secuencias:")
     print("  select setval('pedidos_id_seq', (select max(id) from pedidos) + 1, false);")
