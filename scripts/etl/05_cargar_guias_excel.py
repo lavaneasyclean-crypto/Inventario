@@ -44,12 +44,27 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # Vocabulario propio de las planillas. Se comparte con 03_sync.
 EQUIVALENCIAS = {
-    "cobertores": "018", "batas": "055", "cortina de bano pequena": "048",
-    "sabana lisa 1plz": "024", "sabana lisa 1 5plz": "025",
-    "sabana lisa 2plz": "026", "sabana lisa king": "027",
-    "fundas almohadas": "011", "frazada": "017",
-    "funda cojin pequeno": "029", "funda cojin largo": "030",
-    "pieceras": "067", "toalla grande": "004", "toalla pequena": "005",
+    # "lisa" en las planillas es "S/E" (sin elastico) en el catalogo.
+    "sabana lisa 1plz":     "024",
+    "sabana lisa 1 5plz":   "025",
+    "sabana lisa 2plz":     "026",
+    "sabana lisa king":     "027",
+    # Plurales y redacciones distintas del mismo producto.
+    "almohadas":            "062",
+    "batas":                "055",
+    "cobertores":           "018",
+    "frazada":              "017",
+    "fundas almohadas":     "011",
+    "funda cojin largo":    "030",
+    "funda cojin pequeno":  "029",
+    "pieceras":             "067",
+    # Vocabulario propio de Gran Parador y Bianco para las toallas.
+    "toalla grande":        "004",  # Toalla Cuerpo
+    "toalla pequena":       "005",  # Toalla Mano
+    "cortina de bano pequena": "048",
+    # Bianco lo llama sin medida y Gran Parador "hasta 2plz"; confirmado con
+    # el usuario que es el mismo producto.
+    "plumon pluma":         "078",
 }
 
 # Debajo de la grilla, la planilla repite las prendas con su precio acordado:
@@ -185,15 +200,18 @@ def leer_precios(ws) -> dict[str, int]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("planilla")
-    ap.add_argument("--periodo", required=True, help="mes de la planilla, YYYY-MM")
+    ap.add_argument("--periodo", help="mes de la planilla, YYYY-MM (no hace falta con --solo-catalogo)")
     ap.add_argument("--apply", action="store_true")
+    ap.add_argument("--solo-catalogo", action="store_true",
+                    help="crea los productos y fija los precios, sin cargar las guias "
+                         "(para cuando los pedidos se van a ingresar a mano en la app)")
     args = ap.parse_args()
 
-    if not re.fullmatch(r"\d{4}-\d{2}", args.periodo):
-        sys.exit("--periodo va como YYYY-MM")
+    if not args.solo_catalogo and not (args.periodo and re.fullmatch(r"\d{4}-\d{2}", args.periodo)):
+        sys.exit("--periodo va como YYYY-MM (salvo que uses --solo-catalogo)")
 
     rut, guias, dia_de = leer_planilla(Path(args.planilla))
-    if not guias:
+    if not guias and not args.solo_catalogo:
         sys.exit("La planilla no tiene fila 'Guias': no se puede saber a que pedido va cada dia.")
 
     env = cargar_env()
@@ -252,6 +270,14 @@ def main() -> int:
             for c, _, pr in a_fijar:
                 precios[c] = pr
             print(f"  precios fijados: {len(a_fijar)}")
+
+    if args.solo_catalogo:
+        print("")
+        if args.apply:
+            print("--solo-catalogo: las guias no se cargan.")
+        else:
+            print("SIMULACION (--solo-catalogo). Volve a correr con --apply.")
+        return 0
 
     # Resolver cada prenda de la planilla a un codigo del catalogo.
     sin_codigo, sin_precio = set(), set()
