@@ -52,6 +52,12 @@ EQUIVALENCIAS = {
     "pieceras": "067", "toalla grande": "004", "toalla pequena": "005",
 }
 
+# Debajo de la grilla, la planilla repite las prendas con su precio acordado:
+#   Prendas | Cantidad | Precio | Total
+# De ahi salen los precios, asi cada carga mensual es autocontenida y no
+# dependemos de listas sueltas que se desactualizan.
+CAB_PRECIOS = ("prendas", "cantidad", "precio")
+
 FIN_DE_GRILLA = ("total", "guia", "guía", "neto", "iva", "observ", "prendas")
 
 
@@ -153,6 +159,29 @@ def leer_planilla(ruta: Path) -> tuple[str, dict[str, dict[str, int]], dict[str,
     return rut, guias, dia_de
 
 
+def leer_precios(ws) -> dict[str, int]:
+    """Prendas y precio unitario del bloque de precios."""
+    filas = list(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True))
+    for i, fila in enumerate(filas):
+        cab = [norm(c) for c in fila[:4]]
+        if cab[:3] != list(CAB_PRECIOS):
+            continue
+        col = cab.index("precio")
+        precios: dict[str, int] = {}
+        for f in filas[i + 1:]:
+            a = f[0]
+            if a is None or not str(a).strip():
+                continue
+            t = str(a).strip()
+            if norm(t).startswith(FIN_DE_GRILLA):
+                break
+            v = f[col] if col < len(f) else None
+            if isinstance(v, (int, float)):
+                precios[t] = round(v)
+        return precios
+    return {}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("planilla")
@@ -180,6 +209,49 @@ def main() -> int:
     por_nombre = {norm(v): k for k, v in cat.items()}
     precios = {p["producto_empresa_id"]: p["precio"] for p in supa.pedir(
         "GET", f"empresa_productos?select=producto_empresa_id,precio&rut_empresa=eq.{rut}&limit=500")}
+
+    # --- Catalogo y precios, sacados de la misma planilla -------------------
+    ws_precios = openpyxl.load_workbook(Path(args.planilla), data_only=True)
+    precios_planilla = leer_precios(ws_precios[ws_precios.sheetnames[0]])
+
+    a_crear: list[tuple[str, int]] = []
+    a_fijar: list[tuple[str, str, int]] = []
+    for prenda, precio in precios_planilla.items():
+        cod = por_nombre.get(norm(prenda)) or EQUIVALENCIAS.get(norm(prenda))
+        if cod is None:
+            a_crear.append((prenda, precio))
+        elif precios.get(cod) != precio:
+            a_fijar.append((cod, prenda, precio))
+
+    if precios_planilla:
+        print(f"  catalogo de la planilla : {len(precios_planilla)} prendas")
+        if a_crear:
+            print(f"    crear en el catalogo  : {len(a_crear)}")
+            for n, pr in a_crear:
+                print(f"       + {n[:30]:<32} ${pr:,}".replace(",", "."))
+        if a_fijar:
+            print(f"    precios a fijar       : {len(a_fijar)}")
+            for cod, n, pr in a_fijar[:8]:
+                antes = precios.get(cod)
+                print(f"       {cod} {cat.get(cod, n)[:26]:<28} "
+                      + (f"{antes} -> {pr}" if antes is not None else f"(sin precio) -> {pr}"))
+
+    if args.apply and (a_crear or a_fijar):
+        for nombre_p, precio in a_crear:
+            nuevo = supa.pedir("POST", "rpc/crear_producto_empresa",
+                               {"p_rut_empresa": rut, "p_nombre": nombre_p, "p_precio": precio})
+            cat[nuevo] = nombre_p
+            por_nombre[norm(nombre_p)] = nuevo
+            precios[nuevo] = precio
+            print(f"  creado  {nuevo}  {nombre_p}")
+        if a_fijar:
+            supa.pedir("POST", "empresa_productos?on_conflict=rut_empresa,producto_empresa_id",
+                       [{"rut_empresa": rut, "producto_empresa_id": c, "precio": pr}
+                        for c, _, pr in a_fijar],
+                       prefer="resolution=merge-duplicates,return=minimal")
+            for c, _, pr in a_fijar:
+                precios[c] = pr
+            print(f"  precios fijados: {len(a_fijar)}")
 
     # Resolver cada prenda de la planilla a un codigo del catalogo.
     sin_codigo, sin_precio = set(), set()
