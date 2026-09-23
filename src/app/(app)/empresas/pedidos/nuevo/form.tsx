@@ -4,7 +4,15 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hoyEnChile, mediodiaChile } from "@/lib/fecha";
 import Link from "next/link";
-import { Building2, Check, Plus, Search, X, AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  Check,
+  ChevronDown,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +28,7 @@ import type {
   ProductoEmpresaAdquirido,
 } from "@/lib/types";
 import { formatCLP } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { crearPedidoEmpresa } from "./actions";
 
 interface ItemDraft {
@@ -51,6 +60,8 @@ export function NuevoPedidoEmpresaForm({
   const [productoQuery, setProductoQuery] = useState("");
   const [productoFocused, setProductoFocused] = useState(false);
   const productoInputRef = useRef<HTMLInputElement>(null);
+  // Item recien agregado: su campo de cantidad se enfoca solo.
+  const [itemNuevo, setItemNuevo] = useState<string | null>(null);
 
   // Memoizado porque es dependencia del useMemo de abajo: sin esto la lista
   // es un array nuevo en cada render y el filtro se recalcula siempre.
@@ -85,10 +96,12 @@ export function NuevoPedidoEmpresaForm({
   };
 
   const addItem = (p: ProductoEmpresaAdquirido) => {
+    const key = crypto.randomUUID();
+    setItemNuevo(key);
     setItems((prev) => [
       ...prev,
       {
-        key: crypto.randomUUID(),
+        key,
         producto_empresa_id: p.producto_empresa_id,
         nombre: p.nombre,
         precio_unidad: p.precio,
@@ -97,8 +110,8 @@ export function NuevoPedidoEmpresaForm({
       },
     ]);
     setProductoQuery("");
-    // Cerrar el dropdown asi el usuario ve el item recien agregado y
-    // pone cantidad sin riesgo de seleccionar otro por error.
+    // Se cierra el dropdown y el foco pasa a la cantidad del item recien
+    // agregado, que es lo unico que falta escribir.
     setProductoFocused(false);
     productoInputRef.current?.blur();
   };
@@ -200,110 +213,45 @@ export function NuevoPedidoEmpresaForm({
         )}
       </Section>
 
-      <Section title="2. Items">
-        {!empresa ? (
-          <p className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-            Elegí una empresa primero para ver sus productos.
-          </p>
-        ) : productosDeEsta.length === 0 ? (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-950/20">
-            <p className="font-medium text-amber-900 dark:text-amber-200">
-              {empresa.alias || empresa.nombre} no tiene productos asignados.
-            </p>
-            <p className="mt-1 text-amber-800 dark:text-amber-300">
-              Agregalos primero desde{" "}
-              <Link
-                href={`/empresas/${encodeURIComponent(empresa.rut)}`}
-                className="underline"
-              >
-                la ficha de la empresa
-              </Link>{" "}
-              y volvé acá.
-            </p>
+      <Section title="2. Fecha y notas">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fecha">Fecha</Label>
+            <Input
+              id="fecha"
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="h-10"
+            />
           </div>
-        ) : items.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-            Buscá productos abajo y agregalos al pedido.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {items.map((it) => (
-              <li key={it.key} className="rounded-lg border bg-background p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <div className="font-medium">{it.nombre}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {it.precio_unidad === null ? (
-                        <span className="text-amber-700 dark:text-amber-400">
-                          ⚠ Sin precio
-                        </span>
-                      ) : (
-                        `${formatCLP(it.precio_unidad)} c/u`
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => removeItem(it.key)}
-                    aria-label="Quitar item"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-                <div className="mt-2 grid grid-cols-[100px_1fr_auto] items-end gap-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Cantidad
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={it.cantidad}
-                      onChange={(e) =>
-                        updateItem(it.key, {
-                          cantidad: Math.max(1, parseInt(e.target.value || "1")),
-                        })
-                      }
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Detalle (opcional)
-                    </label>
-                    <Input
-                      value={it.detalle}
-                      onChange={(e) =>
-                        updateItem(it.key, { detalle: e.target.value })
-                      }
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Importe
-                    </label>
-                    <span className="px-2 font-mono text-sm font-semibold tabular-nums">
-                      {it.precio_unidad === null
-                        ? "—"
-                        : formatCLP(it.precio_unidad * it.cantidad)}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        </div>
+        <div className="mt-3 flex flex-col gap-1.5">
+          <Label htmlFor="detalle">Detalle / Notas (opcional)</Label>
+          <Input
+            id="detalle"
+            value={detalle}
+            onChange={(e) => setDetalle(e.target.value)}
+            placeholder="Cualquier observación sobre el pedido"
+            className="h-10"
+          />
+        </div>
+      </Section>
 
-        {/* Buscador para agregar items — siempre al final, asi el usuario
-            no tiene que volver arriba despues de cargar uno. */}
+      <Section title="3. Items">
+        {/* El buscador va arriba de la lista: los items se apilan debajo y
+            no hay que bajar la pagina para agregar el siguiente. */}
         {empresa && productosDeEsta.length > 0 && (
-          <div className="mt-3">
+          <div>
+            <Label htmlFor="buscar-producto" className="mb-1.5 block">
+              Agregar productos
+            </Label>
+            {/* Borde punteado y chevron: sin eso el campo se lee como un
+                cuadro de texto cualquiera y no invita a tocarlo. */}
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
               <Input
+                id="buscar-producto"
                 ref={productoInputRef}
                 value={productoQuery}
                 onChange={(e) => setProductoQuery(e.target.value)}
@@ -311,14 +259,25 @@ export function NuevoPedidoEmpresaForm({
                 onBlur={() =>
                   setTimeout(() => setProductoFocused(false), 150)
                 }
-                placeholder={
-                  items.length === 0
-                    ? `Tocá para ver ${productosDeEsta.length} productos...`
-                    : "Agregar otro item..."
-                }
-                className="h-11 pl-9 text-base"
+                placeholder="Escribí el nombre del producto…"
+                className={cn(
+                  "h-12 border-2 border-dashed pl-10 pr-10 text-base",
+                  "hover:border-primary/50 hover:bg-accent/40",
+                  "focus-visible:border-solid focus-visible:border-primary focus-visible:bg-background",
+                )}
+              />
+              <ChevronDown
+                className={cn(
+                  "pointer-events-none absolute right-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground transition-transform",
+                  showDropdown && "rotate-180",
+                )}
               />
             </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {productosDeEsta.length} productos de{" "}
+              {empresa.alias || empresa.nombre}. Tocá el campo para verlos
+              todos, o escribí para filtrar.
+            </p>
             {showDropdown && (
               <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
                 {filtered.length === 0 ? (
@@ -356,6 +315,112 @@ export function NuevoPedidoEmpresaForm({
           </div>
         )}
 
+        {!empresa ? (
+          <p className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+            Elegí una empresa primero para ver sus productos.
+          </p>
+        ) : productosDeEsta.length === 0 ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-950/20">
+            <p className="font-medium text-amber-900 dark:text-amber-200">
+              {empresa.alias || empresa.nombre} no tiene productos asignados.
+            </p>
+            <p className="mt-1 text-amber-800 dark:text-amber-300">
+              Agregalos primero desde{" "}
+              <Link
+                href={`/empresas/${encodeURIComponent(empresa.rut)}`}
+                className="underline"
+              >
+                la ficha de la empresa
+              </Link>{" "}
+              y volvé acá.
+            </p>
+          </div>
+        ) : items.length === 0 ? (
+          <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+            Buscá productos arriba y se van sumando acá.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {items.map((it) => (
+              <li key={it.key} className="rounded-lg border bg-background p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="font-medium">{it.nombre}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {it.precio_unidad === null ? (
+                        <span className="text-amber-700 dark:text-amber-400">
+                          ⚠ Sin precio
+                        </span>
+                      ) : (
+                        `${formatCLP(it.precio_unidad)} c/u`
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removeItem(it.key)}
+                    aria-label="Quitar item"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <div className="mt-2 grid grid-cols-[100px_1fr_auto] items-end gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Cantidad
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={it.cantidad}
+                      // autoFocus solo corre al montar, y el item recien
+                      // agregado se monta ahora: por eso alcanza con marcarlo.
+                      autoFocus={it.key === itemNuevo}
+                      // Al enfocar se selecciona el 1 que viene por defecto,
+                      // asi se tipea la cantidad encima sin borrarlo antes.
+                      onFocus={(e) => {
+                        e.currentTarget.select();
+                        if (it.key === itemNuevo) setItemNuevo(null);
+                      }}
+                      onChange={(e) =>
+                        updateItem(it.key, {
+                          cantidad: Math.max(1, parseInt(e.target.value || "1")),
+                        })
+                      }
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Detalle (opcional)
+                    </label>
+                    <Input
+                      value={it.detalle}
+                      onChange={(e) =>
+                        updateItem(it.key, { detalle: e.target.value })
+                      }
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Importe
+                    </label>
+                    <span className="px-2 font-mono text-sm font-semibold tabular-nums">
+                      {it.precio_unidad === null
+                        ? "—"
+                        : formatCLP(it.precio_unidad * it.cantidad)}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+
         {algunItemSinPrecio && (
           <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
@@ -365,31 +430,6 @@ export function NuevoPedidoEmpresaForm({
             </span>
           </div>
         )}
-      </Section>
-
-      <Section title="3. Detalles">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fecha">Fecha</Label>
-            <Input
-              id="fecha"
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="h-10"
-            />
-          </div>
-        </div>
-        <div className="mt-3 flex flex-col gap-1.5">
-          <Label htmlFor="detalle">Detalle / Notas (opcional)</Label>
-          <Input
-            id="detalle"
-            value={detalle}
-            onChange={(e) => setDetalle(e.target.value)}
-            placeholder="Cualquier observación sobre el pedido"
-            className="h-10"
-          />
-        </div>
       </Section>
 
       {error && (
