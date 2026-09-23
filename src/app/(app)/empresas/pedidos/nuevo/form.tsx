@@ -88,7 +88,11 @@ export function NuevoPedidoEmpresaForm({
     0,
   );
   const algunItemSinPrecio = items.some((it) => it.precio_unidad === null);
-  const canSubmit = !!empresa && items.length > 0 && !loading;
+  const canSubmit =
+    !!empresa &&
+    items.length > 0 &&
+    items.every((it) => it.cantidad >= 1) &&
+    !loading;
 
   const cambiarEmpresa = (e: ClienteEmpresa | null) => {
     setEmpresa(e);
@@ -378,21 +382,35 @@ export function NuevoPedidoEmpresaForm({
                     <Input
                       type="number"
                       min={1}
-                      value={it.cantidad}
+                      // El 0 representa "vacio mientras se tipea". Antes el
+                      // onChange hacia parseInt(value || "1"), asi que al
+                      // borrar el campo volvia solo a 1 y era imposible
+                      // vaciarlo: tipear 12 sobre el 1 daba 112.
+                      value={it.cantidad === 0 ? "" : it.cantidad}
                       // autoFocus solo corre al montar, y el item recien
                       // agregado se monta ahora: por eso alcanza con marcarlo.
                       autoFocus={it.key === itemNuevo}
-                      // Al enfocar se selecciona el 1 que viene por defecto,
-                      // asi se tipea la cantidad encima sin borrarlo antes.
+                      // Al enfocar se selecciona lo que haya, asi se escribe
+                      // encima sin borrar antes.
                       onFocus={(e) => {
                         e.currentTarget.select();
                         if (it.key === itemNuevo) setItemNuevo(null);
                       }}
-                      onChange={(e) =>
-                        updateItem(it.key, {
-                          cantidad: Math.max(1, parseInt(e.target.value || "1")),
-                        })
-                      }
+                      onChange={(e) => {
+                        const texto = e.target.value;
+                        if (texto === "") {
+                          updateItem(it.key, { cantidad: 0 });
+                          return;
+                        }
+                        const n = parseInt(texto, 10);
+                        if (Number.isFinite(n)) {
+                          updateItem(it.key, { cantidad: Math.max(0, n) });
+                        }
+                      }}
+                      // Al salir se normaliza: un item sin cantidad no existe.
+                      onBlur={() => {
+                        if (it.cantidad < 1) updateItem(it.key, { cantidad: 1 });
+                      }}
                       className="h-10"
                     />
                   </div>
