@@ -98,8 +98,11 @@ export function NuevoPedidoEmpresaForm({
   const addItem = (p: ProductoEmpresaAdquirido) => {
     const key = crypto.randomUUID();
     setItemNuevo(key);
+    // Al principio y no al final: el buscador esta arriba, asi que el item
+    // recien agregado queda justo debajo, con su cantidad a la vista. Si se
+    // apilaran hacia abajo habria que bajar para escribir la cantidad y
+    // volver a subir para agregar el siguiente.
     setItems((prev) => [
-      ...prev,
       {
         key,
         producto_empresa_id: p.producto_empresa_id,
@@ -108,6 +111,7 @@ export function NuevoPedidoEmpresaForm({
         cantidad: 1,
         detalle: "",
       },
+      ...prev,
     ]);
     setProductoQuery("");
     // Se cierra el dropdown y el foco pasa a la cantidad del item recien
