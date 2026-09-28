@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputNumero } from "@/components/input-numero";
 import { Label } from "@/components/ui/label";
 import type {
   ProductoEmpresa,
@@ -202,9 +203,17 @@ function EditarPrecioDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-init when open changes
-  if (open && precio === "" && producto.precio !== null) {
-    setPrecio(producto.precio.toString());
+  // Reset al abrir. Antes la condicion era `precio === ""`, que tambien se
+  // cumple cuando la persona borra el campo a mano: el precio volvia a
+  // aparecer solo y era imposible dejarlo vacio, justo lo que el texto de
+  // abajo dice que se puede hacer.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) {
+      setPrecio(producto.precio?.toString() ?? "");
+      setError(null);
+    }
   }
 
   const submit = async () => {
@@ -248,11 +257,10 @@ function EditarPrecioDialog({
         <div className="grid gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="precio">Precio (CLP)</Label>
-            <Input
+            <InputNumero
               id="precio"
-              type="number"
               value={precio}
-              onChange={(e) => setPrecio(e.target.value)}
+              onValueChange={setPrecio}
               placeholder="0"
               autoFocus
             />
@@ -483,11 +491,10 @@ function AgregarProductoDialog({
             {seleccionado && (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="precio-ex">Precio para esta empresa (opcional)</Label>
-                <Input
+                <InputNumero
                   id="precio-ex"
-                  type="number"
                   value={precioExistente}
-                  onChange={(e) => setPrecioExistente(e.target.value)}
+                  onValueChange={setPrecioExistente}
                   placeholder="0"
                   autoFocus
                 />
@@ -529,11 +536,10 @@ function AgregarProductoDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="precio-nuevo">Precio (opcional)</Label>
-              <Input
+              <InputNumero
                 id="precio-nuevo"
-                type="number"
                 value={precio}
-                onChange={(e) => setPrecio(e.target.value)}
+                onValueChange={setPrecio}
                 placeholder="0"
               />
             </div>

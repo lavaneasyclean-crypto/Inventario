@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputNumero } from "@/components/input-numero";
 import {
   UNIDAD_COBRO_LABELS,
   UNIDAD_PRECIO_LABELS,
@@ -225,11 +226,11 @@ function ProductoDialog({
               <Label htmlFor="prod-precio">
                 Precio (CLP) {UNIDAD_PRECIO_LABELS[unidad]}
               </Label>
-              <Input
+              <InputNumero
                 id="prod-precio"
-                type="number"
                 value={precio}
-                onChange={(e) => setPrecio(e.target.value)}
+                onValueChange={setPrecio}
+                permitirNegativo
                 placeholder="0"
               />
               <p className="text-xs text-muted-foreground">

@@ -425,7 +425,12 @@ function FiltrosForm({
             <Label htmlFor="idDesde">Guía desde N°</Label>
             <Input
               id="idDesde"
-              type="number"
+              type="text"
+              inputMode="numeric"
+              // Sin spinner ni rueda: pasar el scroll encima cambiaba el rango.
+              onInput={(e) => {
+                e.currentTarget.value = e.currentTarget.value.replace(/[^\d]/g, "");
+              }}
               name="idDesde"
               defaultValue={initial.idDesde ?? ""}
               placeholder="Ej: 1170"
@@ -436,7 +441,12 @@ function FiltrosForm({
             <Label htmlFor="idHasta">Guía hasta N°</Label>
             <Input
               id="idHasta"
-              type="number"
+              type="text"
+              inputMode="numeric"
+              // Sin spinner ni rueda: pasar el scroll encima cambiaba el rango.
+              onInput={(e) => {
+                e.currentTarget.value = e.currentTarget.value.replace(/[^\d]/g, "");
+              }}
               name="idHasta"
               defaultValue={initial.idHasta ?? ""}
               placeholder="Ej: 1200"

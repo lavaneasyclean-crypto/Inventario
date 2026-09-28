@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { InputNumero } from "@/components/input-numero";
 import { Button } from "@/components/ui/button";
 import { formatCLP } from "@/lib/format";
 import {
@@ -200,15 +201,16 @@ export function SelectorItems({
                   <label className="text-xs font-medium text-muted-foreground">
                     {it.unidad_cobro === "unidad" ? "Cantidad" : "Piezas"}
                   </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={it.cantidad}
-                    onChange={(e) =>
+                  <InputNumero
+                    value={it.cantidad === 0 ? "" : String(it.cantidad)}
+                    onValueChange={(v) =>
                       updateItem(it.key, {
-                        cantidad: Math.max(1, parseInt(e.target.value || "1")),
+                        cantidad: v === "" ? 0 : parseInt(v, 10),
                       })
                     }
+                    onBlur={() => {
+                      if (it.cantidad < 1) updateItem(it.key, { cantidad: 1 });
+                    }}
                     className="h-10"
                   />
                 </div>
