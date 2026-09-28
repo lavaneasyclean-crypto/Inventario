@@ -106,7 +106,7 @@ describe("consolidarPedidos", () => {
     expect(r.neto).toBe(0);
   });
 
-  it("si hay items con y sin precio del mismo producto, marca sinPrecio y suma solo los que tienen", () => {
+  it("separa los items con y sin precio del mismo producto", () => {
     const pedidos = [
       {
         pedido: { ...BASE_PEDIDO, id: 1 },
@@ -117,10 +117,55 @@ describe("consolidarPedidos", () => {
       },
     ];
     const r = consolidarPedidos(pedidos, new Set([1]));
-    expect(r.lineas).toHaveLength(1);
-    expect(r.lineas[0].cantidad).toBe(15);
-    expect(r.lineas[0].importe).toBe(18000); // solo 10 * 1800
-    expect(r.lineas[0].sinPrecio).toBe(true);
+
+    // En una sola linea quedaria "15 unidades, $18.000", que no multiplica.
+    expect(r.lineas).toHaveLength(2);
+    const conPrecio = r.lineas.find((l) => !l.sinPrecio)!;
+    const sinPrecio = r.lineas.find((l) => l.sinPrecio)!;
+    expect(conPrecio.cantidad).toBe(10);
+    expect(conPrecio.importe).toBe(18000);
+    expect(sinPrecio.cantidad).toBe(5);
+    expect(sinPrecio.importe).toBe(0);
+    expect(r.neto).toBe(18000);
+  });
+
+  it("separa el mismo producto cuando cambio de precio en el periodo", () => {
+    // El caso real: sube el precio a mitad de mes y las guias viejas
+    // conservan el viejo.
+    const pedidos = [
+      {
+        pedido: { ...BASE_PEDIDO, id: 1 },
+        items: [makeItem(1, { cantidad: 10, precio_unidad: 500 })],
+      },
+      {
+        pedido: { ...BASE_PEDIDO, id: 2 },
+        items: [makeItem(2, { cantidad: 20, precio_unidad: 1000 })],
+      },
+    ];
+    const r = consolidarPedidos(pedidos, new Set([1, 2]));
+
+    expect(r.lineas).toHaveLength(2);
+    // Cada fila cierra sola: cantidad x precio = importe.
+    for (const l of r.lineas) {
+      expect(l.importe).toBe((l.precio_unidad ?? 0) * l.cantidad);
+    }
+    expect(r.neto).toBe(10 * 500 + 20 * 1000);
+    // Y se distinguen en la planilla, que si no serian dos filas identicas.
+    expect(r.lineas.map((l) => l.etiqueta)).toEqual([
+      expect.stringContaining("$500"),
+      expect.stringContaining("$1.000"),
+    ]);
+  });
+
+  it("no ensucia la etiqueta cuando el producto tiene un solo precio", () => {
+    const pedidos = [
+      {
+        pedido: { ...BASE_PEDIDO, id: 1 },
+        items: [makeItem(1, { cantidad: 10, precio_unidad: 500 })],
+      },
+    ];
+    const r = consolidarPedidos(pedidos, new Set([1]));
+    expect(r.lineas[0].etiqueta).toBe(r.lineas[0].nombre);
   });
 
   it("ordena las lineas alfabeticamente en es", () => {

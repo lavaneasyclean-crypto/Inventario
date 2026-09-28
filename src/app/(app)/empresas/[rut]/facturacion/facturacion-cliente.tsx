@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { consolidarPedidos } from "@/lib/facturacion";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -35,7 +36,6 @@ interface FiltrosState {
   idHasta?: number;
 }
 
-const IVA = 0.19;
 
 export function FacturacionClient({
   empresa,
@@ -60,51 +60,13 @@ export function FacturacionClient({
   const totalGuias = pedidosVisibles.length;
   const guiasIncluidas = seleccionados.size;
 
-  const consolidado = useMemo(() => {
-    type Linea = {
-      key: string;
-      nombre: string;
-      cantidad: number;
-      precio_unidad: number | null;
-      importe: number;
-      sinPrecio: boolean;
-    };
-    const map = new Map<string, Linea>();
-    for (const { pedido, items } of pedidosVisibles) {
-      if (!seleccionados.has(pedido.id)) continue;
-      for (const it of items) {
-        const key = `${it.producto_empresa_id ?? "_"}|${it.producto_empresa_nombre}`;
-        const cur = map.get(key);
-        if (cur) {
-          cur.cantidad += it.cantidad;
-          if (it.precio_unidad !== null) {
-            cur.importe += it.precio_unidad * it.cantidad;
-          } else {
-            cur.sinPrecio = true;
-          }
-        } else {
-          map.set(key, {
-            key,
-            nombre: it.producto_empresa_nombre,
-            cantidad: it.cantidad,
-            precio_unidad: it.precio_unidad,
-            importe:
-              it.precio_unidad === null
-                ? 0
-                : it.precio_unidad * it.cantidad,
-            sinPrecio: it.precio_unidad === null,
-          });
-        }
-      }
-    }
-    const lineas = Array.from(map.values()).sort((a, b) =>
-      a.nombre.localeCompare(b.nombre, "es"),
-    );
-    const neto = lineas.reduce((s, l) => s + l.importe, 0);
-    const iva = Math.round(neto * IVA);
-    const total = neto + iva;
-    return { lineas, neto, iva, total };
-  }, [pedidosVisibles, seleccionados]);
+  // Se usa la funcion de lib/facturacion en vez de repetir el calculo aca:
+  // antes habia una copia inline de toda la consolidacion, asi que los tests
+  // cubrian una version y la pantalla mostraba la otra.
+  const consolidado = useMemo(
+    () => consolidarPedidos(pedidosVisibles, seleccionados),
+    [pedidosVisibles, seleccionados],
+  );
 
   const toggle = (id: number) => {
     setSeleccionados((prev) => {
@@ -281,7 +243,7 @@ export function FacturacionClient({
               <tbody>
                 {consolidado.lineas.map((l) => (
                   <tr key={l.key} className="border-b last:border-0">
-                    <td className="py-2 pr-2">{l.nombre}</td>
+                    <td className="py-2 pr-2">{l.etiqueta}</td>
                     <td className="py-2 pr-2 text-right font-mono tabular-nums">
                       {l.cantidad}
                     </td>
