@@ -6,6 +6,7 @@ import { fechaEnChile, mediodiaChile } from "@/lib/fecha";
 import { Check, Plus, Search, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputNumero } from "@/components/input-numero";
 import { Label } from "@/components/ui/label";
 import { formatCLP } from "@/lib/format";
 import type {
@@ -165,15 +166,16 @@ export function EditarPedidoEmpresaForm({
                     <label className="text-xs font-medium text-muted-foreground">
                       Cantidad
                     </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={it.cantidad}
-                      onChange={(e) =>
+                    <InputNumero
+                      value={it.cantidad === 0 ? "" : String(it.cantidad)}
+                      onValueChange={(v) =>
                         updateItem(it.key, {
-                          cantidad: Math.max(1, parseInt(e.target.value || "1")),
+                          cantidad: v === "" ? 0 : parseInt(v, 10),
                         })
                       }
+                      onBlur={() => {
+                        if (it.cantidad < 1) updateItem(it.key, { cantidad: 1 });
+                      }}
                       className="h-10"
                     />
                   </div>

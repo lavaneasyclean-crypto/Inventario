@@ -1,6 +1,7 @@
 "use client";
 
 import ExcelJS from "exceljs";
+import { claveLinea } from "@/lib/facturacion";
 import type {
   ClienteEmpresa,
   PedidoEmpresa,
@@ -16,6 +17,7 @@ interface Consolidado {
   lineas: Array<{
     key: string;
     nombre: string;
+    etiqueta: string;
     cantidad: number;
     precio_unidad: number | null;
     importe: number;
@@ -204,8 +206,11 @@ export async function exportFacturacionExcel({
   const startDay = pedidos.length === 0 ? 1 : minDay;
   const endDay = pedidos.length === 0 ? 31 : maxDay;
 
-  const productNames = consolidado.lineas.map((l) => l.nombre);
-  const productIndex = new Map(productNames.map((n, i) => [n, i]));
+  // Se indexa por la clave de la linea y no por nombre: un producto que
+  // cambio de precio a mitad de mes tiene dos lineas con el mismo nombre, y
+  // por nombre las cantidades de ambas caerian en la misma fila.
+  const productNames = consolidado.lineas.map((l) => l.etiqueta);
+  const productIndex = new Map(consolidado.lineas.map((l, i) => [l.key, i]));
   const grid: number[][] = productNames.map(() =>
     Array.from({ length: endDay - startDay + 1 }, () => 0),
   );
@@ -214,7 +219,13 @@ export async function exportFacturacionExcel({
     if (day === undefined) continue;
     const col = day - startDay;
     for (const it of items) {
-      const idx = productIndex.get(it.producto_empresa_nombre);
+      const idx = productIndex.get(
+        claveLinea(
+          it.producto_empresa_id,
+          it.producto_empresa_nombre,
+          it.precio_unidad,
+        ),
+      );
       if (idx === undefined) continue;
       grid[idx][col] += it.cantidad;
     }
@@ -336,7 +347,7 @@ export async function exportFacturacionExcel({
   // Filas
   consolidado.lineas.forEach((linea, i) => {
     const altRow = i % 2 === 1;
-    ws.getCell(`A${r}`).value = linea.nombre;
+    ws.getCell(`A${r}`).value = linea.etiqueta;
     styleDataCell(ws.getCell(`A${r}`), { alt: altRow });
     ws.getCell(`A${r}`).font = {
       color: { argb: BRAND_DARK },

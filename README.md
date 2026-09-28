@@ -10,6 +10,12 @@ Sistema de gestión de pedidos para lavandería. Reemplaza la base de datos Acce
 - **react-hook-form** + **zod** para formularios
 - Deploy: **Netlify**
 
+## Cómo se usa
+
+Para el día a día —cargar las planillas de las empresas, sincronizar los
+pedidos de mostrador desde el Access, y los cuidados que hay que tener— ver
+**[docs/OPERACION.md](docs/OPERACION.md)**.
+
 ## Estructura
 
 ```
@@ -20,7 +26,8 @@ Inventario/
 │   ├── lib/supabase/    # Clientes Supabase (browser, server, admin)
 │   └── middleware.ts    # Protección de rutas (auth)
 ├── migrations/          # SQL de Postgres (ejecutar una vez en Supabase SQL Editor)
-├── scripts/etl/         # Migración de datos desde Access
+├── scripts/etl/         # Carga de datos: Access y planillas de facturación
+├── docs/OPERACION.md    # Cómo entran los datos día a día
 └── _legacy/             # .accdb original (no commiteado)
 ```
 
