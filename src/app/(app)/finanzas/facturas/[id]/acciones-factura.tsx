@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Pencil, Undo2, XCircle } from "lucide-react";
+import { Pencil, Undo2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,24 +16,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Factura } from "@/lib/types";
-import { DialogoPago } from "../../dialogo-pago";
 import {
   actualizarFactura,
   anularFactura,
-  marcarFacturaPagada,
-  marcarFacturaPendiente,
   reactivarFactura,
 } from "../../actions";
 
-export function AccionesFactura({
-  factura,
-  hoy,
-}: {
-  factura: Factura;
-  hoy: string;
-}) {
+export function AccionesFactura({ factura }: { factura: Factura }) {
   const router = useRouter();
-  const [pagando, setPagando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [confirmAnular, setConfirmAnular] = useState(false);
   const [pending, setPending] = useState(false);
@@ -54,28 +44,8 @@ export function AccionesFactura({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {factura.estado === "pendiente" && (
-          <Button size="sm" onClick={() => setPagando(true)} disabled={pending}>
-            <CheckCircle2 className="size-4" /> Marcar como pagada
-          </Button>
-        )}
-
-        {factura.estado === "pagada" && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() =>
-              correr(
-                () => marcarFacturaPendiente(factura.id),
-                "La factura volvió a quedar por cobrar",
-              )
-            }
-          >
-            <Undo2 className="size-4" /> Marcar como no pagada
-          </Button>
-        )}
-
+        {/* El cobro no se maneja acá: se registran pagos en la sección de
+            abajo y el estado sale de la suma de esos pagos. */}
         {factura.estado !== "anulada" && (
           <>
             <Button
@@ -111,21 +81,6 @@ export function AccionesFactura({
         )}
       </div>
 
-      <DialogoPago
-        abierto={pagando}
-        onAbrir={setPagando}
-        titulo="Registrar el cobro"
-        descripcion="Queda anotado cuándo y cómo pagó la empresa."
-        hoy={hoy}
-        onConfirmar={async (datos) => {
-          const ok = await correr(
-            () => marcarFacturaPagada(factura.id, datos),
-            "Cobro registrado",
-          );
-          if (ok) setPagando(false);
-        }}
-      />
-
       <EditarFacturaDialog
         factura={factura}
         abierto={editando}
@@ -143,7 +98,8 @@ export function AccionesFactura({
             <DialogDescription>
               No se borra: queda en el historial marcada como anulada y sus
               guías vuelven a quedar disponibles para facturar. Usalo cuando se
-              emitió una nota de crédito.
+              emitió una nota de crédito. Los pagos ya registrados se
+              conservan.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

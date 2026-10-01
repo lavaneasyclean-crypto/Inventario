@@ -6,7 +6,7 @@ import {
   type FacturasFilter,
 } from "@/lib/data/finanzas";
 import { hoyEnChile } from "@/lib/fecha";
-import { resumirFacturas } from "@/lib/finanzas";
+import { resumirFacturas, saldoFactura } from "@/lib/finanzas";
 import { formatCLP } from "@/lib/format";
 import type { EstadoFactura, TipoFactura } from "@/lib/types";
 import { BadgeEstadoFactura, BadgeTipoFactura } from "../badges";
@@ -107,8 +107,18 @@ export default async function FacturasPage({
                       {f.empresa_alias || f.empresa_nombre}
                     </span>
                   </div>
-                  <span className="shrink-0 font-mono text-lg font-bold tabular-nums">
-                    {formatCLP(f.total)}
+                  <span className="shrink-0 text-right">
+                    <span className="block font-mono text-lg font-bold tabular-nums">
+                      {formatCLP(f.total)}
+                    </span>
+                    {f.estado === "pendiente" && f.monto_pagado > 0 && (
+                      <span className="block text-xs text-muted-foreground">
+                        pagado {formatCLP(f.monto_pagado)} · falta{" "}
+                        <strong className="text-foreground">
+                          {formatCLP(saldoFactura(f))}
+                        </strong>
+                      </span>
+                    )}
                   </span>
                 </div>
 

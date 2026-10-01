@@ -81,16 +81,35 @@ export function diasHastaVencer(
  * vencimiento: "vencida" no es una columna de la base, es una factura
  * pendiente cuya fecha ya pasó.
  */
-export type EstadoMostrado = EstadoFactura | "vencida" | "por_vencer";
+export type EstadoMostrado =
+  | EstadoFactura
+  | "vencida"
+  | "por_vencer"
+  | "parcial";
+
+/**
+ * Lo que falta cobrar. Nunca negativo: si la empresa pagó de más —pasa, con
+ * transferencias redondeadas— el saldo es cero y no un crédito, que es otro
+ * problema y no se modela acá.
+ */
+export function saldoFactura(
+  factura: Pick<Factura, "total" | "monto_pagado">,
+): number {
+  return Math.max(0, factura.total - (factura.monto_pagado ?? 0));
+}
 
 export function estadoMostradoFactura(
-  factura: Pick<Factura, "estado" | "fecha_vence">,
+  factura: Pick<Factura, "estado" | "fecha_vence" | "total" | "monto_pagado">,
   hoy: string,
 ): EstadoMostrado {
   if (factura.estado !== "pendiente") return factura.estado;
+  // El vencimiento manda sobre el pago parcial: una factura abonada a medias
+  // que ya vencio sigue siendo un problema de cobranza, y decir "parcial" en
+  // vez de "vencida" lo esconderia.
   const v = estadoVencimiento(factura.fecha_vence, hoy);
   if (v === "vencido") return "vencida";
   if (v === "por_vencer") return "por_vencer";
+  if ((factura.monto_pagado ?? 0) > 0) return "parcial";
   return "pendiente";
 }
 
@@ -128,7 +147,10 @@ function sumar(m: Monto, monto: number): Monto {
  * dejaron de ser plata.
  */
 export function resumirFacturas(
-  facturas: readonly Pick<Factura, "estado" | "fecha_vence" | "total">[],
+  facturas: readonly Pick<
+    Factura,
+    "estado" | "fecha_vence" | "total" | "monto_pagado"
+  >[],
   hoy: string,
 ): ResumenCuenta {
   let pendiente = CERO;
@@ -138,14 +160,30 @@ export function resumirFacturas(
 
   for (const f of facturas) {
     if (f.estado === "anulada") continue;
-    if (f.estado === "pagada") {
-      liquidado = sumar(liquidado, f.total);
-      continue;
-    }
-    pendiente = sumar(pendiente, f.total);
+
+    // Lo abonado ya entró, esté o no saldada la factura. Contarlo solo cuando
+    // está pagada del todo haría que un mes de muchos pagos parciales
+    // apareciera como si no hubiera entrado nada.
+    //
+    // `pagada` manda sobre la suma: si el código corre antes de aplicar
+    // 0011_facturas_abonos, `monto_pagado` llega undefined y una factura
+    // cobrada aparecería como deuda entera.
+    const cobrado =
+      f.estado === "pagada"
+        ? f.total
+        : Math.min(f.monto_pagado ?? 0, f.total);
+    if (cobrado > 0) liquidado = sumar(liquidado, cobrado);
+
+    if (f.estado === "pagada") continue;
+
+    // Lo que falta, no el total: una factura de 100 con 80 abonados debe 20.
+    const saldo = saldoFactura(f);
+    if (saldo <= 0) continue;
+
+    pendiente = sumar(pendiente, saldo);
     const v = estadoVencimiento(f.fecha_vence, hoy);
-    if (v === "vencido") vencido = sumar(vencido, f.total);
-    else if (v === "por_vencer") porVencer = sumar(porVencer, f.total);
+    if (v === "vencido") vencido = sumar(vencido, saldo);
+    else if (v === "por_vencer") porVencer = sumar(porVencer, saldo);
   }
 
   return { pendiente, vencido, porVencer, liquidado };

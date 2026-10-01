@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { getFacturaDetalle } from "@/lib/data/finanzas";
 import { hoyEnChile } from "@/lib/fecha";
 import { formatCLP, formatDateShort } from "@/lib/format";
-import { FORMA_PAGO_LABELS, TIPO_FACTURA_LABELS } from "@/lib/types";
+import { saldoFactura } from "@/lib/finanzas";
+import { TIPO_FACTURA_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BadgeEstadoFactura, BadgeTipoFactura } from "../../badges";
 import { AccionesFactura } from "./acciones-factura";
+import { PagosFactura } from "./pagos-factura";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,7 @@ export default async function FacturaDetallePage({
   const detalle = await getFacturaDetalle(id);
   if (!detalle) notFound();
 
-  const { factura, empresa, lineas, guias, hermana } = detalle;
+  const { factura, empresa, lineas, abonos, guias, hermana } = detalle;
   const hoy = hoyEnChile();
 
   return (
@@ -89,15 +91,11 @@ export default async function FacturaDetallePage({
             }
           />
           <Dato
-            etiqueta="Pago"
+            etiqueta="Saldo"
             valor={
-              factura.fecha_pago
-                ? `${factura.fecha_pago}${
-                    factura.forma_pago
-                      ? ` · ${FORMA_PAGO_LABELS[factura.forma_pago]}`
-                      : ""
-                  }`
-                : "—"
+              factura.estado === "anulada"
+                ? "—"
+                : formatCLP(saldoFactura(factura))
             }
           />
         </dl>
@@ -107,9 +105,11 @@ export default async function FacturaDetallePage({
         )}
 
         <div className="mt-4">
-          <AccionesFactura factura={factura} hoy={hoy} />
+          <AccionesFactura factura={factura} />
         </div>
       </header>
+
+      <PagosFactura factura={factura} abonos={abonos} hoy={hoy} />
 
       {hermana && (
         <Link

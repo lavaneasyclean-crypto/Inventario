@@ -21,9 +21,10 @@ pedidos de mostrador desde el Access, facturar el mes y llevar las cuentas— ve
 - **Pedidos de mostrador** y **pedidos de empresa** (guías), con su catálogo y
   precios por empresa.
 - **Facturación** de un período: consolida las guías y baja la planilla.
-- **Finanzas**: registra cada factura emitida con las guías que cubre, lleva
-  cuáles están cobradas, y anota los gastos (luz, agua, insumos,
-  remuneraciones) con su estado de pago.
+- **Finanzas**: registra cada factura emitida con las guías que cubre y lleva
+  su cobranza —incluidos los pagos parciales, con el saldo siempre a la
+  vista—, y anota los gastos (luz, agua, insumos, remuneraciones) con su
+  estado de pago.
 - **Servicio express**: una guía puede venir apurada y pagar un recargo
   —el porcentaje lo fija cada empresa— que se factura como documento aparte.
 

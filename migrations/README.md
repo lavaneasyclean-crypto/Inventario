@@ -30,9 +30,10 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0008_productos_por_medida.sql` | `unidad_cobro` en productos, medidas en los items y `crear_pedido` recalculado |
 | `0009_finanzas.sql` | `facturas`, `facturas_lineas`, `facturas_guias`, `gastos` y la función `registrar_factura` |
 | `0010_pedidos_express.sql` | `express` en las guías, `recargo_express` por empresa y `crear_pedido_empresa` recalculado |
+| `0011_facturas_abonos.sql` | `facturas_abonos` + `monto_pagado` mantenido por trigger: una factura se puede pagar de a poco |
 
-⚠️ **`0006`, `0007`, `0008`, `0009` y `0010` hay que aplicarlas antes de
-desplegar el código que las usa.** La app crea los pedidos, los productos de
+⚠️ **De la `0006` a la `0011` hay que aplicarlas antes de desplegar el código
+que las usa.** La app crea los pedidos, los productos de
 empresa y las facturas llamando a esas funciones; si no existen todavía, los
 botones de guardar fallan con el aviso "falta aplicar una migración".
 

@@ -329,14 +329,30 @@ const pagoSchema = z.object({
 
 export type PagoInput = z.input<typeof pagoSchema>;
 
-export async function marcarFacturaPagada(
-  id: number,
-  input: PagoInput,
+const abonoSchema = z.object({
+  fecha: FECHA,
+  monto: z.number().int().min(1, "El abono tiene que ser mayor a cero"),
+  forma_pago: FORMA_PAGO,
+  notas: textoOpcional,
+});
+
+export type AbonoInput = z.input<typeof abonoSchema>;
+
+/**
+ * Registra un pago recibido a cuenta de una factura.
+ *
+ * No se escribe el estado: lo recalcula el trigger de la base a partir de la
+ * suma de abonos. Si se hiciera acá, dos lugares decidirian lo mismo y
+ * tarde o temprano dirian cosas distintas.
+ */
+export async function registrarAbono(
+  facturaId: number,
+  input: AbonoInput,
 ): Promise<FinanzasResult> {
   let step = "init";
   try {
     step = "parse";
-    const parsed = pagoSchema.safeParse(input);
+    const parsed = abonoSchema.safeParse(input);
     if (!parsed.success) {
       return {
         ok: false,
@@ -344,51 +360,84 @@ export async function marcarFacturaPagada(
       };
     }
 
-    step = "update";
+    step = "leer-factura";
     const supabase = await createClient();
-    const { error } = await supabase
+    const { data: facturaData } = await supabase
       .from("facturas")
-      .update({
-        estado: "pagada",
-        fecha_pago: parsed.data.fecha_pago,
-        forma_pago: parsed.data.forma_pago,
-      })
-      .eq("id", id)
-      .eq("estado", "pendiente");
+      .select("estado, total, monto_pagado")
+      .eq("id", facturaId)
+      .maybeSingle();
+    if (!facturaData) return { ok: false, error: "La factura no existe" };
+    const factura = facturaData as {
+      estado: string;
+      total: number;
+      monto_pagado: number;
+    };
 
-    if (error) return fallo("marcarFacturaPagada", step, error);
+    if (factura.estado === "anulada") {
+      return {
+        ok: false,
+        error: "La factura está anulada: no se le pueden registrar pagos.",
+      };
+    }
 
-    await logAuditoria("factura", String(id), "pago", null, parsed.data);
+    const saldo = Math.max(0, factura.total - (factura.monto_pagado ?? 0));
+    if (saldo <= 0) {
+      return { ok: false, error: "Esta factura ya está saldada." };
+    }
+    if (parsed.data.monto > saldo) {
+      return {
+        ok: false,
+        error: `El abono supera el saldo. Falta cobrar ${saldo.toLocaleString("es-CL")}.`,
+      };
+    }
+
+    step = "insert";
+    const { error } = await supabase.from("facturas_abonos").insert({
+      factura_id: facturaId,
+      fecha: parsed.data.fecha,
+      monto: parsed.data.monto,
+      forma_pago: parsed.data.forma_pago,
+      notas: parsed.data.notas,
+    });
+    if (error) return fallo("registrarAbono", step, error);
+
+    await logAuditoria("factura", String(facturaId), "abono", null, parsed.data);
     revalidatePath("/finanzas");
     revalidatePath("/finanzas/facturas");
-    revalidatePath(`/finanzas/facturas/${id}`);
-    return { ok: true, id };
+    revalidatePath(`/finanzas/facturas/${facturaId}`);
+    return { ok: true, id: facturaId };
   } catch (err) {
-    return fallo("marcarFacturaPagada", step, err);
+    return fallo("registrarAbono", step, err);
   }
 }
 
-export async function marcarFacturaPendiente(
-  id: number,
+export async function eliminarAbono(
+  abonoId: number,
+  facturaId: number,
 ): Promise<FinanzasResult> {
-  const step = "update";
+  const step = "delete";
   try {
     const supabase = await createClient();
+    const { data: antes } = await supabase
+      .from("facturas_abonos")
+      .select("*")
+      .eq("id", abonoId)
+      .maybeSingle();
+
     const { error } = await supabase
-      .from("facturas")
-      .update({ estado: "pendiente", fecha_pago: null, forma_pago: null })
-      .eq("id", id)
-      .eq("estado", "pagada");
+      .from("facturas_abonos")
+      .delete()
+      .eq("id", abonoId);
+    if (error) return fallo("eliminarAbono", step, error);
 
-    if (error) return fallo("marcarFacturaPendiente", step, error);
-
-    await logAuditoria("factura", String(id), "revertir_pago", null, null);
+    await logAuditoria("factura", String(facturaId), "borrar_abono", antes, null);
     revalidatePath("/finanzas");
     revalidatePath("/finanzas/facturas");
-    revalidatePath(`/finanzas/facturas/${id}`);
-    return { ok: true, id };
+    revalidatePath(`/finanzas/facturas/${facturaId}`);
+    return { ok: true, id: facturaId };
   } catch (err) {
-    return fallo("marcarFacturaPendiente", step, err);
+    return fallo("eliminarAbono", step, err);
   }
 }
 
@@ -469,6 +518,15 @@ export async function reactivarFactura(id: number): Promise<FinanzasResult> {
       .eq("id", id);
 
     if (error) return fallo("reactivarFactura", step, error);
+
+    // Si tenia abonos, vuelve a quedar pagada o parcial segun la suma. El
+    // update de arriba la dejo pendiente a secas; la base tiene la ultima
+    // palabra.
+    step = "recalcular";
+    const { error: eRecalc } = await supabase.rpc("recalcular_pago_factura", {
+      p_id: id,
+    });
+    if (eRecalc) return fallo("reactivarFactura", step, eRecalc);
 
     await logAuditoria("factura", String(id), "reactivar", null, null);
     revalidatePath("/finanzas");

@@ -173,11 +173,28 @@ export interface Factura {
   iva: number;
   total: number;
   estado: EstadoFactura;
+  /**
+   * Suma de los abonos, mantenida por un trigger. Nunca se escribe desde la
+   * app: se registran abonos y el motor recalcula.
+   */
+  monto_pagado: number;
+  /** Del ultimo abono, y solo cuando la factura quedo saldada. */
   fecha_pago: string | null;
   forma_pago: FormaPago | null;
   notas: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Un pago recibido a cuenta de una factura. Puede haber varios. */
+export interface FacturaAbono {
+  id: number;
+  factura_id: number;
+  fecha: string;
+  monto: number;
+  forma_pago: FormaPago | null;
+  notas: string | null;
+  created_at: string;
 }
 
 /** Snapshot de una línea del consolidado al momento de emitir la factura. */

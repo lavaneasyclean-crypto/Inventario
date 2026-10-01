@@ -101,8 +101,7 @@ El folio se puede dejar vacío y completar después, cuando vuelve del SII.
 
 En **Finanzas**:
 
-- *Por cobrar*: las facturas emitidas. Se marcan pagadas con fecha y forma de
-  pago. Las vencidas salen en rojo.
+- *Por cobrar*: las facturas emitidas. Las vencidas salen en rojo.
 - *Por pagar*: los gastos —luz, agua, gas, insumos, remuneraciones, arriendo,
   internet, teléfono, impuestos, mantención—. Se anotan al recibir la boleta y
   se marcan pagados al pagarla.
@@ -110,6 +109,29 @@ En **Finanzas**:
 
 El **período** de un gasto es el mes del consumo, no el de la boleta: la luz de
 septiembre llega en octubre y para comparar meses importa septiembre.
+
+### Cobrar una factura, entera o de a poco
+
+Las empresas no siempre pagan todo junto: abonan una parte a fin de mes y el
+resto cuando pueden. Por eso en la ficha de cada factura hay una sección
+**Pagos recibidos** donde se registra cada pago con su fecha, monto y forma.
+
+El botón trae **el saldo precargado**, así que cobrar todo de una vez es
+apretar *Registrar pago* sin tocar nada. Si pagaron una parte, se escribe ese
+monto encima y la factura queda con saldo, mostrando *"Falta $X"* en el
+listado.
+
+El estado **no se marca a mano**: lo calcula la base sumando los pagos. Cuando
+la suma llega al total, la factura pasa a *Pagada* sola. Si un pago se cargó
+mal, se borra de esa misma lista y el estado vuelve atrás.
+
+Dos cosas que conviene saber:
+
+- No se puede abonar más que el saldo. La app lo rechaza antes de escribir.
+- En el resumen, **"Por cobrar" es el saldo**, no el total: una factura de
+  $119.000 con $80.000 abonados figura como $39.000 de deuda. Y lo abonado
+  cuenta como cobrado aunque la factura siga abierta, para que un mes de
+  muchos pagos parciales no aparezca como si no hubiera entrado nada.
 
 Una factura **no se borra**: se anula. Queda en el historial y sus guías
 vuelven a quedar disponibles para facturar, que es lo que hace falta cuando se
@@ -205,5 +227,5 @@ terminal, y la que está en `.env.local` está vencida.
 ## Migraciones
 
 Se aplican a mano en el SQL Editor de Supabase, en orden. Ver
-`migrations/README.md`. Las `0006` a `0010` hay que aplicarlas **antes** de
+`migrations/README.md`. Las `0006` a `0011` hay que aplicarlas **antes** de
 desplegar el código que las usa: la app llama a funciones que se crean ahí.

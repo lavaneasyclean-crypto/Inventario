@@ -8,7 +8,13 @@ import {
 } from "lucide-react";
 import { getDatosResumen } from "@/lib/data/finanzas";
 import { hoyEnChile, rangoDelMes } from "@/lib/fecha";
-import { esPeriodoValido, etiquetaPeriodo, resumirFacturas, resumirGastos } from "@/lib/finanzas";
+import {
+  esPeriodoValido,
+  etiquetaPeriodo,
+  resumirFacturas,
+  resumirGastos,
+  saldoFactura,
+} from "@/lib/finanzas";
 import { formatCLP } from "@/lib/format";
 import { CATEGORIA_GASTO_LABELS } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -41,6 +47,13 @@ export default async function ResumenFinanzasPage({
     .reduce((s, f) => s + f.total, 0);
   const gastosMes = datos.gastosDelPeriodo.reduce((s, g) => s + g.monto, 0);
   const balance = facturadoMes - gastosMes;
+
+  // De lo emitido este mes, cuánto se cobró ya. Con abonos parciales esto
+  // deja de ser "todo o nada" y es la cifra que dice si el mes entró.
+  const cobradoDeLoFacturado = resumirFacturas(
+    datos.facturasDelPeriodo,
+    hoy,
+  ).liquidado.total;
 
   const vencidas = datos.facturasPendientes
     .filter((f) => f.fecha_vence && f.fecha_vence < hoy)
@@ -105,11 +118,16 @@ export default async function ResumenFinanzasPage({
             Movimiento de {etiquetaPeriodo(periodo)}
           </h2>
         </header>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Cifra
             etiqueta="Facturado"
             ayuda="Documentos emitidos este mes, con IVA"
             valor={facturadoMes}
+          />
+          <Cifra
+            etiqueta="Cobrado de eso"
+            ayuda="Pagos recibidos sobre lo emitido este mes"
+            valor={cobradoDeLoFacturado}
           />
           <Cifra
             etiqueta="Gastos"
@@ -125,7 +143,8 @@ export default async function ResumenFinanzasPage({
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           La diferencia compara lo emitido contra lo gastado en el mes. No es
-          caja: una factura emitida en septiembre puede cobrarse en octubre.
+          caja: una factura emitida en septiembre puede cobrarse en octubre, y
+          puede cobrarse en partes.
         </p>
       </section>
 
@@ -154,7 +173,7 @@ export default async function ResumenFinanzasPage({
                       <BadgeEstadoFactura factura={f} hoy={hoy} />
                     </div>
                     <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
-                      {formatCLP(f.total)}
+                      {formatCLP(saldoFactura(f))}
                     </span>
                   </Link>
                 </li>

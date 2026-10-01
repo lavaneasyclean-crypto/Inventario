@@ -1,5 +1,11 @@
 import { Badge } from "@/components/ui/badge";
-import { diasHastaVencer, estadoMostradoFactura, estadoVencimiento } from "@/lib/finanzas";
+import {
+  diasHastaVencer,
+  estadoMostradoFactura,
+  estadoVencimiento,
+  saldoFactura,
+} from "@/lib/finanzas";
+import { formatCLP } from "@/lib/format";
 import type { Factura, Gasto } from "@/lib/types";
 
 /**
@@ -24,10 +30,11 @@ export function BadgeEstadoFactura({
   factura,
   hoy,
 }: {
-  factura: Pick<Factura, "estado" | "fecha_vence">;
+  factura: Pick<Factura, "estado" | "fecha_vence" | "total" | "monto_pagado">;
   hoy: string;
 }) {
   const estado = estadoMostradoFactura(factura, hoy);
+  const saldo = saldoFactura(factura);
 
   if (estado === "pagada") {
     return (
@@ -43,6 +50,14 @@ export function BadgeEstadoFactura({
     return (
       <Badge variant="destructive">
         Vencida {textoVencimiento(factura.fecha_vence, hoy)}
+        {factura.monto_pagado > 0 && ` · falta ${formatCLP(saldo)}`}
+      </Badge>
+    );
+  }
+  if (estado === "parcial") {
+    return (
+      <Badge className="bg-amber-500 text-white dark:bg-amber-600">
+        Falta {formatCLP(saldo)}
       </Badge>
     );
   }
@@ -50,6 +65,7 @@ export function BadgeEstadoFactura({
     return (
       <Badge className="bg-amber-500 text-white dark:bg-amber-600">
         Vence {textoVencimiento(factura.fecha_vence, hoy)}
+        {factura.monto_pagado > 0 && ` · falta ${formatCLP(saldo)}`}
       </Badge>
     );
   }

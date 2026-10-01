@@ -7,6 +7,7 @@ import type {
   ClienteEmpresa,
   EstadoFactura,
   Factura,
+  FacturaAbono,
   FacturaLinea,
   Gasto,
   PedidoEmpresa,
@@ -133,6 +134,7 @@ export interface FacturaDetalle {
   factura: Factura;
   empresa: ClienteEmpresa | null;
   lineas: FacturaLinea[];
+  abonos: FacturaAbono[];
   guias: PedidoEmpresa[];
   /** La otra mitad del período: la express de una normal, o al revés. */
   hermana: Factura | null;
@@ -151,12 +153,18 @@ export async function getFacturaDetalle(
   if (!facturaData) return null;
   const factura = facturaData as Factura;
 
-  const [lineasRes, guiasRes, empresaRes] = await Promise.all([
+  const [lineasRes, abonosRes, guiasRes, empresaRes] = await Promise.all([
     supabase
       .from("facturas_lineas")
       .select("*")
       .eq("factura_id", id)
       .order("nombre", { ascending: true }),
+    supabase
+      .from("facturas_abonos")
+      .select("*")
+      .eq("factura_id", id)
+      .order("fecha", { ascending: true })
+      .order("id", { ascending: true }),
     supabase
       .from("facturas_guias")
       .select("pedido_empresa_id")
@@ -205,6 +213,7 @@ export async function getFacturaDetalle(
     factura,
     empresa: (empresaRes.data as ClienteEmpresa | null) ?? null,
     lineas: (lineasRes.data ?? []) as FacturaLinea[],
+    abonos: (abonosRes.data ?? []) as FacturaAbono[],
     guias,
     hermana,
   };

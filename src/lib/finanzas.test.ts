@@ -10,6 +10,7 @@ import {
   rangoDeFechas,
   resumirFacturas,
   resumirGastos,
+  saldoFactura,
   vencimientoPorDefecto,
 } from "./finanzas";
 import type { Factura, Gasto } from "./types";
@@ -30,6 +31,7 @@ function factura(partial: Partial<Factura> = {}): Factura {
     iva: 19_000,
     total: 119_000,
     estado: "pendiente",
+    monto_pagado: 0,
     fecha_pago: null,
     forma_pago: null,
     notas: null,
@@ -176,7 +178,13 @@ describe("resumirFacturas", () => {
     const r = resumirFacturas(
       [
         factura({ id: 1, total: 100_000 }),
-        factura({ id: 2, total: 200_000, estado: "pagada", fecha_pago: HOY }),
+        factura({
+          id: 2,
+          total: 200_000,
+          monto_pagado: 200_000,
+          estado: "pagada",
+          fecha_pago: HOY,
+        }),
       ],
       HOY,
     );
@@ -294,5 +302,137 @@ describe("rangoDeFechas", () => {
   it("devuelve null si no hay fechas usables", () => {
     expect(rangoDeFechas([])).toBeNull();
     expect(rangoDeFechas(["cualquier cosa"])).toBeNull();
+  });
+});
+
+describe("saldoFactura", () => {
+  it("resta lo abonado", () => {
+    expect(saldoFactura({ total: 119_000, monto_pagado: 50_000 })).toBe(69_000);
+  });
+
+  it("sin abonos el saldo es el total", () => {
+    expect(saldoFactura({ total: 119_000, monto_pagado: 0 })).toBe(119_000);
+  });
+
+  it("no devuelve negativo si pagaron de mas", () => {
+    // Pasa con transferencias redondeadas. El excedente no es credito: es
+    // otro problema y no se modela.
+    expect(saldoFactura({ total: 119_000, monto_pagado: 120_000 })).toBe(0);
+  });
+});
+
+describe("estadoMostradoFactura con abonos", () => {
+  it("un pago parcial a tiempo se muestra como parcial", () => {
+    const f = factura({ monto_pagado: 50_000, fecha_vence: "2026-12-01" });
+    expect(estadoMostradoFactura(f, HOY)).toBe("parcial");
+  });
+
+  it("el vencimiento manda sobre el parcial", () => {
+    // Una factura abonada a medias que ya vencio sigue siendo cobranza:
+    // decir "parcial" esconderia el problema.
+    const f = factura({ monto_pagado: 50_000, fecha_vence: "2026-09-01" });
+    expect(estadoMostradoFactura(f, HOY)).toBe("vencida");
+  });
+
+  it("sin abonos y sin vencer sigue siendo pendiente", () => {
+    const f = factura({ monto_pagado: 0, fecha_vence: "2026-12-01" });
+    expect(estadoMostradoFactura(f, HOY)).toBe("pendiente");
+  });
+});
+
+describe("resumirFacturas con pagos parciales", () => {
+  it("lo pendiente es el saldo, no el total", () => {
+    const r = resumirFacturas(
+      [factura({ total: 119_000, monto_pagado: 80_000 })],
+      HOY,
+    );
+    expect(r.pendiente).toEqual({ cantidad: 1, total: 39_000 });
+  });
+
+  it("lo abonado cuenta como cobrado aunque la factura siga abierta", () => {
+    // Si solo contara al saldarse, un mes de muchos pagos parciales
+    // apareceria como si no hubiera entrado nada.
+    const r = resumirFacturas(
+      [factura({ total: 119_000, monto_pagado: 80_000 })],
+      HOY,
+    );
+    expect(r.liquidado).toEqual({ cantidad: 1, total: 80_000 });
+  });
+
+  it("lo vencido tambien es el saldo", () => {
+    const r = resumirFacturas(
+      [
+        factura({
+          total: 119_000,
+          monto_pagado: 100_000,
+          fecha_vence: "2026-08-01",
+        }),
+      ],
+      HOY,
+    );
+    expect(r.vencido).toEqual({ cantidad: 1, total: 19_000 });
+  });
+
+  it("una pagada no suma a pendiente y suma entera a cobrado", () => {
+    const r = resumirFacturas(
+      [
+        factura({
+          estado: "pagada",
+          total: 119_000,
+          monto_pagado: 119_000,
+          fecha_pago: HOY,
+        }),
+      ],
+      HOY,
+    );
+    expect(r.pendiente.total).toBe(0);
+    expect(r.liquidado.total).toBe(119_000);
+  });
+
+  it("un sobrepago no infla lo cobrado ni deja saldo negativo", () => {
+    const r = resumirFacturas(
+      [
+        factura({
+          estado: "pagada",
+          total: 119_000,
+          monto_pagado: 125_000,
+          fecha_pago: HOY,
+        }),
+      ],
+      HOY,
+    );
+    expect(r.liquidado.total).toBe(119_000);
+    expect(r.pendiente.total).toBe(0);
+  });
+
+  it("una anulada con abonos sigue sin sumar a nada", () => {
+    const r = resumirFacturas(
+      [factura({ estado: "anulada", total: 119_000, monto_pagado: 60_000 })],
+      HOY,
+    );
+    expect(r.pendiente.total).toBe(0);
+    expect(r.liquidado.total).toBe(0);
+  });
+});
+
+describe("resumirFacturas sin la migracion de abonos aplicada", () => {
+  it("una pagada cuenta entera aunque monto_pagado llegue indefinido", () => {
+    // Escenario real: codigo desplegado antes de aplicar 0011. La columna no
+    // existe y sin esta guarda la factura aparecia como deuda entera.
+    const f = {
+      ...factura({ estado: "pagada", total: 119_000, fecha_pago: HOY }),
+      monto_pagado: undefined as unknown as number,
+    };
+    const r = resumirFacturas([f], HOY);
+    expect(r.liquidado).toEqual({ cantidad: 1, total: 119_000 });
+    expect(r.pendiente.total).toBe(0);
+  });
+
+  it("una pendiente sin la columna se cuenta por su total", () => {
+    const f = {
+      ...factura({ total: 119_000 }),
+      monto_pagado: undefined as unknown as number,
+    };
+    expect(resumirFacturas([f], HOY).pendiente.total).toBe(119_000);
   });
 });

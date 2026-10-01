@@ -23,7 +23,7 @@ vi.mock("@/lib/data/empresas", () => ({
 import {
   crearFacturaManual,
   crearGasto,
-  marcarFacturaPagada,
+  registrarAbono,
   registrarFactura,
 } from "./actions";
 
@@ -330,33 +330,137 @@ describe("crearFacturaManual", () => {
   });
 });
 
-describe("marcarFacturaPagada", () => {
-  it("guarda fecha y forma de pago", async () => {
-    const fake = montar({ "facturas.update": {} });
+describe("registrarAbono", () => {
+  const FACTURA = { estado: "pendiente", total: 119_000, monto_pagado: 0 };
 
-    const res = await marcarFacturaPagada(3, {
-      fecha_pago: "2026-09-20",
+  it("guarda el pago contra la factura", async () => {
+    const fake = montar({
+      "facturas.select": { data: FACTURA },
+      "facturas_abonos.insert": {},
+    });
+
+    const res = await registrarAbono(3, {
+      fecha: "2026-09-20",
+      monto: 50_000,
       forma_pago: "transferencia",
+      notas: null,
     });
 
     expect(res.ok).toBe(true);
-    const payload = fake.ultima("facturas", "update")?.payload as Record<
+    const payload = fake.ultima("facturas_abonos", "insert")?.payload as Record<
       string,
       unknown
     >;
-    expect(payload).toEqual({
-      estado: "pagada",
-      fecha_pago: "2026-09-20",
+    expect(payload).toMatchObject({
+      factura_id: 3,
+      fecha: "2026-09-20",
+      monto: 50_000,
       forma_pago: "transferencia",
     });
   });
 
+  it("no escribe el estado: lo deriva la base de la suma de abonos", async () => {
+    const fake = montar({
+      "facturas.select": { data: FACTURA },
+      "facturas_abonos.insert": {},
+    });
+
+    await registrarAbono(3, {
+      fecha: "2026-09-20",
+      monto: 119_000,
+      forma_pago: "transferencia",
+      notas: null,
+    });
+
+    // Aunque el abono salde la factura, la app no toca `facturas`.
+    expect(fake.ultima("facturas", "update")).toBeUndefined();
+  });
+
+  it("acepta un abono parcial sobre uno previo", async () => {
+    const fake = montar({
+      "facturas.select": { data: { ...FACTURA, monto_pagado: 80_000 } },
+      "facturas_abonos.insert": {},
+    });
+
+    const res = await registrarAbono(3, {
+      fecha: "2026-10-05",
+      monto: 39_000,
+      forma_pago: "transferencia",
+      notas: null,
+    });
+
+    expect(res.ok).toBe(true);
+    const payload = fake.ultima("facturas_abonos", "insert")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(payload.monto).toBe(39_000);
+  });
+
+  it("rechaza un abono que supera el saldo", async () => {
+    montar({ "facturas.select": { data: { ...FACTURA, monto_pagado: 100_000 } } });
+
+    const res = await registrarAbono(3, {
+      fecha: "2026-10-05",
+      monto: 50_000, // el saldo es 19.000
+      forma_pago: "transferencia",
+      notas: null,
+    });
+
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).toContain("supera el saldo");
+  });
+
+  it("rechaza pagar una factura ya saldada", async () => {
+    montar({
+      "facturas.select": { data: { ...FACTURA, monto_pagado: 119_000 } },
+    });
+
+    const res = await registrarAbono(3, {
+      fecha: "2026-10-05",
+      monto: 1000,
+      forma_pago: "transferencia",
+      notas: null,
+    });
+
+    expect(res).toEqual({ ok: false, error: "Esta factura ya está saldada." });
+  });
+
+  it("rechaza pagar una factura anulada", async () => {
+    montar({
+      "facturas.select": { data: { ...FACTURA, estado: "anulada" } },
+    });
+
+    const res = await registrarAbono(3, {
+      fecha: "2026-10-05",
+      monto: 1000,
+      forma_pago: "transferencia",
+      notas: null,
+    });
+
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).toContain("anulada");
+  });
+
+  it("rechaza monto cero", async () => {
+    montar({ "facturas.select": { data: FACTURA } });
+    const res = await registrarAbono(3, {
+      fecha: "2026-10-05",
+      monto: 0,
+      forma_pago: "transferencia",
+      notas: null,
+    });
+    expect(res.ok).toBe(false);
+  });
+
   it("rechaza una forma de pago que no corresponde a un cobro", async () => {
-    montar();
-    const res = await marcarFacturaPagada(3, {
-      fecha_pago: "2026-09-20",
+    montar({ "facturas.select": { data: FACTURA } });
+    const res = await registrarAbono(3, {
+      fecha: "2026-10-05",
+      monto: 1000,
       // `no_pago` existe en el enum de mostrador pero no es un cobro.
       forma_pago: "no_pago" as "transferencia",
+      notas: null,
     });
     expect(res.ok).toBe(false);
   });
