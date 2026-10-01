@@ -9,6 +9,8 @@ const inputSchema = z.object({
   alias:       z.string().nullable(),
   fecha:       z.string().min(1, "Fecha requerida"),
   detalle:     z.string().nullable(),
+  /** Guia apurada: paga el recargo express de la empresa. */
+  express:     z.boolean().default(false),
   items: z
     .array(
       z.object({
@@ -56,6 +58,7 @@ export async function crearPedidoEmpresa(
           alias:       data.alias,
           fecha:       data.fecha,
           detalle:     data.detalle,
+          express:     data.express,
         },
         p_items: data.items.map((it) => ({
           producto_empresa_id:     it.producto_empresa_id,

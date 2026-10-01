@@ -13,8 +13,19 @@ Sistema de gestión de pedidos para lavandería. Reemplaza la base de datos Acce
 ## Cómo se usa
 
 Para el día a día —cargar las planillas de las empresas, sincronizar los
-pedidos de mostrador desde el Access, y los cuidados que hay que tener— ver
+pedidos de mostrador desde el Access, facturar el mes y llevar las cuentas— ver
 **[docs/OPERACION.md](docs/OPERACION.md)**.
+
+## Qué hace
+
+- **Pedidos de mostrador** y **pedidos de empresa** (guías), con su catálogo y
+  precios por empresa.
+- **Facturación** de un período: consolida las guías y baja la planilla.
+- **Finanzas**: registra cada factura emitida con las guías que cubre, lleva
+  cuáles están cobradas, y anota los gastos (luz, agua, insumos,
+  remuneraciones) con su estado de pago.
+- **Servicio express**: una guía puede venir apurada y pagar un recargo
+  —el porcentaje lo fija cada empresa— que se factura como documento aparte.
 
 ## Estructura
 

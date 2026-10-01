@@ -91,6 +91,11 @@ export interface ClienteEmpresa {
   contacto_2: string | null;
   correo: string | null;
   activo: boolean;
+  /**
+   * Porcentaje adicional que cobra esta empresa por una guia express.
+   * 0 = no cobra express.
+   */
+  recargo_express: number;
 }
 
 export interface PedidoEmpresa {
@@ -100,6 +105,8 @@ export interface PedidoEmpresa {
   fecha: string;
   detalle: string | null;
   anulado: boolean;
+  /** Se lavo y devolvio apurada: paga el recargo de la empresa. */
+  express: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -131,6 +138,142 @@ export interface ProductoEmpresaAdquirido {
   nombre: string;
   precio: number | null;
 }
+
+// =========================================================
+// Finanzas
+//
+// A diferencia de los pedidos, acá la plata viaja como `number`: las columnas
+// son `integer` (pesos sin decimales) y PostgREST las serializa como número.
+// Las `numeric` de pedidos llegan como string, de ahí la diferencia.
+//
+// Las fechas son días del calendario ("YYYY-MM-DD"), no instantes: la columna
+// es `date`. No hay que pasarlas por los helpers de zona horaria.
+// =========================================================
+
+export type EstadoFactura = "pendiente" | "pagada" | "anulada";
+
+/**
+ * Un periodo puede necesitar dos documentos: la factura normal cobra todas las
+ * guias a precio base y la express cobra aparte el recargo de las apuradas.
+ * Se separan porque el facturador electronico no acepta tantos items juntos.
+ */
+export type TipoFactura = "normal" | "express";
+
+export interface Factura {
+  id: number;
+  rut_empresa: string;
+  tipo: TipoFactura;
+  /** Número del SII. Vacío hasta que vuelve del facturador electrónico. */
+  folio: string | null;
+  fecha: string;
+  fecha_vence: string | null;
+  periodo_desde: string | null;
+  periodo_hasta: string | null;
+  neto: number;
+  iva: number;
+  total: number;
+  estado: EstadoFactura;
+  fecha_pago: string | null;
+  forma_pago: FormaPago | null;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Snapshot de una línea del consolidado al momento de emitir la factura. */
+export interface FacturaLinea {
+  id: number;
+  factura_id: number;
+  producto_empresa_id: string | null;
+  nombre: string;
+  cantidad: number;
+  precio_unidad: number | null;
+  importe: number;
+}
+
+export type CategoriaGasto =
+  | "luz"
+  | "agua"
+  | "gas"
+  | "arriendo"
+  | "internet"
+  | "telefono"
+  | "insumos"
+  | "remuneraciones"
+  | "impuestos"
+  | "mantencion"
+  | "otros";
+
+export interface Gasto {
+  id: number;
+  categoria: CategoriaGasto;
+  descripcion: string;
+  proveedor: string | null;
+  /** N° de la boleta o factura del proveedor, para cruzar con el papel. */
+  documento: string | null;
+  fecha: string;
+  fecha_vence: string | null;
+  /** Mes del consumo, "YYYY-MM". La boleta de octubre puede ser de septiembre. */
+  periodo: string | null;
+  monto: number;
+  pagado: boolean;
+  fecha_pago: string | null;
+  forma_pago: FormaPago | null;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const TIPO_FACTURA_LABELS: Record<TipoFactura, string> = {
+  normal: "Factura",
+  express: "Recargo express",
+};
+
+export const ESTADO_FACTURA_LABELS: Record<EstadoFactura, string> = {
+  pendiente: "Por cobrar",
+  pagada: "Pagada",
+  anulada: "Anulada",
+};
+
+export const CATEGORIA_GASTO_LABELS: Record<CategoriaGasto, string> = {
+  luz: "Luz",
+  agua: "Agua",
+  gas: "Gas",
+  arriendo: "Arriendo",
+  internet: "Internet",
+  telefono: "Teléfono",
+  insumos: "Insumos",
+  remuneraciones: "Remuneraciones",
+  impuestos: "Impuestos",
+  mantencion: "Mantención",
+  otros: "Otros",
+};
+
+/** Orden de los desplegables: lo que más se carga, primero. */
+export const CATEGORIAS_GASTO: CategoriaGasto[] = [
+  "luz",
+  "agua",
+  "gas",
+  "insumos",
+  "remuneraciones",
+  "arriendo",
+  "internet",
+  "telefono",
+  "impuestos",
+  "mantencion",
+  "otros",
+];
+
+/**
+ * Formas de pago que tienen sentido al registrar un pago recibido o hecho.
+ * Se excluye `no_pago`, que en los pedidos de mostrador significa "todavía no
+ * pagó" y acá lo dice el estado.
+ */
+export const FORMAS_PAGO_REALES: FormaPago[] = [
+  "transferencia",
+  "efectivo",
+  "redcompra",
+];
 
 export const ESTADO_LABELS: Record<EstadoPedido, string> = {
   recibido: "En proceso",

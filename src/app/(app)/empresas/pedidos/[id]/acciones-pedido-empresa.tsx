@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Undo2, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { CheckboxExpress } from "@/components/checkbox-express";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,18 +16,44 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { anularPedidoEmpresa, desanularPedidoEmpresa } from "./actions";
+import {
+  anularPedidoEmpresa,
+  desanularPedidoEmpresa,
+  marcarExpress,
+} from "./actions";
 
 export function AccionesPedidoEmpresa({
   id,
   anulado,
+  express,
+  recargoExpress,
+  rutEmpresa,
 }: {
   id: number;
   anulado: boolean;
+  express: boolean;
+  recargoExpress: number;
+  rutEmpresa?: string;
 }) {
   const router = useRouter();
   const [confirmAnular, setConfirmAnular] = useState(false);
   const [pending, setPending] = useState(false);
+  // Optimista: la casilla se mueve al instante y se revierte si el servidor
+  // dice que no. Marcar express es el caso de "me acordé después", y esperar
+  // el ida y vuelta para ver el cambio se siente roto.
+  const [expressLocal, setExpressLocal] = useState(express);
+
+  const cambiarExpress = async (v: boolean) => {
+    setExpressLocal(v);
+    const res = await marcarExpress(id, v);
+    if (!res.ok) {
+      setExpressLocal(!v);
+      toast.error(res.error);
+      return;
+    }
+    toast.success(v ? "Marcada como express" : "Ya no es express");
+    router.refresh();
+  };
 
   const handleAnular = async () => {
     setPending(true);
@@ -61,6 +89,15 @@ export function AccionesPedidoEmpresa({
 
   return (
     <>
+      <div className="mb-3">
+        <CheckboxExpress
+          checked={expressLocal}
+          onChange={cambiarExpress}
+          recargo={recargoExpress}
+          rutEmpresa={rutEmpresa}
+        />
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <Link
           href={`/empresas/pedidos/${id}/editar`}

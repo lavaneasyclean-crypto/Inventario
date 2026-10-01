@@ -4,6 +4,7 @@ import {
   Users,
   Building2,
   ShoppingBasket,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,4 +20,5 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/clientes",  label: "Clientes",       icon: Users },
   { href: "/empresas",  label: "Empresas",       icon: Building2 },
   { href: "/catalogo",  label: "Catálogo",       icon: ShoppingBasket },
+  { href: "/finanzas",  label: "Finanzas",       icon: Wallet },
 ];

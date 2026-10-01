@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputNumero } from "@/components/input-numero";
 import type { ClienteEmpresa } from "@/lib/types";
 import { actualizarEmpresa, crearEmpresa } from "./actions";
 
@@ -80,6 +81,7 @@ function EmpresaDialog({
   const [contacto2, setContacto2] = useState("");
   const [correo, setCorreo] = useState("");
   const [activo, setActivo] = useState(true);
+  const [recargoExpress, setRecargoExpress] = useState("0");
 
   // Reset al abrir. Se ajusta durante el render y no en un efecto: no hay
   // ningún sistema externo con el que sincronizar, y en un efecto React tiene
@@ -98,6 +100,7 @@ function EmpresaDialog({
         setContacto2(empresa.contacto_2 ?? "");
         setCorreo(empresa.correo ?? "");
         setActivo(empresa.activo);
+        setRecargoExpress(String(empresa.recargo_express ?? 0));
       } else {
         setRut("");
         setNombre("");
@@ -108,6 +111,7 @@ function EmpresaDialog({
         setContacto2("");
         setCorreo("");
         setActivo(true);
+        setRecargoExpress("0");
       }
       setError(null);
     }
@@ -142,6 +146,7 @@ function EmpresaDialog({
           contacto_2: contacto2.trim() || null,
           correo: correo.trim() || null,
           activo,
+          recargo_express: Number(recargoExpress || 0),
         });
       } else {
         res = await actualizarEmpresa(empresa!.rut, {
@@ -153,6 +158,7 @@ function EmpresaDialog({
           contacto_2: contacto2.trim() || null,
           correo: correo.trim() || null,
           activo,
+          recargo_express: Number(recargoExpress || 0),
         });
       }
       setLoading(false);
@@ -239,6 +245,22 @@ function EmpresaDialog({
             onChange={setCorreo}
             type="email"
           />
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="recargo-express">Recargo express (%)</Label>
+            <InputNumero
+              id="recargo-express"
+              value={recargoExpress}
+              onValueChange={setRecargoExpress}
+              placeholder="0"
+              className="h-10"
+            />
+            <p className="text-xs text-muted-foreground">
+              Porcentaje adicional que paga esta empresa por una guía express.
+              Dejalo en 0 si no cobra express. El recargo se factura como
+              documento aparte de la factura del mes.
+            </p>
+          </div>
 
           <label className="mt-1 flex items-center gap-2 text-sm">
             <input

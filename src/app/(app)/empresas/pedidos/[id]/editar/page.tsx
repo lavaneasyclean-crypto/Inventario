@@ -57,6 +57,8 @@ export default async function EditarPedidoEmpresaPage({
 
       <EditarPedidoEmpresaForm
         pedido={data.pedido}
+        recargoExpress={data.empresa.recargo_express}
+        rutEmpresa={data.empresa.rut}
         items={data.items}
         productos={productos}
       />

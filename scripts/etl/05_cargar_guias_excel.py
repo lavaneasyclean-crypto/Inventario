@@ -13,6 +13,13 @@ ya conoce.
 La hoja trae la grilla partida en bloques (dias 1-15, 16-31) y un bloque final
 con los precios; solo se leen los bloques que tienen fila "Guias".
 
+Una guia puede venir marcada como express en esa misma fila, con el numero
+seguido de la palabra: "g1458 Express". La guia se carga igual —a precio base,
+como cualquier otra— y queda con la marca puesta. El recargo no se guarda en
+la guia: lo calcula la app con el porcentaje de la empresa al facturar, y sale
+en un documento aparte. La planilla tiene ese calculo en su bloque "Servicio
+express", que este script no lee porque es derivado.
+
 Reemplazo, no acumulacion: las guias que aparecen en la planilla se borran y se
 vuelven a crear con lo que dice la planilla. Una guia que este en la base y no
 en el Excel no se toca.
@@ -115,8 +122,10 @@ class Supa:
 # ---------------------------------------------------------------------------
 # Lectura de la planilla
 # ---------------------------------------------------------------------------
-def leer_planilla(ruta: Path) -> tuple[str, dict[str, dict[str, int]], dict[str, int]]:
-    """Devuelve (rut, {guia: {prenda: cantidad}}, {guia: dia})."""
+def leer_planilla(
+    ruta: Path,
+) -> tuple[str, dict[str, dict[str, int]], dict[str, int], set[str]]:
+    """Devuelve (rut, {guia: {prenda: cantidad}}, {guia: dia}, {guias express})."""
     ws = openpyxl.load_workbook(ruta, data_only=True)[
         openpyxl.load_workbook(ruta).sheetnames[0]]
 
@@ -129,6 +138,7 @@ def leer_planilla(ruta: Path) -> tuple[str, dict[str, dict[str, int]], dict[str,
 
     guias: dict[str, dict[str, int]] = defaultdict(dict)
     dia_de: dict[str, int] = {}
+    express: set[str] = set()
 
     filas = list(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True))
     for i, fila in enumerate(filas):
@@ -155,7 +165,15 @@ def leer_planilla(ruta: Path) -> tuple[str, dict[str, dict[str, int]], dict[str,
                 for j in dias:
                     v = filas[k][j] if j < len(filas[k]) else None
                     if v is not None and str(v).strip():
-                        col_guia[j] = re.sub(r"[^\d]", "", str(v))
+                        crudo = str(v).strip()
+                        num = re.sub(r"[^\d]", "", crudo)
+                        if not num:
+                            continue
+                        col_guia[j] = num
+                        # "g1458 Express": la marca viaja pegada al numero. El
+                        # re.sub de arriba se la comia sin avisar.
+                        if "express" in norm(crudo):
+                            express.add(num)
                 break
             if norm(t).startswith(FIN_DE_GRILLA):
                 break
@@ -171,7 +189,7 @@ def leer_planilla(ruta: Path) -> tuple[str, dict[str, dict[str, int]], dict[str,
                 if isinstance(v, (int, float)) and v:
                     guias[guia][prenda] = guias[guia].get(prenda, 0) + int(v)
 
-    return rut, guias, dia_de
+    return rut, guias, dia_de, express
 
 
 def leer_precios(ws) -> dict[str, int]:
@@ -210,7 +228,7 @@ def main() -> int:
     if not args.solo_catalogo and not (args.periodo and re.fullmatch(r"\d{4}-\d{2}", args.periodo)):
         sys.exit("--periodo va como YYYY-MM (salvo que uses --solo-catalogo)")
 
-    rut, guias, dia_de = leer_planilla(Path(args.planilla))
+    rut, guias, dia_de, express = leer_planilla(Path(args.planilla))
     if not guias and not args.solo_catalogo:
         sys.exit("La planilla no tiene fila 'Guias': no se puede saber a que pedido va cada dia.")
 
@@ -292,9 +310,13 @@ def main() -> int:
     print(f"{nombre_emp} ({rut})  —  periodo {args.periodo}")
     print(f"  guias en la planilla : {len(guias)}")
     print(f"  unidades             : {sum(sum(i.values()) for i in guias.values())}")
+    if express:
+        print(f"  express              : {len(express)} "
+              f"({', '.join('g' + g for g in sorted(express, key=int))})")
     for guia in sorted(guias, key=int):
         print(f"     g{guia}  dia {dia_de[guia]:>2}   {len(guias[guia]):>2} prendas"
-              f"   {sum(guias[guia].values()):>4} u")
+              f"   {sum(guias[guia].values()):>4} u"
+              f"{'   EXPRESS' if guia in express else ''}")
 
     if sin_codigo:
         print(f"\n  PRENDAS SIN CODIGO ({len(sin_codigo)}):")
@@ -323,6 +345,7 @@ def main() -> int:
             "id": int(guia), "rut_empresa": rut, "alias": nombre_emp,
             # Mediodia de Chile: asi el dia no se corre al mostrarlo.
             "fecha": f"{fecha}T12:00:00-03:00", "detalle": None,
+            "express": guia in express,
         })
         for prenda, cant in items.items():
             cod = por_nombre.get(norm(prenda)) or EQUIVALENCIAS[norm(prenda)]

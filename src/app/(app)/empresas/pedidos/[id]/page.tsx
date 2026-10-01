@@ -36,6 +36,11 @@ export default async function PedidoEmpresaDetallePage({
         <div className="flex items-baseline gap-3">
           <h1 className="font-mono text-3xl font-semibold">#{pedido.id}</h1>
           <span className="text-sm text-muted-foreground">Pedido empresa</span>
+          {pedido.express && (
+            <Badge className="bg-violet-600 text-white dark:bg-violet-700">
+              Express
+            </Badge>
+          )}
           {pedido.anulado && (
             <Badge variant="destructive">Anulado</Badge>
           )}
@@ -136,7 +141,13 @@ export default async function PedidoEmpresaDetallePage({
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           Acciones
         </h2>
-        <AccionesPedidoEmpresa id={pedido.id} anulado={pedido.anulado} />
+        <AccionesPedidoEmpresa
+          id={pedido.id}
+          anulado={pedido.anulado}
+          express={pedido.express}
+          recargoExpress={empresa?.recargo_express ?? 0}
+          rutEmpresa={empresa?.rut}
+        />
       </section>
     </div>
   );

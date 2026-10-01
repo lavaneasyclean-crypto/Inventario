@@ -8,6 +8,7 @@ export const IVA_RATE = 0.19;
 
 export interface LineaConsolidada {
   key: string;
+  producto_empresa_id: string | null;
   nombre: string;
   /**
    * Lo que se imprime en la planilla. Es el nombre a secas, salvo cuando el
@@ -55,45 +56,76 @@ export function claveLinea(
 }
 
 /**
+ * Precio unitario del recargo por servicio express.
+ *
+ * No es el precio express: es *solo el adicional*. La guía express se cobra
+ * dos veces —una a precio base en la factura normal, junto con todas las
+ * demás, y otra acá por el porcentaje extra— porque el facturador electrónico
+ * no acepta tantos items en un mismo documento.
+ *
+ * Se redondea por unidad y no al final, para que el precio unitario que ve el
+ * cliente en la factura multiplicado por la cantidad dé exactamente el
+ * subtotal impreso.
+ */
+export function precioExpress(precioBase: number, recargoPct: number): number {
+  return Math.round((precioBase * recargoPct) / 100);
+}
+
+interface OpcionesConsolidado {
+  /** Deja fuera las guías que no vinieron express. */
+  soloExpress?: boolean;
+  /** Convierte el precio guardado en el que se va a cobrar. */
+  precio?: (base: number) => number;
+}
+
+/**
  * Consolida los items de los pedidos seleccionados en líneas únicas por
  * (producto_empresa_id, nombre, precio). Suma cantidades, multiplica por el
  * precio unitario para obtener importe. Items sin precio no suman al total y
  * se marcan con sinPrecio=true.
  */
-export function consolidarPedidos(
+function consolidar(
   pedidos: readonly PedidoConItems[],
   seleccionadosIds: ReadonlySet<number>,
+  opciones: OpcionesConsolidado = {},
 ): Consolidado {
   const map = new Map<string, LineaConsolidada>();
+  const convertir = opciones.precio;
 
   for (const { pedido, items } of pedidos) {
     if (!seleccionadosIds.has(pedido.id)) continue;
+    if (opciones.soloExpress && !pedido.express) continue;
     for (const it of items) {
+      // La clave lleva el precio ya convertido: es el que se imprime, y dos
+      // precios base distintos que caen en el mismo recargo son una sola
+      // línea para el cliente.
+      const precio =
+        it.precio_unidad === null || !convertir
+          ? it.precio_unidad
+          : convertir(it.precio_unidad);
       const key = claveLinea(
         it.producto_empresa_id,
         it.producto_empresa_nombre,
-        it.precio_unidad,
+        precio,
       );
       const cur = map.get(key);
       if (cur) {
         cur.cantidad += it.cantidad;
-        if (it.precio_unidad !== null) {
-          cur.importe += it.precio_unidad * it.cantidad;
+        if (precio !== null) {
+          cur.importe += precio * it.cantidad;
         } else {
           cur.sinPrecio = true;
         }
       } else {
         map.set(key, {
           key,
+          producto_empresa_id: it.producto_empresa_id,
           nombre: it.producto_empresa_nombre,
           etiqueta: it.producto_empresa_nombre,
           cantidad: it.cantidad,
-          precio_unidad: it.precio_unidad,
-          importe:
-            it.precio_unidad === null
-              ? 0
-              : it.precio_unidad * it.cantidad,
-          sinPrecio: it.precio_unidad === null,
+          precio_unidad: precio,
+          importe: precio === null ? 0 : precio * it.cantidad,
+          sinPrecio: precio === null,
         });
       }
     }
@@ -125,4 +157,109 @@ export function consolidarPedidos(
   const iva = Math.round(neto * IVA_RATE);
   const total = neto + iva;
   return { lineas, neto, iva, total };
+}
+
+/** Consolidado de la factura normal: todas las guías marcadas, a precio base. */
+export function consolidarPedidos(
+  pedidos: readonly PedidoConItems[],
+  seleccionadosIds: ReadonlySet<number>,
+): Consolidado {
+  return consolidar(pedidos, seleccionadosIds);
+}
+
+/**
+ * Consolidado de la factura de recargo: solo las guías express, y solo el
+ * porcentaje adicional.
+ */
+export function consolidarExpress(
+  pedidos: readonly PedidoConItems[],
+  seleccionadosIds: ReadonlySet<number>,
+  recargoPct: number,
+): Consolidado {
+  return consolidar(pedidos, seleccionadosIds, {
+    soloExpress: true,
+    precio: (base) => precioExpress(base, recargoPct),
+  });
+}
+
+/**
+ * Si corresponde recordarle a la persona que bajó la planilla pero no registró
+ * la facturación.
+ *
+ * Bajar el Excel y registrar son dos acciones separadas a propósito —a veces
+ * se baja solo para revisar antes de emitir— y esa separación es la forma
+ * fácil de que el seguimiento quede con agujeros.
+ *
+ * La parte que no es obvia es el solapamiento parcial: si *alguna* de las
+ * guías ya está en un documento vigente, el recordatorio NO va. Registrar
+ * estaría bloqueado de todos modos, y el aviso que corresponde ahí es el de
+ * "ya facturadas", que además ofrece desmarcarlas. Dos carteles diciendo
+ * cosas distintas sobre lo mismo es peor que uno.
+ */
+export function debeRecordarRegistro({
+  exportado,
+  ocultado,
+  guiaIds,
+  idsYaFacturadas,
+}: {
+  /** Ya se bajó la planilla de este documento en esta visita. */
+  exportado: boolean;
+  /** La persona cerró el aviso. */
+  ocultado: boolean;
+  /** Guías que entrarían en el documento. */
+  guiaIds: readonly number[];
+  /** De esas, las que ya están en un documento vigente del mismo tipo. */
+  idsYaFacturadas: readonly number[];
+}): boolean {
+  if (!exportado || ocultado) return false;
+  if (guiaIds.length === 0) return false;
+  return idsYaFacturadas.length === 0;
+}
+
+export interface Facturacion {
+  /** Todas las guías marcadas, a precio base. Siempre existe. */
+  principal: Consolidado;
+  /**
+   * El recargo de las express. `null` cuando la empresa no cobra express o
+   * cuando ninguna de las guías marcadas lo es: ahí no hay segundo documento
+   * que emitir.
+   */
+  express: Consolidado | null;
+  /** Ids de las guías express incluidas, para registrar la segunda factura. */
+  idsExpress: number[];
+}
+
+/**
+ * Los dos documentos de un período en una sola pasada.
+ *
+ * Ojo con el total: el neto de `principal` ya incluye las guías express a
+ * precio base, así que lo que factura el período es la suma de los dos netos,
+ * no uno u otro.
+ */
+export function consolidarFacturacion(
+  pedidos: readonly PedidoConItems[],
+  seleccionadosIds: ReadonlySet<number>,
+  recargoPct: number,
+): Facturacion {
+  const principal = consolidarPedidos(pedidos, seleccionadosIds);
+
+  const idsExpress = pedidos
+    .filter((p) => seleccionadosIds.has(p.pedido.id) && p.pedido.express)
+    .map((p) => p.pedido.id);
+
+  // Si el codigo se despliega antes de aplicar 0010_pedidos_express, la
+  // columna no existe todavia y el recargo llega undefined. Sin esta guarda
+  // `undefined <= 0` es false, el calculo sigue, y la pantalla muestra NaN en
+  // vez de simplemente no ofrecer el documento express.
+  if (!Number.isFinite(recargoPct) || recargoPct <= 0 || idsExpress.length === 0) {
+    return { principal, express: null, idsExpress };
+  }
+
+  const express = consolidarExpress(pedidos, seleccionadosIds, recargoPct);
+  // Guías express sin ninguna línea con precio no dan documento: facturar un
+  // recargo de cero es emitir un papel en blanco.
+  if (express.neto === 0) {
+    return { principal, express: null, idsExpress };
+  }
+  return { principal, express, idsExpress };
 }

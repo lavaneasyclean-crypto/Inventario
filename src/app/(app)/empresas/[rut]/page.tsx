@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   FileSpreadsheet,
+  FileText,
   MapPin,
   Mail,
   Phone,
@@ -125,6 +126,15 @@ export default async function EmpresaDetallePage({
           )}
         >
           <FileSpreadsheet className="size-5" /> Facturar período
+        </Link>
+        <Link
+          href={`/finanzas/facturas?rut=${encodeURIComponent(empresa.rut)}`}
+          className={cn(
+            buttonVariants({ variant: "outline", size: "lg" }),
+            "h-11 px-4 text-base",
+          )}
+        >
+          <FileText className="size-5" /> Ver facturas
         </Link>
       </div>
 
