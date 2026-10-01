@@ -213,6 +213,55 @@ export async function getPedidosEmpresaParaFacturacion(
   }));
 }
 
+/**
+ * Las guías indicadas, con sus items, siempre que sean de esa empresa y no
+ * estén anuladas.
+ *
+ * Lo usa el registro de facturas para rearmar el consolidado en el servidor en
+ * vez de creerle el monto a la pantalla: si el navegador quedó con datos
+ * viejos —o alguien toca el request— la factura se emite igual por lo que dice
+ * la base.
+ */
+export async function getPedidosEmpresaPorIds(
+  rut: string,
+  ids: readonly number[],
+): Promise<PedidoEmpresaConItems[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+
+  const { data: pedidos } = await supabase
+    .from("pedidos_empresa")
+    .select("*")
+    .eq("rut_empresa", rut)
+    .eq("anulado", false)
+    .in("id", [...ids])
+    .order("fecha", { ascending: true });
+
+  const lista = (pedidos ?? []) as PedidoEmpresa[];
+  if (lista.length === 0) return [];
+
+  const { data: items } = await supabase
+    .from("pedidos_empresa_items")
+    .select("*")
+    .in(
+      "pedido_empresa_id",
+      lista.map((p) => p.id),
+    )
+    .order("id", { ascending: true });
+
+  const itemsByPedido = new Map<number, PedidoEmpresaItem[]>();
+  for (const it of (items ?? []) as PedidoEmpresaItem[]) {
+    const arr = itemsByPedido.get(it.pedido_empresa_id) ?? [];
+    arr.push(it);
+    itemsByPedido.set(it.pedido_empresa_id, arr);
+  }
+
+  return lista.map((p) => ({
+    pedido: p,
+    items: itemsByPedido.get(p.id) ?? [],
+  }));
+}
+
 export async function getProductosEmpresaActivos(): Promise<ProductoEmpresa[]> {
   const supabase = await createClient();
   const { data } = await supabase

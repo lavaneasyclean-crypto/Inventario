@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputNumero } from "@/components/input-numero";
 import { Label } from "@/components/ui/label";
+import { CheckboxExpress } from "@/components/checkbox-express";
 import { formatCLP } from "@/lib/format";
 import type {
   PedidoEmpresa,
@@ -29,10 +30,14 @@ export function EditarPedidoEmpresaForm({
   pedido,
   items: itemsIniciales,
   productos,
+  recargoExpress,
+  rutEmpresa,
 }: {
   pedido: PedidoEmpresa;
   items: PedidoEmpresaItem[];
   productos: ProductoEmpresaAdquirido[];
+  recargoExpress: number;
+  rutEmpresa: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -40,6 +45,7 @@ export function EditarPedidoEmpresaForm({
 
   const [fecha, setFecha] = useState(() => fechaEnChile(new Date(pedido.fecha)));
   const [detalle, setDetalle] = useState(pedido.detalle ?? "");
+  const [express, setExpress] = useState(pedido.express);
   const [items, setItems] = useState<ItemDraft[]>(() =>
     itemsIniciales.map((it) => ({
       key: crypto.randomUUID(),
@@ -107,6 +113,7 @@ export function EditarPedidoEmpresaForm({
       const res = await actualizarPedidoEmpresa(pedido.id, {
         fecha: mediodiaChile(fecha),
         detalle: detalle.trim() || null,
+        express,
         items: items.map((it) => ({
           producto_empresa_id: it.producto_empresa_id,
           nombre: it.nombre,
@@ -289,6 +296,14 @@ export function EditarPedidoEmpresaForm({
             value={detalle}
             onChange={(e) => setDetalle(e.target.value)}
             className="h-10"
+          />
+        </div>
+        <div className="mt-3">
+          <CheckboxExpress
+            checked={express}
+            onChange={setExpress}
+            recargo={recargoExpress}
+            rutEmpresa={rutEmpresa}
           />
         </div>
       </Section>

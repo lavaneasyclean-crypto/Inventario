@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputNumero } from "@/components/input-numero";
 import { Label } from "@/components/ui/label";
+import { CheckboxExpress } from "@/components/checkbox-express";
 import {
   Select,
   SelectContent,
@@ -57,6 +58,7 @@ export function NuevoPedidoEmpresaForm({
   const [empresa, setEmpresa] = useState<ClienteEmpresa | null>(empresaInicial);
   const [fecha, setFecha] = useState(hoyEnChile);
   const [detalle, setDetalle] = useState("");
+  const [express, setExpress] = useState(false);
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
   const [productoFocused, setProductoFocused] = useState(false);
@@ -98,6 +100,7 @@ export function NuevoPedidoEmpresaForm({
   const cambiarEmpresa = (e: ClienteEmpresa | null) => {
     setEmpresa(e);
     setItems([]); // limpiar items porque pertenecen a la empresa anterior
+    setExpress(false); // el recargo es de la empresa anterior, no de esta
   };
 
   const addItem = (p: ProductoEmpresaAdquirido) => {
@@ -150,6 +153,7 @@ export function NuevoPedidoEmpresaForm({
         alias: empresa.alias,
         fecha: mediodiaChile(fecha),
         detalle: detalle.trim() || null,
+        express,
         items: items.map((it) => ({
           producto_empresa_id: it.producto_empresa_id,
           nombre: it.nombre,
@@ -245,6 +249,16 @@ export function NuevoPedidoEmpresaForm({
             className="h-10"
           />
         </div>
+        {empresa && (
+          <div className="mt-3">
+            <CheckboxExpress
+              checked={express}
+              onChange={setExpress}
+              recargo={empresa.recargo_express}
+              rutEmpresa={empresa.rut}
+            />
+          </div>
+        )}
       </Section>
 
       <Section title="3. Items">

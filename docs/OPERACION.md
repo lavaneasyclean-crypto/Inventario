@@ -49,6 +49,95 @@ empresa. Una guía a medias es peor que ninguna.
 La planilla trae su propio `Total Neto`. Al terminar, el script imprime el
 neto que cargó: **tienen que coincidir**. Si no coinciden, algo se leyó mal.
 
+### Guías express
+
+Una guía puede venir apurada y pagar un recargo. El porcentaje lo negocia cada
+empresa y se carga **una sola vez**, en su ficha (campo *Recargo express*).
+Hoy: Hotel Acacias, 60%.
+
+En la planilla la marca va pegada al número, en la fila `Guias`:
+
+```
+Guias | g1457 | g1458 Express | ... | g1475 Express |
+```
+
+`05_cargar_guias_excel.py` la lee y deja la guía marcada. Las que se cargan a
+mano se marcan con la casilla *Servicio express* del formulario, o después
+desde la ficha de la guía —que es el caso normal, porque uno se entera al
+rato—.
+
+**Cómo se cobra**, que es lo que suele confundir:
+
+| Documento | Qué guías | A qué precio |
+|---|---|---|
+| Factura normal | Todas las del período, express incluidas | Precio base |
+| Factura express | Solo las express | Solo el recargo (base × 60%) |
+
+O sea que una guía express se cobra en dos documentos: el precio base en la
+factura del mes y el 60% adicional en la de recargo. Son dos porque Haulmer
+—donde se emite la factura electrónica— no acepta tantos items juntos.
+
+El neto del período es la **suma de los dos**. La planilla vieja hacía lo
+mismo: su `Total Neto` sumaba el bloque principal y el bloque
+*Servicio express*.
+
+## Facturar el mes
+
+En la ficha de la empresa, **Facturar período**. Se elige el rango (por fechas
+o por número de guía), se revisa el consolidado y de ahí salen dos cosas:
+
+- **Descargar Excel** — la planilla, igual que siempre.
+- **Registrar factura** — la guarda en Finanzas con un snapshot de las líneas
+  y de qué guías cubre.
+
+Registrarla es lo que hace que el sistema después avise *"la guía #1458 ya está
+en la factura #12"* si se intenta facturar el mismo período dos veces. Si la
+empresa tiene guías express, abajo aparece un segundo consolidado con su propio
+botón para el documento de recargo.
+
+El folio se puede dejar vacío y completar después, cuando vuelve del SII.
+
+## Cobros y gastos
+
+En **Finanzas**:
+
+- *Por cobrar*: las facturas emitidas. Las vencidas salen en rojo.
+- *Por pagar*: los gastos —luz, agua, gas, insumos, remuneraciones, arriendo,
+  internet, teléfono, impuestos, mantención—. Se anotan al recibir la boleta y
+  se marcan pagados al pagarla.
+- *Resumen*: cuánto nos deben, cuánto debemos, y el movimiento del mes.
+
+El **período** de un gasto es el mes del consumo, no el de la boleta: la luz de
+septiembre llega en octubre y para comparar meses importa septiembre.
+
+### Cobrar una factura, entera o de a poco
+
+Las empresas no siempre pagan todo junto: abonan una parte a fin de mes y el
+resto cuando pueden. Por eso en la ficha de cada factura hay una sección
+**Pagos recibidos** donde se registra cada pago con su fecha, monto y forma.
+
+El botón trae **el saldo precargado**, así que cobrar todo de una vez es
+apretar *Registrar pago* sin tocar nada. Si pagaron una parte, se escribe ese
+monto encima y la factura queda con saldo, mostrando *"Falta $X"* en el
+listado.
+
+El estado **no se marca a mano**: lo calcula la base sumando los pagos. Cuando
+la suma llega al total, la factura pasa a *Pagada* sola. Si un pago se cargó
+mal, se borra de esa misma lista y el estado vuelve atrás.
+
+Dos cosas que conviene saber:
+
+- No se puede abonar más que el saldo. La app lo rechaza antes de escribir.
+- En el resumen, **"Por cobrar" es el saldo**, no el total: una factura de
+  $119.000 con $80.000 abonados figura como $39.000 de deuda. Y lo abonado
+  cuenta como cobrado aunque la factura siga abierta, para que un mes de
+  muchos pagos parciales no aparezca como si no hubiera entrado nada.
+
+Una factura **no se borra**: se anula. Queda en el historial y sus guías
+vuelven a quedar disponibles para facturar, que es lo que hace falta cuando se
+emite una nota de crédito. Un gasto sí se borra, porque es una anotación
+nuestra y no un documento emitido.
+
 ## Sincronizar los pedidos de mostrador
 
 ```bash
@@ -108,6 +197,17 @@ avisa si el nombre nuevo se parece demasiado a uno existente.
 afecta solo a los pedidos **futuros**; las guías ya cargadas conservan el suyo.
 Si el precio equivocado ya quedó en una guía, hay que editar esa guía.
 
+**El recargo express no es un snapshot.** Al revés que el precio, se toma de la
+ficha de la empresa en el momento de facturar. Lo que sí queda congelado es la
+factura: una vez registrada, sus líneas guardan el recargo ya calculado. Si el
+porcentaje cambia, hay que rehacer las facturas del período anterior que
+todavía no se emitieron.
+
+**Los montos de una factura los calcula el servidor.** El botón "Registrar
+factura" no manda el total que muestra la pantalla: manda qué guías incluir, y
+el servidor vuelve a leerlas y rehace la suma. Si la pantalla quedó abierta
+media hora y alguien editó una guía, se factura lo que dice la base.
+
 **Las secuencias.** Las guías cargadas desde las planillas usan números altos
 (1500+) mientras la secuencia de la app iba por 1181. Cada vez que se carguen
 guías con número propio, hay que empujar la secuencia:
@@ -127,5 +227,5 @@ terminal, y la que está en `.env.local` está vencida.
 ## Migraciones
 
 Se aplican a mano en el SQL Editor de Supabase, en orden. Ver
-`migrations/README.md`. Las `0006`, `0007` y `0008` hay que aplicarlas **antes**
-de desplegar el código que las usa: la app llama a funciones que se crean ahí.
+`migrations/README.md`. Las `0006` a `0011` hay que aplicarlas **antes** de
+desplegar el código que las usa: la app llama a funciones que se crean ahí.

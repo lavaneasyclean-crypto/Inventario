@@ -20,6 +20,14 @@ const baseSchema = z.object({
     .nullable()
     .or(z.literal("").transform(() => null)),
   activo:     z.boolean(),
+  // Porcentaje adicional por guia express. 0 = la empresa no lo cobra, que es
+  // el caso de casi todas, asi que tiene default y no hay que mandarlo.
+  recargo_express: z
+    .number()
+    .int("El recargo va en numeros enteros")
+    .min(0, "El recargo no puede ser negativo")
+    .max(500, "Un recargo de mas de 500% seguro es un error de tipeo")
+    .default(0),
 });
 
 const createSchema = baseSchema.extend({
@@ -83,6 +91,7 @@ export async function crearEmpresa(
       contacto_2: data.contacto_2 || null,
       correo:     data.correo || null,
       activo:     data.activo,
+      recargo_express: data.recargo_express,
     });
     if (error) return fallo("crearEmpresa", step, error);
 
@@ -124,6 +133,7 @@ export async function actualizarEmpresa(
         contacto_2: data.contacto_2 || null,
         correo:     data.correo || null,
         activo:     data.activo,
+        recargo_express: data.recargo_express,
       })
       .eq("rut", rut);
 

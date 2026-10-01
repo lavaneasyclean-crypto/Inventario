@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { rangoDelMes } from "@/lib/fecha";
+import { hoyEnChile, rangoDelMes } from "@/lib/fecha";
 import {
   getPedidosEmpresaParaFacturacion,
 } from "@/lib/data/empresas";
+import { getGuiasFacturadas } from "@/lib/data/finanzas";
 import type { ClienteEmpresa } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { FacturacionClient } from "./facturacion-cliente";
@@ -56,6 +57,14 @@ export default async function FacturacionPage({
     idHasta: modo === "guia" ? idHasta : undefined,
   });
 
+  // Qué guías del rango ya están en un documento vigente. Sin esto la pantalla
+  // deja facturar dos veces el mismo mes sin decir nada.
+  const facturadas = await getGuiasFacturadas(pedidos.map((p) => p.pedido.id));
+  const yaFacturadas = [...facturadas.entries()].map(([id, docs]) => ({
+    id,
+    ...docs,
+  }));
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
@@ -66,12 +75,21 @@ export default async function FacturacionPage({
       </h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Elegí el rango de pedidos a facturar y revisá el consolidado.
+        {empresa.recargo_express > 0 && (
+          <>
+            {" "}
+            Esta empresa cobra {empresa.recargo_express}% de recargo por
+            servicio express, que se factura como documento aparte.
+          </>
+        )}
       </p>
 
       <FacturacionClient
         empresa={empresa}
         pedidosConItems={pedidos}
         filtros={{ modo, desde, hasta, idDesde, idHasta }}
+        yaFacturadas={yaFacturadas}
+        hoy={hoyEnChile()}
       />
     </div>
   );

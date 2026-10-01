@@ -1,7 +1,7 @@
 "use client";
 
 import ExcelJS from "exceljs";
-import { claveLinea } from "@/lib/facturacion";
+import { claveLinea, precioExpress } from "@/lib/facturacion";
 import type {
   ClienteEmpresa,
   PedidoEmpresa,
@@ -102,22 +102,35 @@ function styleTotalRow(cell: ExcelJS.Cell, big = false) {
   cell.border = thinBorder;
 }
 
+/**
+ * Baja la planilla de un periodo.
+ *
+ * Con `tipo: "express"` baja la del recargo: mismas guias express, pero cada
+ * precio unitario es el porcentaje adicional y no el precio base. Es el
+ * equivalente al bloque "Servicio express" de las planillas que se venian
+ * armando a mano.
+ */
 export async function exportFacturacionExcel({
   empresa,
   pedidos,
   consolidado,
   filtros,
+  tipo = "normal",
+  recargoExpress = 0,
 }: {
   empresa: ClienteEmpresa;
   pedidos: PedidoConItems[];
   consolidado: Consolidado;
   filtros: Filtros;
+  tipo?: "normal" | "express";
+  recargoExpress?: number;
 }) {
+  const esExpress = tipo === "express";
   const wb = new ExcelJS.Workbook();
   wb.creator = "Easy Clean — Inventario";
   wb.created = new Date();
 
-  const ws = wb.addWorksheet("Facturación", {
+  const ws = wb.addWorksheet(esExpress ? "Servicio express" : "Facturación", {
     views: [{ showGridLines: false }],
   });
 
@@ -126,7 +139,7 @@ export async function exportFacturacionExcel({
   // ============================================================
   ws.mergeCells("A1:D2");
   const titleCell = ws.getCell("A1");
-  titleCell.value = "FACTURACIÓN";
+  titleCell.value = esExpress ? "SERVICIO EXPRESS" : "FACTURACIÓN";
   titleCell.font = {
     bold: true,
     color: { argb: TEXT_WHITE },
@@ -143,7 +156,9 @@ export async function exportFacturacionExcel({
   // Subtitulo Easy Clean en col R..(o donde toque)
   ws.mergeCells("E1:R2");
   const sub = ws.getCell("E1");
-  sub.value = "Easy Clean — Lavandería";
+  sub.value = esExpress
+    ? `Easy Clean — Recargo ${recargoExpress}% sobre precio base`
+    : "Easy Clean — Lavandería";
   sub.font = {
     italic: true,
     color: { argb: TEXT_WHITE },
@@ -219,12 +234,15 @@ export async function exportFacturacionExcel({
     if (day === undefined) continue;
     const col = day - startDay;
     for (const it of items) {
+      // El precio tiene que pasar por la misma conversion que uso el
+      // consolidado; si no, la linea del recargo no se encuentra y el grid
+      // sale en cero.
+      const precio =
+        it.precio_unidad === null || !esExpress
+          ? it.precio_unidad
+          : precioExpress(it.precio_unidad, recargoExpress);
       const idx = productIndex.get(
-        claveLinea(
-          it.producto_empresa_id,
-          it.producto_empresa_nombre,
-          it.precio_unidad,
-        ),
+        claveLinea(it.producto_empresa_id, it.producto_empresa_nombre, precio),
       );
       if (idx === undefined) continue;
       grid[idx][col] += it.cantidad;
@@ -318,7 +336,9 @@ export async function exportFacturacionExcel({
   // Header de seccion
   ws.mergeCells(`A${r}:D${r}`);
   const facturaHeader = ws.getCell(`A${r}`);
-  facturaHeader.value = "FACTURACIÓN";
+  facturaHeader.value = esExpress
+    ? `RECARGO EXPRESS ${recargoExpress}%`
+    : "FACTURACIÓN";
   facturaHeader.font = {
     bold: true,
     color: { argb: TEXT_WHITE },
@@ -336,7 +356,9 @@ export async function exportFacturacionExcel({
   // Header columnas
   ws.getCell(`A${r}`).value = "Producto";
   ws.getCell(`B${r}`).value = "CANTIDAD";
-  ws.getCell(`C${r}`).value = "PRECIO UNITARIO";
+  ws.getCell(`C${r}`).value = esExpress
+    ? "RECARGO UNITARIO"
+    : "PRECIO UNITARIO";
   ws.getCell(`D${r}`).value = "PRECIO TOTAL";
   for (const col of ["A", "B", "C", "D"]) {
     styleHeader(ws.getCell(`${col}${r}`));
@@ -441,7 +463,7 @@ export async function exportFacturacionExcel({
     filtros.modo === "fecha"
       ? `${filtros.desde}_a_${filtros.hasta}`
       : `guias_${filtros.idDesde ?? ""}-${filtros.idHasta ?? ""}`;
-  const filename = `Facturacion_${fileLabel}_${periodoLabel}.xlsx`;
+  const filename = `${esExpress ? "Express" : "Facturacion"}_${fileLabel}_${periodoLabel}.xlsx`;
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

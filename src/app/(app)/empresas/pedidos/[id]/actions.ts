@@ -45,9 +45,36 @@ export async function desanularPedidoEmpresa(
   }
 }
 
+/**
+ * Marca o desmarca la guia como express sin tocar los items.
+ *
+ * Va aparte de la edicion completa porque el caso tipico es acordarse despues:
+ * la guia ya esta cargada y hay que marcarla sin volver a pasar por el
+ * formulario de items.
+ */
+export async function marcarExpress(
+  id: number,
+  express: boolean,
+): Promise<PedidoEmpresaActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("pedidos_empresa")
+      .update({ express })
+      .eq("id", id);
+    if (error) return fallo("marcarExpress", "marcarExpress", error);
+    revalidatePath(`/empresas/pedidos/${id}`);
+    revalidatePath("/empresas");
+    return { ok: true };
+  } catch (err) {
+    return fallo("marcarExpress", "marcarExpress", err);
+  }
+}
+
 const editarSchema = z.object({
   fecha:   z.string().min(1),
   detalle: z.string().nullable(),
+  express: z.boolean().default(false),
   items: z
     .array(
       z.object({
@@ -94,6 +121,7 @@ export async function actualizarPedidoEmpresa(
       .update({
         fecha:   data.fecha,
         detalle: data.detalle,
+        express: data.express,
       })
       .eq("id", id);
     if (ePed) return fallo("actualizarPedidoEmpresa", step, ePed);

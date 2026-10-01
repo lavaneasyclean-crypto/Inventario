@@ -28,11 +28,18 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0006_crear_pedido_atomico.sql` | Funciones `crear_pedido` / `crear_pedido_empresa` + resync de secuencias |
 | `0007_producto_empresa_atomico.sql` | Función `crear_producto_empresa`, secuencia de numeración y nombres únicos en el catálogo |
 | `0008_productos_por_medida.sql` | `unidad_cobro` en productos, medidas en los items y `crear_pedido` recalculado |
+| `0009_finanzas.sql` | `facturas`, `facturas_lineas`, `facturas_guias`, `gastos` y la función `registrar_factura` |
+| `0010_pedidos_express.sql` | `express` en las guías, `recargo_express` por empresa y `crear_pedido_empresa` recalculado |
+| `0011_facturas_abonos.sql` | `facturas_abonos` + `monto_pagado` mantenido por trigger: una factura se puede pagar de a poco |
 
-⚠️ **`0006`, `0007` y `0008` hay que aplicarlas antes de desplegar el código
-que las usa.** La app crea los pedidos y los productos de empresa llamando a esas
-funciones; si no existen todavía, los botones de guardar fallan con el aviso
-"falta aplicar una migración".
+⚠️ **De la `0006` a la `0011` hay que aplicarlas antes de desplegar el código
+que las usa.** La app crea los pedidos, los productos de
+empresa y las facturas llamando a esas funciones; si no existen todavía, los
+botones de guardar fallan con el aviso "falta aplicar una migración".
+
+`0010` reemplaza `crear_pedido_empresa` (definida en `0006`), así que hay que
+aplicarla **después** de aquella. En una base nueva, el orden numérico ya lo
+resuelve.
 
 Nota sobre `0007`: si el catálogo heredado del Access ya trae nombres
 repetidos en `productos_empresa`, el índice único no se crea y la migración lo
