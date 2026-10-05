@@ -151,25 +151,50 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
 
     # 2. Catalogo y precios
     #
-    # `crear_producto_empresa` crea el producto global y lo adquiere para la
-    # empresa con su precio, en una transaccion. Si el producto ya existe en el
-    # catalogo global la funcion lo reutiliza, asi que Termochemical no duplica
-    # las prendas que ya creo Termomin.
+    # Hay dos caminos y elegir mal rompe la carga:
+    #
+    #   - La prenda NO esta en el catalogo global -> `crear_producto_empresa`,
+    #     que la crea y la adquiere en una transaccion.
+    #   - La prenda YA esta -> hay que adquirirla para esta empresa con su
+    #     precio. `crear_producto_empresa` NO la reutiliza: rechaza el nombre
+    #     duplicado con un 23505. Y pasa seguido, porque el catalogo global es
+    #     compartido: "Polera" ya existia por otra empresa, y lo mismo entre
+    #     Termomin y Termochemical, que usan las mismas siete prendas.
+    #
+    # El cotejo por nombre replica el de la funcion SQL: sin distinguir
+    # mayusculas y sin espacios al borde, pero respetando las tildes.
+    globales = supa.pedir("GET", "productos_empresa?select=id,nombre") or []
+    id_global = {
+        (g.get("nombre") or "").strip().lower(): g["id"] for g in globales
+    }
+
     adquiridos = supa.pedir(
         "GET", f"empresa_productos?rut_empresa=eq.{rut}"
                "&select=producto_empresa_id,precio,productos_empresa(nombre)") or []
     ya_tiene = {
-        (a.get("productos_empresa") or {}).get("nombre"): a
+        ((a.get("productos_empresa") or {}).get("nombre") or "").strip().lower(): a
         for a in adquiridos
     }
 
     for nombre, precio in PRENDAS:
-        actual = ya_tiene.get(nombre)
+        clave = nombre.strip().lower()
+        actual = ya_tiene.get(clave)
         if actual is None:
-            print(f"  prenda       crear:  {nombre:18} ${precio:,}".replace(",", "."))
-            if aplicar:
-                supa.pedir("POST", "rpc/crear_producto_empresa",
-                           {"p_rut_empresa": rut, "p_nombre": nombre, "p_precio": precio})
+            gid = id_global.get(clave)
+            if gid:
+                print(f"  prenda       adquirir: {nombre:16} ${precio:,}  (ya existia, id {gid})".replace(",", "."))
+                if aplicar:
+                    supa.pedir(
+                        "POST", "empresa_productos",
+                        {"rut_empresa": rut, "producto_empresa_id": gid,
+                         "precio": precio},
+                        prefer="resolution=merge-duplicates,return=minimal")
+            else:
+                print(f"  prenda       crear:  {nombre:18} ${precio:,}".replace(",", "."))
+                if aplicar:
+                    supa.pedir("POST", "rpc/crear_producto_empresa",
+                               {"p_rut_empresa": rut, "p_nombre": nombre,
+                                "p_precio": precio})
         elif actual.get("precio") != precio:
             print(f"  prenda       precio: {nombre:18} {actual.get('precio')} -> ${precio:,}".replace(",", "."))
             if aplicar:
