@@ -385,6 +385,23 @@ def main() -> int:
         sys.exit("\nLas grillas no reproducen el resumen de la planilla. "
                  "Algo se leyo mal: no se carga nada.")
 
+    # El traslado va en su propia guia: no sale de ninguna grilla y no se
+    # reparte entre los trabajadores, pero sin el la factura sale corta.
+    ultimo_dia = ultimo_dia_del_mes(args.periodo)
+    if traslados:
+        print("\nTraslado del mes (guia aparte, sin bolsa):")
+        faltan = []
+        for rut, monto in traslados.items():
+            tiene = norm("Traslado") in catalogo.get(rut, {})
+            if not tiene:
+                faltan.append(rut)
+            print(f"  {rut}  ${monto:,}".replace(",", ".")
+                  + f"   {ultimo_dia}"
+                  + ("" if tiene else "   FALTA la prenda 'Traslado' en el catalogo"))
+        if faltan:
+            sys.exit("\nCorre 06_alta_empresa_bolsas.py para crear la prenda "
+                     "'Traslado' antes de cargar.")
+
     if not args.apply:
         print("\nSIMULACION. Volve a correr con --apply.")
         return 0
@@ -430,10 +447,38 @@ def main() -> int:
         print(f"  {b.semana:10} {b.rut:12} guia #{nuevo}  "
               f"{len(b.filas)} bolsas, {len(items)} lineas")
 
+    for rut, monto in traslados.items():
+        ya = supa.pedir(
+            "GET", f"pedidos_empresa?rut_empresa=eq.{rut}"
+                   f"&fecha=gte.{ultimo_dia}T00:00:00&fecha=lt.{ultimo_dia}T23:59:59"
+                   "&select=id") or []
+        if ya:
+            print(f"  Traslado   {rut:12} ya existe (guia #{ya[0]['id']}), se saltea")
+            continue
+        pid, precio = catalogo[rut][norm("Traslado")]
+        nuevo = supa.pedir("POST", "rpc/crear_pedido_empresa", {
+            "p_pedido": {
+                "rut_empresa": rut, "alias": None,
+                "fecha": f"{ultimo_dia}T12:00:00-03:00",
+                "detalle": f"Traslado — {args.periodo}",
+                "express": False,
+            },
+            "p_items": [{
+                "producto_empresa_id": pid,
+                "producto_empresa_nombre": "Traslado",
+                # El precio del catalogo manda sobre el de la planilla: si
+                # difieren, el que vale es el acordado con la empresa.
+                "precio_unidad": precio if precio is not None else monto,
+                "cantidad": 1,
+                "detalle_prenda": None,
+                "bolsa_id": None,
+            }],
+        })
+        creadas += 1
+        print(f"  Traslado   {rut:12} guia #{nuevo}  ${monto:,}".replace(",", "."))
+
     print(f"\n{creadas} guia{'' if creadas == 1 else 's'} creada"
           f"{'' if creadas == 1 else 's'}.")
-    print("El 'Traslado' del resumen no se cargo: no sale de las grillas. "
-          "Va aparte al facturar.")
     return 0
 
 
