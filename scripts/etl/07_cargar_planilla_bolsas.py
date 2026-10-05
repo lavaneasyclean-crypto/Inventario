@@ -22,8 +22,11 @@ empresa. El script reconstruye esos numeros desde las grillas y se niega a
 cargar si no coinciden. Una guia a medias es peor que ninguna: el error no se
 nota —el total de la guia da igual— y recien aparece cuando el cliente reclama.
 
-NO carga el "Traslado" del resumen. Es un cargo del mes, no una prenda, y no
-sale de ninguna grilla: va aparte al facturar.
+El "Traslado" del resumen se carga como una guia aparte, con el ultimo dia del
+periodo y una sola linea sin bolsa. Es un cargo del mes, no una prenda: no se
+reparte entre los trabajadores ni se devuelve, pero sin el la factura sale
+$80.000 corta. La prenda "Traslado" tiene que existir en el catalogo de la
+empresa, que es lo que deja 06_alta_empresa_bolsas.py.
 
 Idempotente: si ya hay una guia de esa empresa con esa fecha, se saltea. Se
 puede correr de nuevo despues de agregar una semana.
@@ -135,8 +138,10 @@ class Bloque:
         return sum(sum(p.values()) for p in self.filas.values())
 
 
-def leer_planilla(ruta: Path) -> tuple[list[Bloque], dict[str, dict[str, int]]]:
-    """Devuelve (bloques con cantidades, resumen del mes por empresa)."""
+def leer_planilla(
+    ruta: Path,
+) -> tuple[list[Bloque], dict[str, dict[str, int]], dict[str, int]]:
+    """Devuelve (bloques, resumen del mes por empresa, traslado por empresa)."""
     ws = openpyxl.load_workbook(ruta, data_only=True).worksheets[0]
     filas = list(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True))
 
@@ -214,7 +219,27 @@ def leer_planilla(ruta: Path) -> tuple[list[Bloque], dict[str, dict[str, int]]]:
 
         i += 1
 
-    return bloques, leer_resumen(filas)
+    return bloques, leer_resumen(filas), leer_traslados(filas)
+
+
+def leer_traslados(filas) -> dict[str, int]:
+    """El cargo mensual que el resumen lista debajo del neto de cada empresa."""
+    def celda(fila, j):
+        return fila[j] if j < len(fila) else None
+
+    traslados: dict[str, int] = {}
+    rut_actual: str | None = None
+    for f in filas:
+        etiqueta = norm(texto(celda(f, 1)))
+        posible = EMPRESAS_POR_NOMBRE.get(etiqueta)
+        if posible:
+            rut_actual = posible
+            continue
+        if etiqueta == "traslado" and rut_actual:
+            v = celda(f, 2)
+            if isinstance(v, (int, float)) and v:
+                traslados[rut_actual] = int(v)
+    return traslados
 
 
 def leer_resumen(filas) -> dict[str, dict[str, int]]:
@@ -244,6 +269,19 @@ def leer_resumen(filas) -> dict[str, dict[str, int]]:
 
 
 # ---------------------------------------------------------------------------
+def ultimo_dia_del_mes(periodo: str) -> str:
+    """'2026-09' -> '2026-09-30'. El traslado se imputa al cierre del mes."""
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", periodo):
+        sys.exit(f"Periodo invalido: {periodo}. Va como 2026-09.")
+    anio, mes = (int(x) for x in periodo.split("-"))
+    if mes == 12:
+        anio, mes = anio + 1, 1
+    else:
+        mes += 1
+    import datetime
+    return (datetime.date(anio, mes, 1) - datetime.timedelta(days=1)).isoformat()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("planilla")
@@ -251,7 +289,7 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
 
-    bloques, resumen = leer_planilla(Path(args.planilla))
+    bloques, resumen, traslados = leer_planilla(Path(args.planilla))
     if not bloques:
         sys.exit("No se encontro ninguna grilla con fila 'Numero bolsa'.")
 

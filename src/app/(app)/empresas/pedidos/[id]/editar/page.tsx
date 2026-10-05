@@ -24,13 +24,14 @@ export default async function EditarPedidoEmpresaPage({
   const supabase = await createClient();
   const { data: ep } = await supabase
     .from("empresa_productos")
-    .select("producto_empresa_id, precio, orden, productos_empresa(nombre, activo)")
+    .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
     .eq("rut_empresa", data.empresa.rut);
 
   type Row = {
     producto_empresa_id: string;
     precio: number | null;
     orden: number | null;
+    en_grilla: boolean;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
   const productos: ProductoEmpresaAdquirido[] = ordenarProductos(
@@ -41,6 +42,7 @@ export default async function EditarPedidoEmpresaPage({
         nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
         precio: r.precio,
         orden: r.orden,
+        en_grilla: r.en_grilla ?? true,
       })),
   );
 

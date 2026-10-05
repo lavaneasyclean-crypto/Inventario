@@ -10,7 +10,7 @@ function p(
   nombre: string,
   orden: number | null = null,
 ): ProductoEmpresaAdquirido {
-  return { producto_empresa_id: nombre, nombre, precio: 1000, orden };
+  return { producto_empresa_id: nombre, nombre, precio: 1000, orden, en_grilla: true };
 }
 
 describe("ordenarProductos", () => {

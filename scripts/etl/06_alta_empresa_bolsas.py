@@ -68,6 +68,17 @@ PRENDAS = [
     ("Gorro",             500),
 ]
 
+# Lo que se factura pero NO es una prenda de bolsa: no se reparte entre los
+# trabajadores ni se devuelve. Va al catalogo para que entre en la factura,
+# pero marcado `en_grilla = false` para que no ocupe una columna que nadie
+# llena. El monto sale del "Traslado" del resumen de la planilla.
+SERVICIOS = [
+    ("Traslado", 80000),
+]
+
+# Nombres que van al catalogo pero no a la grilla.
+SOLO_FACTURA = {n for n, _ in SERVICIOS}
+
 EMPRESAS = {
     "termomin": {
         "rut": "86667200-8",
@@ -185,7 +196,7 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
     # id de cada prenda, para fijar despues el orden de las columnas.
     id_de: dict[str, str] = {}
 
-    for nombre, precio in PRENDAS:
+    for nombre, precio in PRENDAS + SERVICIOS:
         clave = nombre.strip().lower()
         actual = ya_tiene.get(clave)
         if actual is None:
@@ -197,7 +208,8 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
                     supa.pedir(
                         "POST", "empresa_productos",
                         {"rut_empresa": rut, "producto_empresa_id": gid,
-                         "precio": precio},
+                         "precio": precio,
+                         "en_grilla": nombre not in SOLO_FACTURA},
                         prefer="resolution=merge-duplicates,return=minimal")
             else:
                 print(f"  prenda       crear:  {nombre:18} ${precio:,}".replace(",", "."))
@@ -207,6 +219,14 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
                                            "p_precio": precio})
                     if isinstance(nuevo_id, str):
                         id_de[nombre] = nuevo_id
+                        if nombre in SOLO_FACTURA:
+                            # La funcion SQL lo crea como prenda; hay que
+                            # sacarlo de la grilla despues.
+                            supa.pedir(
+                                "PATCH",
+                                f"empresa_productos?rut_empresa=eq.{rut}"
+                                f"&producto_empresa_id=eq.{nuevo_id}",
+                                {"en_grilla": False}, prefer="return=minimal")
         elif actual.get("precio") != precio:
             id_de[nombre] = actual["producto_empresa_id"]
             print(f"  prenda       precio: {nombre:18} {actual.get('precio')} -> ${precio:,}".replace(",", "."))
@@ -226,6 +246,7 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
     # es idempotente y no depende de que las existentes esten numeradas de
     # forma consistente. Lo que no este en PRENDAS —"Polar", por ejemplo—
     # queda en NULL y la app lo manda al final, alfabetico.
+    # El orden solo aplica a las columnas de la grilla: los servicios no tienen.
     orden = [(n, id_de[n]) for n, _ in PRENDAS if n in id_de]
     if len(orden) == len(PRENDAS):
         print(f"  orden        columnas: {' | '.join(n for n, _ in orden)}")

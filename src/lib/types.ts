@@ -165,6 +165,11 @@ export interface ProductoEmpresaAdquirido {
    * papel y las columnas tienen que seguir el mismo orden.
    */
   orden: number | null;
+  /**
+   * false para lo que se factura pero no es una prenda de bolsa (traslado,
+   * recargos): no ocupa columna en la grilla ni sale en la devolucion.
+   */
+  en_grilla: boolean;
 }
 
 // =========================================================

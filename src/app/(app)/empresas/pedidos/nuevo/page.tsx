@@ -40,12 +40,13 @@ export default async function NuevoPedidoEmpresaPage({
         const supabase = await createClient();
         const { data } = await supabase
           .from("empresa_productos")
-          .select("producto_empresa_id, precio, orden, productos_empresa(nombre, activo)")
+          .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
           .eq("rut_empresa", empresaInicial.rut);
         type Fila = {
           producto_empresa_id: string;
           precio: number | null;
           orden: number | null;
+          en_grilla: boolean;
           productos_empresa: { nombre: string; activo: boolean } | null;
         };
         // El orden de las columnas de la grilla sale de aca: tiene que seguir
@@ -53,11 +54,15 @@ export default async function NuevoPedidoEmpresaPage({
         return ordenarProductos(
           ((data ?? []) as unknown as Fila[])
             .filter((r) => r.productos_empresa?.activo !== false)
+            // Lo que no es prenda de bolsa no lleva columna: seria una
+            // columna que nadie llena, en la pantalla donde mas molesta.
+            .filter((r) => r.en_grilla !== false)
             .map((r) => ({
               producto_empresa_id: r.producto_empresa_id,
               nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
               precio: r.precio,
               orden: r.orden,
+              en_grilla: true,
             })),
         );
       })(),
@@ -94,7 +99,7 @@ export default async function NuevoPedidoEmpresaPage({
   const { data: ep } = await supabase
     .from("empresa_productos")
     .select(
-      "rut_empresa, producto_empresa_id, precio, orden, productos_empresa(nombre, activo)",
+      "rut_empresa, producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)",
     );
 
   type Row = {
@@ -102,6 +107,7 @@ export default async function NuevoPedidoEmpresaPage({
     producto_empresa_id: string;
     precio: number | null;
     orden: number | null;
+    en_grilla: boolean;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
   const productosByEmpresa = new Map<string, ProductoEmpresaAdquirido[]>();
@@ -113,6 +119,7 @@ export default async function NuevoPedidoEmpresaPage({
       nombre: row.productos_empresa?.nombre ?? "(sin nombre)",
       precio: row.precio,
       orden: row.orden,
+      en_grilla: row.en_grilla ?? true,
     });
     productosByEmpresa.set(row.rut_empresa, arr);
   }

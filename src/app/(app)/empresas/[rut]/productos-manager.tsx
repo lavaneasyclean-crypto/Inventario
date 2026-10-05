@@ -142,6 +142,7 @@ export function ProductosManager({
                   ? () => mover(p.producto_empresa_id, 1)
                   : undefined
               }
+              mostrarFueraDeGrilla={ordenImporta}
             />
           ))}
         </ul>
@@ -163,12 +164,14 @@ function ProductoCard({
   posicion,
   onSubir,
   onBajar,
+  mostrarFueraDeGrilla,
 }: {
   rut: string;
   producto: ProductoEmpresaAdquirido;
   posicion?: number | null;
   onSubir?: () => void;
   onBajar?: () => void;
+  mostrarFueraDeGrilla?: boolean;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -222,6 +225,11 @@ function ProductoCard({
             )}
             <span className="truncate">{producto.nombre}</span>
           </div>
+          {mostrarFueraDeGrilla && !producto.en_grilla && (
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              No va en la grilla
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setEditOpen(true)}
@@ -310,6 +318,7 @@ function EditarPrecioDialog({
   const [precio, setPrecio] = useState(producto.precio?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [enGrilla, setEnGrilla] = useState(producto.en_grilla);
 
   // Reset al abrir. Antes la condicion era `precio === ""`, que tambien se
   // cumple cuando la persona borra el campo a mano: el precio volvia a
@@ -320,6 +329,7 @@ function EditarPrecioDialog({
     setAbiertoPrevio(open);
     if (open) {
       setPrecio(producto.precio?.toString() ?? "");
+      setEnGrilla(producto.en_grilla);
       setError(null);
     }
   }
@@ -337,6 +347,7 @@ function EditarPrecioDialog({
       const res = await asignarProducto({
         rut_empresa: rut,
         producto_empresa_id: producto.producto_empresa_id,
+        en_grilla: enGrilla,
         precio: precioNum,
       });
       setLoading(false);
@@ -376,6 +387,24 @@ function EditarPrecioDialog({
               Dejar vacío si no querés definir precio todavía.
             </p>
           </div>
+
+          <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={enGrilla}
+              onChange={(e) => setEnGrilla(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <span className="font-medium">Es una prenda de bolsa</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Destildalo para lo que se factura pero no viene en una bolsa,
+                como el traslado: se cobra igual, pero no ocupa una columna en
+                la grilla ni aparece en la hoja de devolución.
+              </span>
+            </span>
+          </label>
+
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>

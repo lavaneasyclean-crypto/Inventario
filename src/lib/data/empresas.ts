@@ -298,13 +298,14 @@ export async function getProductosDeEmpresa(
   const supabase = await createClient();
   const { data } = await supabase
     .from("empresa_productos")
-    .select("producto_empresa_id, precio, orden, productos_empresa(nombre, activo)")
+    .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
     .eq("rut_empresa", rut);
 
   type Row = {
     producto_empresa_id: string;
     precio: number | null;
     orden: number | null;
+    en_grilla: boolean;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
 
@@ -317,6 +318,7 @@ export async function getProductosDeEmpresa(
         nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
         precio: r.precio,
         orden: r.orden,
+        en_grilla: r.en_grilla ?? true,
       })),
   );
 }

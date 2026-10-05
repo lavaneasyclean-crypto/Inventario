@@ -87,8 +87,7 @@ export function HojaDevolucion({
       {sinBolsa.length > 0 && (
         <div className="mt-3 rounded border border-amber-500/40 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
           <p className="font-medium">
-            {sinBolsa.length} línea{sinBolsa.length === 1 ? "" : "s"} sin bolsa
-            asignada:
+            {sinBolsa.length} línea{sinBolsa.length === 1 ? "" : "s"} sin bolsa:
           </p>
           <ul className="mt-1 flex flex-wrap gap-x-3">
             {sinBolsa.map((l, i) => (
@@ -98,8 +97,9 @@ export function HojaDevolucion({
             ))}
           </ul>
           <p className="mt-1">
-            Pasa cuando la guía se cargó antes de armar el padrón. Editala para
-            asignarlas.
+            Puede ser algo que se factura sin venir en una bolsa —el traslado,
+            por ejemplo— o una guía que se cargó antes de armar el padrón. En
+            el segundo caso, editala para asignarlas.
           </p>
         </div>
       )}

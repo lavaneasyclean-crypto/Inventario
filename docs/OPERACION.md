@@ -174,6 +174,16 @@ crea de la 1 a la N de una vez, y *Agregar* suma las que van por nombre. En la
 planilla de Termomín conviven las numeradas con `Nicolás`, `DV` y `Maxis`, que
 son personas sin bolsa asignada — por eso el código es texto y no un número.
 
+### Lo que se factura pero no es una prenda
+
+El traslado se cobra como una línea más, pero no viene en ninguna bolsa. Está
+en el catálogo de la empresa con la casilla **"Es una prenda de bolsa"
+destildada**: se factura igual —entra al consolidado y a la factura— pero no
+ocupa una columna en la grilla ni sale en la hoja de devolución.
+
+Sin eso, agregarlo al catálogo le mete una columna vacía a la grilla, en la
+pantalla donde más molesta.
+
 ### El orden de las columnas
 
 Las columnas de la grilla salen del orden de las prendas de la empresa, y
@@ -229,8 +239,10 @@ no está en el padrón o alguna prenda no está en el catálogo.
 
 Es idempotente: una guía que ya existe para esa empresa y esa fecha se saltea.
 
-**Lo que NO carga:** el `Traslado` del resumen mensual. No sale de ninguna
-grilla, es un cargo del mes, y va aparte al facturar.
+**El `Traslado`** del resumen mensual se carga como una **guía aparte**, con
+el último día del período y una sola línea sin bolsa. No sale de ninguna
+grilla: es un cargo del mes, no se reparte entre los trabajadores y no se
+devuelve, pero sin él la factura sale $80.000 corta.
 
 ### Devolver
 
@@ -333,5 +345,5 @@ terminal, y la que está en `.env.local` está vencida.
 ## Migraciones
 
 Se aplican a mano en el SQL Editor de Supabase, en orden. Ver
-`migrations/README.md`. Las `0006` a `0013` hay que aplicarlas **antes** de
+`migrations/README.md`. Las `0006` a `0014` hay que aplicarlas **antes** de
 desplegar el código que las usa: la app llama a funciones que se crean ahí.

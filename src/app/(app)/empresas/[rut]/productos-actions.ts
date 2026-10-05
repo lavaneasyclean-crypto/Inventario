@@ -13,6 +13,9 @@ const asignarSchema = z.object({
   rut_empresa:         z.string().min(1),
   producto_empresa_id: z.string().min(1),
   precio:              z.number().int().nullable(),
+  // false para lo que se factura pero no es una prenda de bolsa: no ocupa
+  // columna en la grilla. Opcional para no tocar a quien ya llamaba esto.
+  en_grilla:           z.boolean().optional(),
 });
 
 /** Asocia un producto existente del catálogo global a una empresa con su precio. */
@@ -37,6 +40,7 @@ export async function asignarProducto(
         rut_empresa:         data.rut_empresa,
         producto_empresa_id: data.producto_empresa_id,
         precio:              data.precio,
+        ...(data.en_grilla === undefined ? {} : { en_grilla: data.en_grilla }),
       },
       { onConflict: "rut_empresa,producto_empresa_id" },
     );
