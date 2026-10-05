@@ -19,6 +19,8 @@ const inputSchema = z.object({
         precio_unidad:       z.number().int().nullable(),
         cantidad:            z.number().int().positive("Cantidad > 0"),
         detalle:             z.string().nullable(),
+        // De que bolsa salio. Solo lo mandan las empresas que trabajan asi.
+        bolsa_id:            z.number().int().positive().nullable().optional(),
       }),
     )
     .min(1, "Agregá al menos un item"),
@@ -66,6 +68,7 @@ export async function crearPedidoEmpresa(
           precio_unidad:           it.precio_unidad,
           cantidad:                it.cantidad,
           detalle_prenda:          it.detalle,
+          bolsa_id:                it.bolsa_id ?? null,
         })),
       },
     );

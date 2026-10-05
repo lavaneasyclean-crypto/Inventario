@@ -138,6 +138,66 @@ vuelven a quedar disponibles para facturar, que es lo que hace falta cuando se
 emite una nota de crédito. Un gasto sí se borra, porque es una anotación
 nuestra y no un documento emitido.
 
+## Empresas que trabajan por bolsas
+
+Termomín y Termochemical no mandan un bulto de ropa: mandan **la bolsa de cada
+trabajador**, numerada, y hay que devolverla tal cual. La bolsa 3 vuelve con
+las mismas 6 poleras y el mismo pantalón con que entró.
+
+Para esas empresas la guía deja de ser una lista de items y pasa a ser una
+grilla: **una fila por bolsa, una columna por prenda**, igual que la planilla
+que vienen llenando a mano.
+
+La bolsa es **logística, no comercial**: no cambia el precio. La facturación
+sigue consolidando por producto y la ignora.
+
+### Alta de una empresa de estas
+
+Tres cosas, en este orden:
+
+1. **La empresa**, con la casilla *Trabaja por bolsas* prendida en su ficha.
+2. **Su catálogo** de prendas con el precio acordado.
+3. **El padrón de bolsas**, que son las filas de la grilla.
+
+Para Termomín y Termochemical eso ya está automatizado:
+
+```bash
+python scripts/etl/06_alta_empresa_bolsas.py --empresa todas          # simulación
+python scripts/etl/06_alta_empresa_bolsas.py --empresa todas --apply  # escribe
+```
+
+Es idempotente: lo que ya existe no se duplica, y se puede volver a correr
+para agregar bolsas nuevas o corregir un precio.
+
+Para otra empresa, a mano: en su ficha, **Padrón de bolsas** → *Cargar rango*
+crea de la 1 a la N de una vez, y *Agregar* suma las que van por nombre. En la
+planilla de Termomín conviven las numeradas con `Nicolás`, `DV` y `Maxis`, que
+son personas sin bolsa asignada — por eso el código es texto y no un número.
+
+### Cargar la semana
+
+Desde la ficha de la empresa, **Nuevo pedido**. Si trabaja por bolsas aparece
+la grilla en vez del buscador de items. Se tipean las cantidades y listo:
+Enter y las flechas bajan a la fila siguiente, como en Excel.
+
+**El pie de la grilla tiene que coincidir con el de la planilla.** Si no
+coincide, algo se tipeó mal. Es la misma verificación que ya se hace con las
+planillas de Acacias.
+
+Una guía por semana, con la fecha del retiro.
+
+### Devolver
+
+En la ficha de la guía, **Devolución por bolsa** muestra qué lleva cada una, y
+*Ver para imprimir* abre la hoja lista para mandar con la ropa.
+
+Es la vista opuesta a la de facturación: para cobrar importa el producto (52
+poleras en total), para devolver importa la bolsa (la 3 lleva 6 poleras, 1
+pantalón y 1 polerón) y el precio no aparece.
+
+Si alguna línea sale bajo *Sin bolsa asignada*, es una guía que se cargó antes
+de armar el padrón. Se arregla editándola.
+
 ## Sincronizar los pedidos de mostrador
 
 ```bash
@@ -227,5 +287,5 @@ terminal, y la que está en `.env.local` está vencida.
 ## Migraciones
 
 Se aplican a mano en el SQL Editor de Supabase, en orden. Ver
-`migrations/README.md`. Las `0006` a `0011` hay que aplicarlas **antes** de
+`migrations/README.md`. Las `0006` a `0012` hay que aplicarlas **antes** de
 desplegar el código que las usa: la app llama a funciones que se crean ahí.

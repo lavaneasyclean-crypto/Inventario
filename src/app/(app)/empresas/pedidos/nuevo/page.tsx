@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { searchEmpresas } from "@/lib/data/empresas";
+import { getBolsasDeEmpresa, searchEmpresas } from "@/lib/data/empresas";
 import type {
   ClienteEmpresa,
   ProductoEmpresaAdquirido,
 } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { NuevoPedidoEmpresaForm } from "./form";
+import { GrillaBolsas } from "./grilla-bolsas";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,56 @@ export default async function NuevoPedidoEmpresaPage({
       .eq("rut", decodeURIComponent(rut))
       .maybeSingle();
     empresaInicial = (data as ClienteEmpresa) ?? null;
+  }
+
+  // Las empresas que trabajan por bolsa cargan la guia en una grilla y no con
+  // el buscador de items: son 32 filas x 7 columnas y agregarlas de a una es
+  // inviable. Se resuelve antes de armar el resto para no cargar de gusto los
+  // productos de todas las empresas.
+  if (empresaInicial?.usa_bolsas) {
+    const [bolsas, productos] = await Promise.all([
+      getBolsasDeEmpresa(empresaInicial.rut),
+      (async () => {
+        const supabase = await createClient();
+        const { data } = await supabase
+          .from("empresa_productos")
+          .select("producto_empresa_id, precio, productos_empresa(nombre, activo)")
+          .eq("rut_empresa", empresaInicial.rut);
+        type Fila = {
+          producto_empresa_id: string;
+          precio: number | null;
+          productos_empresa: { nombre: string; activo: boolean } | null;
+        };
+        return ((data ?? []) as unknown as Fila[])
+          .filter((r) => r.productos_empresa?.activo !== false)
+          .map((r) => ({
+            producto_empresa_id: r.producto_empresa_id,
+            nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
+            precio: r.precio,
+          }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+      })(),
+    ]);
+
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mb-4">
+          <BackButton />
+        </div>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">
+          Nueva guía — {empresaInicial.alias || empresaInicial.nombre}
+        </h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Cargá las prendas de cada bolsa. Es la misma grilla de la planilla.
+        </p>
+
+        <GrillaBolsas
+          empresa={empresaInicial}
+          bolsas={bolsas}
+          productos={productos}
+        />
+      </div>
+    );
   }
 
   const empresas = await searchEmpresas("");

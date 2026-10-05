@@ -2,8 +2,10 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
 import { filtroContiene } from "@/lib/postgrest";
+import { ordenarBolsas } from "@/lib/bolsas";
 import type {
   ClienteEmpresa,
+  EmpresaBolsa,
   PedidoEmpresa,
   PedidoEmpresaItem,
   ProductoEmpresa,
@@ -260,6 +262,22 @@ export async function getPedidosEmpresaPorIds(
     pedido: p,
     items: itemsByPedido.get(p.id) ?? [],
   }));
+}
+
+/**
+ * El padron de bolsas de una empresa, en el orden de la grilla: primero las
+ * numeradas y despues las que van por nombre.
+ */
+export async function getBolsasDeEmpresa(
+  rut: string,
+  opciones: { incluirInactivas?: boolean } = {},
+): Promise<EmpresaBolsa[]> {
+  const supabase = await createClient();
+  let q = supabase.from("empresa_bolsas").select("*").eq("rut_empresa", rut);
+  if (!opciones.incluirInactivas) q = q.eq("activo", true);
+
+  const { data } = await q;
+  return ordenarBolsas((data ?? []) as EmpresaBolsa[]);
 }
 
 export async function getProductosEmpresaActivos(): Promise<ProductoEmpresa[]> {

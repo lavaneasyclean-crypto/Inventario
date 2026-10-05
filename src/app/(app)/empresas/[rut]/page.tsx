@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
+  getBolsasDeEmpresa,
   getEmpresaDetalle,
   getProductosDeEmpresa,
   getProductosGlobalesDisponibles,
@@ -20,6 +21,7 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditarEmpresaButton } from "../editor-empresa";
 import { ProductosManager } from "./productos-manager";
+import { BolsasManager } from "./bolsas-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +33,13 @@ export default async function EmpresaDetallePage({
   const { rut: rutEncoded } = await params;
   const rut = decodeURIComponent(rutEncoded);
 
-  const [data, productosEmpresa, productosDisponibles] = await Promise.all([
-    getEmpresaDetalle(rut),
-    getProductosDeEmpresa(rut),
-    getProductosGlobalesDisponibles(rut),
-  ]);
+  const [data, productosEmpresa, productosDisponibles, bolsas] =
+    await Promise.all([
+      getEmpresaDetalle(rut),
+      getProductosDeEmpresa(rut),
+      getProductosGlobalesDisponibles(rut),
+      getBolsasDeEmpresa(rut, { incluirInactivas: true }),
+    ]);
   if (!data) notFound();
 
   const { empresa, pedidos } = data;
@@ -137,6 +141,12 @@ export default async function EmpresaDetallePage({
           <FileText className="size-5" /> Ver facturas
         </Link>
       </div>
+
+      {empresa.usa_bolsas && (
+        <div className="mb-6">
+          <BolsasManager rut={empresa.rut} bolsas={bolsas} />
+        </div>
+      )}
 
       <div className="mb-6">
         <ProductosManager

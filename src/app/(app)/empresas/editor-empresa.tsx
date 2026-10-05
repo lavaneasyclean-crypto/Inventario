@@ -82,6 +82,7 @@ function EmpresaDialog({
   const [correo, setCorreo] = useState("");
   const [activo, setActivo] = useState(true);
   const [recargoExpress, setRecargoExpress] = useState("0");
+  const [usaBolsas, setUsaBolsas] = useState(false);
 
   // Reset al abrir. Se ajusta durante el render y no en un efecto: no hay
   // ningún sistema externo con el que sincronizar, y en un efecto React tiene
@@ -101,6 +102,7 @@ function EmpresaDialog({
         setCorreo(empresa.correo ?? "");
         setActivo(empresa.activo);
         setRecargoExpress(String(empresa.recargo_express ?? 0));
+        setUsaBolsas(empresa.usa_bolsas ?? false);
       } else {
         setRut("");
         setNombre("");
@@ -112,6 +114,7 @@ function EmpresaDialog({
         setCorreo("");
         setActivo(true);
         setRecargoExpress("0");
+        setUsaBolsas(false);
       }
       setError(null);
     }
@@ -147,6 +150,7 @@ function EmpresaDialog({
           correo: correo.trim() || null,
           activo,
           recargo_express: Number(recargoExpress || 0),
+          usa_bolsas: usaBolsas,
         });
       } else {
         res = await actualizarEmpresa(empresa!.rut, {
@@ -159,6 +163,7 @@ function EmpresaDialog({
           correo: correo.trim() || null,
           activo,
           recargo_express: Number(recargoExpress || 0),
+          usa_bolsas: usaBolsas,
         });
       }
       setLoading(false);
@@ -261,6 +266,22 @@ function EmpresaDialog({
               documento aparte de la factura del mes.
             </p>
           </div>
+
+          <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={usaBolsas}
+              onChange={(e) => setUsaBolsas(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <span className="font-medium">Trabaja por bolsas</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                La ropa viene separada por bolsa de trabajador y se devuelve
+                igual. Habilita la grilla de carga y la hoja de devolución.
+              </span>
+            </span>
+          </label>
 
           <label className="mt-1 flex items-center gap-2 text-sm">
             <input

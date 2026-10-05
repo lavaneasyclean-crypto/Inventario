@@ -34,6 +34,8 @@ function makeItem(
     importe: 1800,
     cantidad: 1,
     detalle_prenda: null,
+    bolsa_id: null,
+    bolsa_codigo: null,
     created_at: "",
     ...partial,
   };

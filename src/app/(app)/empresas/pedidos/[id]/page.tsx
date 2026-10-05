@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
-import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
+import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { formatCLP, formatDate } from "@/lib/format";
 import { AccionesPedidoEmpresa } from "./acciones-pedido-empresa";
+import { HojaDevolucion } from "./hoja-devolucion";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,13 @@ export default async function PedidoEmpresaDetallePage({
   if (!data) notFound();
 
   const { pedido, empresa, items } = data;
+
+  // El padron solo hace falta para ponerle nombre a cada bolsa en la hoja de
+  // devolucion; en las empresas que no trabajan asi ni se consulta.
+  const bolsas =
+    empresa?.usa_bolsas
+      ? await getBolsasDeEmpresa(empresa.rut, { incluirInactivas: true })
+      : [];
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
   const totalImporte = items.reduce((s, it) => s + (it.importe ?? 0), 0);
   const algunSinPrecio = items.some((it) => it.importe === null);
@@ -135,6 +143,10 @@ export default async function PedidoEmpresaDetallePage({
           </h2>
           <p className="whitespace-pre-wrap text-sm">{pedido.detalle}</p>
         </section>
+      )}
+
+      {empresa?.usa_bolsas && (
+        <HojaDevolucion pedidoId={pedido.id} items={items} bolsas={bolsas} />
       )}
 
       <section className="rounded-xl border bg-background p-4">
