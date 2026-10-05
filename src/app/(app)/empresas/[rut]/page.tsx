@@ -153,6 +153,7 @@ export default async function EmpresaDetallePage({
           rut={empresa.rut}
           productos={productosEmpresa}
           globalesDisponibles={productosDisponibles}
+          ordenImporta={empresa.usa_bolsas}
         />
       </div>
 

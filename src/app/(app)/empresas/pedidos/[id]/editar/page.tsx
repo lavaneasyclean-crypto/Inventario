@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
+import { ordenarProductos } from "@/lib/orden-productos";
 import type { ProductoEmpresaAdquirido } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { EditarPedidoEmpresaForm } from "./form";
@@ -23,22 +24,25 @@ export default async function EditarPedidoEmpresaPage({
   const supabase = await createClient();
   const { data: ep } = await supabase
     .from("empresa_productos")
-    .select("producto_empresa_id, precio, productos_empresa(nombre, activo)")
+    .select("producto_empresa_id, precio, orden, productos_empresa(nombre, activo)")
     .eq("rut_empresa", data.empresa.rut);
 
   type Row = {
     producto_empresa_id: string;
     precio: number | null;
+    orden: number | null;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
-  const productos: ProductoEmpresaAdquirido[] = ((ep ?? []) as unknown as Row[])
-    .filter((r) => r.productos_empresa?.activo !== false)
-    .map((r) => ({
-      producto_empresa_id: r.producto_empresa_id,
-      nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
-      precio: r.precio,
-    }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const productos: ProductoEmpresaAdquirido[] = ordenarProductos(
+    ((ep ?? []) as unknown as Row[])
+      .filter((r) => r.productos_empresa?.activo !== false)
+      .map((r) => ({
+        producto_empresa_id: r.producto_empresa_id,
+        nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
+        precio: r.precio,
+        orden: r.orden,
+      })),
+  );
 
   return (
     <div className="p-4 sm:p-6">

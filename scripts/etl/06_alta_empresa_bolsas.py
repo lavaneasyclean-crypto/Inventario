@@ -51,6 +51,12 @@ ROOT = Path(__file__).resolve().parents[2]
 # Verificado contra la planilla: semana 1 de Termomin da $164.400 sumando
 # 52 poleras a 1.200, 35 pantalones y 20 polerones a 1.750, 3 cotonas a 1.750
 # y 1 gorro a 500. Coincide con el "Neto" que trae la hoja.
+#
+# EL ORDEN DE ESTA LISTA IMPORTA: es el de las columnas de la planilla, y se
+# guarda como el orden de las columnas de la grilla. Cargar la grilla es
+# copiar del papel, asi que si las columnas no siguen el mismo orden cada fila
+# de siete celdas es una oportunidad de anotar la cantidad en la prenda de al
+# lado.
 # ---------------------------------------------------------------------------
 PRENDAS = [
     ("Polera",           1200),
@@ -176,12 +182,16 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
         for a in adquiridos
     }
 
+    # id de cada prenda, para fijar despues el orden de las columnas.
+    id_de: dict[str, str] = {}
+
     for nombre, precio in PRENDAS:
         clave = nombre.strip().lower()
         actual = ya_tiene.get(clave)
         if actual is None:
             gid = id_global.get(clave)
             if gid:
+                id_de[nombre] = gid
                 print(f"  prenda       adquirir: {nombre:16} ${precio:,}  (ya existia, id {gid})".replace(",", "."))
                 if aplicar:
                     supa.pedir(
@@ -192,10 +202,13 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
             else:
                 print(f"  prenda       crear:  {nombre:18} ${precio:,}".replace(",", "."))
                 if aplicar:
-                    supa.pedir("POST", "rpc/crear_producto_empresa",
-                               {"p_rut_empresa": rut, "p_nombre": nombre,
-                                "p_precio": precio})
+                    nuevo_id = supa.pedir("POST", "rpc/crear_producto_empresa",
+                                          {"p_rut_empresa": rut, "p_nombre": nombre,
+                                           "p_precio": precio})
+                    if isinstance(nuevo_id, str):
+                        id_de[nombre] = nuevo_id
         elif actual.get("precio") != precio:
+            id_de[nombre] = actual["producto_empresa_id"]
             print(f"  prenda       precio: {nombre:18} {actual.get('precio')} -> ${precio:,}".replace(",", "."))
             if aplicar:
                 supa.pedir(
@@ -204,7 +217,27 @@ def procesar(supa: Supa, clave: str, cfg: dict, aplicar: bool) -> None:
                     f"&producto_empresa_id=eq.{actual['producto_empresa_id']}",
                     {"precio": precio}, prefer="return=minimal")
         else:
+            id_de[nombre] = actual["producto_empresa_id"]
             print(f"  prenda       ok:     {nombre:18} ${precio:,}".replace(",", "."))
+
+    # 2b. El orden de las columnas de la grilla, que es el de PRENDAS.
+    #
+    # Se reescriben todas las posiciones en vez de tocar solo las que cambian:
+    # es idempotente y no depende de que las existentes esten numeradas de
+    # forma consistente. Lo que no este en PRENDAS —"Polar", por ejemplo—
+    # queda en NULL y la app lo manda al final, alfabetico.
+    orden = [(n, id_de[n]) for n, _ in PRENDAS if n in id_de]
+    if len(orden) == len(PRENDAS):
+        print(f"  orden        columnas: {' | '.join(n for n, _ in orden)}")
+        if aplicar:
+            supa.pedir(
+                "POST", "empresa_productos",
+                [{"rut_empresa": rut, "producto_empresa_id": pid, "orden": i}
+                 for i, (_, pid) in enumerate(orden)],
+                prefer="resolution=merge-duplicates,return=minimal")
+    elif aplicar:
+        print(f"  orden        se fija en la proxima corrida "
+              f"({len(orden)} de {len(PRENDAS)} prendas con id)")
 
     # 3. Padron de bolsas
     codigos = [str(n) for n in range(cfg["bolsas_desde"], cfg["bolsas_hasta"] + 1)]

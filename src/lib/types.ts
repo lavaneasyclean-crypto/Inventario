@@ -159,6 +159,12 @@ export interface ProductoEmpresaAdquirido {
   producto_empresa_id: string;
   nombre: string;
   precio: number | null;
+  /**
+   * Posicion en la ficha y en las columnas de la grilla. null = al final,
+   * alfabetico. Importa porque la grilla se carga copiando de una planilla de
+   * papel y las columnas tienen que seguir el mismo orden.
+   */
+  orden: number | null;
 }
 
 // =========================================================

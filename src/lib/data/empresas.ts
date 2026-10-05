@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
 import { filtroContiene } from "@/lib/postgrest";
 import { ordenarBolsas } from "@/lib/bolsas";
+import { ordenarProductos } from "@/lib/orden-productos";
 import type {
   ClienteEmpresa,
   EmpresaBolsa,
@@ -297,24 +298,27 @@ export async function getProductosDeEmpresa(
   const supabase = await createClient();
   const { data } = await supabase
     .from("empresa_productos")
-    .select("producto_empresa_id, precio, productos_empresa(nombre, activo)")
+    .select("producto_empresa_id, precio, orden, productos_empresa(nombre, activo)")
     .eq("rut_empresa", rut);
 
   type Row = {
     producto_empresa_id: string;
     precio: number | null;
+    orden: number | null;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
 
   const rows = (data ?? []) as unknown as Row[];
-  return rows
-    .filter((r) => r.productos_empresa?.activo !== false)
-    .map((r) => ({
-      producto_empresa_id: r.producto_empresa_id,
-      nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
-      precio: r.precio,
-    }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  return ordenarProductos(
+    rows
+      .filter((r) => r.productos_empresa?.activo !== false)
+      .map((r) => ({
+        producto_empresa_id: r.producto_empresa_id,
+        nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
+        precio: r.precio,
+        orden: r.orden,
+      })),
+  );
 }
 
 /** Productos del catálogo global que la empresa NO ha adquirido todavía. */

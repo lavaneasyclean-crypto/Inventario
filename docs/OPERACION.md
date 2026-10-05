@@ -174,6 +174,26 @@ crea de la 1 a la N de una vez, y *Agregar* suma las que van por nombre. En la
 planilla de Termomín conviven las numeradas con `Nicolás`, `DV` y `Maxis`, que
 son personas sin bolsa asignada — por eso el código es texto y no un número.
 
+### El orden de las columnas
+
+Las columnas de la grilla salen del orden de las prendas de la empresa, y
+conviene que **sigan el mismo orden que la planilla de papel**. Cargar la
+grilla es copiar del papel: si las columnas están en otro orden, cada fila de
+siete celdas es una oportunidad de anotar la cantidad en la prenda de al lado.
+
+Se acomoda en la ficha de la empresa, con las flechitas de cada producto. El
+número a la izquierda del nombre es su posición.
+
+`06_alta_empresa_bolsas.py` ya lo deja puesto para Termomín y Termochemical,
+en el orden de su planilla:
+
+```
+Polera | Pantalón | Pantalón térmico | Cotona | Polerón | Overol térmico | Gorro
+```
+
+Una prenda que se agregue después entra sin posición y va al final; se sube
+con las flechas si hace falta.
+
 ### Cargar la semana
 
 Desde la ficha de la empresa, **Nuevo pedido**. Si trabaja por bolsas aparece
@@ -290,5 +310,5 @@ terminal, y la que está en `.env.local` está vencida.
 ## Migraciones
 
 Se aplican a mano en el SQL Editor de Supabase, en orden. Ver
-`migrations/README.md`. Las `0006` a `0012` hay que aplicarlas **antes** de
+`migrations/README.md`. Las `0006` a `0013` hay que aplicarlas **antes** de
 desplegar el código que las usa: la app llama a funciones que se crean ahí.

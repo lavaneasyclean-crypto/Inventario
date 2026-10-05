@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getBolsasDeEmpresa, searchEmpresas } from "@/lib/data/empresas";
+import { ordenarProductos } from "@/lib/orden-productos";
 import type {
   ClienteEmpresa,
   ProductoEmpresaAdquirido,
@@ -39,21 +40,26 @@ export default async function NuevoPedidoEmpresaPage({
         const supabase = await createClient();
         const { data } = await supabase
           .from("empresa_productos")
-          .select("producto_empresa_id, precio, productos_empresa(nombre, activo)")
+          .select("producto_empresa_id, precio, orden, productos_empresa(nombre, activo)")
           .eq("rut_empresa", empresaInicial.rut);
         type Fila = {
           producto_empresa_id: string;
           precio: number | null;
+          orden: number | null;
           productos_empresa: { nombre: string; activo: boolean } | null;
         };
-        return ((data ?? []) as unknown as Fila[])
-          .filter((r) => r.productos_empresa?.activo !== false)
-          .map((r) => ({
-            producto_empresa_id: r.producto_empresa_id,
-            nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
-            precio: r.precio,
-          }))
-          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        // El orden de las columnas de la grilla sale de aca: tiene que seguir
+        // el de la planilla de papel que se esta copiando.
+        return ordenarProductos(
+          ((data ?? []) as unknown as Fila[])
+            .filter((r) => r.productos_empresa?.activo !== false)
+            .map((r) => ({
+              producto_empresa_id: r.producto_empresa_id,
+              nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
+              precio: r.precio,
+              orden: r.orden,
+            })),
+        );
       })(),
     ]);
 
@@ -88,13 +94,14 @@ export default async function NuevoPedidoEmpresaPage({
   const { data: ep } = await supabase
     .from("empresa_productos")
     .select(
-      "rut_empresa, producto_empresa_id, precio, productos_empresa(nombre, activo)",
+      "rut_empresa, producto_empresa_id, precio, orden, productos_empresa(nombre, activo)",
     );
 
   type Row = {
     rut_empresa: string;
     producto_empresa_id: string;
     precio: number | null;
+    orden: number | null;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
   const productosByEmpresa = new Map<string, ProductoEmpresaAdquirido[]>();
@@ -105,11 +112,12 @@ export default async function NuevoPedidoEmpresaPage({
       producto_empresa_id: row.producto_empresa_id,
       nombre: row.productos_empresa?.nombre ?? "(sin nombre)",
       precio: row.precio,
+      orden: row.orden,
     });
     productosByEmpresa.set(row.rut_empresa, arr);
   }
-  for (const arr of productosByEmpresa.values()) {
-    arr.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  for (const [k, arr] of productosByEmpresa.entries()) {
+    productosByEmpresa.set(k, ordenarProductos(arr));
   }
   const productosByEmpresaObj: Record<string, ProductoEmpresaAdquirido[]> = {};
   for (const [k, v] of productosByEmpresa.entries()) {

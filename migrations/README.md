@@ -32,8 +32,9 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0010_pedidos_express.sql` | `express` en las guías, `recargo_express` por empresa y `crear_pedido_empresa` recalculado |
 | `0011_facturas_abonos.sql` | `facturas_abonos` + `monto_pagado` mantenido por trigger: una factura se puede pagar de a poco |
 | `0012_bolsas_por_trabajador.sql` | `empresa_bolsas`, `usa_bolsas` por empresa, la bolsa en cada línea y `crear_pedido_empresa` recalculado |
+| `0013_orden_productos_empresa.sql` | `orden` en `empresa_productos`: las columnas de la grilla siguen el orden de la planilla |
 
-⚠️ **De la `0006` a la `0012` hay que aplicarlas antes de desplegar el código
+⚠️ **De la `0006` a la `0013` hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de
 empresa y las facturas llamando a esas funciones; si no existen todavía, los
 botones de guardar fallan con el aviso "falta aplicar una migración".
