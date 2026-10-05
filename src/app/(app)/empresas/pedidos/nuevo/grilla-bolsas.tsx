@@ -168,7 +168,7 @@ export function GrillaBolsas({
       <section className="rounded-xl border bg-background p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fecha">Fecha del retiro</Label>
+            <Label htmlFor="fecha">Fecha</Label>
             <Input
               id="fecha"
               type="date"
@@ -183,7 +183,7 @@ export function GrillaBolsas({
               id="detalle"
               value={detalle}
               onChange={(e) => setDetalle(e.target.value)}
-              placeholder="Ej: Semana 1"
+              placeholder="Ej: Semana 1, o turno noche"
               className="h-10"
             />
           </div>

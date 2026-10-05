@@ -67,6 +67,7 @@ export default async function NuevoPedidoEmpresaPage({
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
           Cargá las prendas de cada bolsa. Es la misma grilla de la planilla.
+          Una guía por entrega: si retiran dos veces en la semana, van dos.
         </p>
 
         <GrillaBolsas

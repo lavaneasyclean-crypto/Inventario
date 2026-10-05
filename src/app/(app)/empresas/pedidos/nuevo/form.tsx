@@ -98,6 +98,17 @@ export function NuevoPedidoEmpresaForm({
     !loading;
 
   const cambiarEmpresa = (e: ClienteEmpresa | null) => {
+    // Las empresas que trabajan por bolsas cargan la guia en una grilla, que
+    // se arma en el servidor porque necesita el padron. Elegirla aca manda a
+    // la misma pantalla con la empresa puesta, y vuelve renderizada la
+    // grilla. Sin esto, llegar por el desplegable daba el formulario de items
+    // sueltos y el de bolsas solo aparecia entrando desde la ficha.
+    if (e?.usa_bolsas) {
+      router.replace(
+        `/empresas/pedidos/nuevo?rut=${encodeURIComponent(e.rut)}`,
+      );
+      return;
+    }
     setEmpresa(e);
     setItems([]); // limpiar items porque pertenecen a la empresa anterior
     setExpress(false); // el recargo es de la empresa anterior, no de esta

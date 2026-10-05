@@ -184,7 +184,10 @@ Enter y las flechas bajan a la fila siguiente, como en Excel.
 coincide, algo se tipeó mal. Es la misma verificación que ya se hace con las
 planillas de Acacias.
 
-Una guía por semana, con la fecha del retiro.
+**Una guía por entrega**, con su fecha. No hay nada semanal en el sistema: si
+retiran dos veces en la semana van dos guías, y si en una semana no retiran no
+va ninguna. La planilla las agrupa por semana porque así la vienen llevando,
+pero la facturación suma el rango que elijas igual que con cualquier empresa.
 
 ### Devolver
 
