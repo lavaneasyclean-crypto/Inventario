@@ -209,6 +209,29 @@ retiran dos veces en la semana van dos guías, y si en una semana no retiran no
 va ninguna. La planilla las agrupa por semana porque así la vienen llevando,
 pero la facturación suma el rango que elijas igual que con cualquier empresa.
 
+### Importar una planilla ya llena
+
+Para no retipear un mes que ya está en Excel:
+
+```bash
+python scripts/etl/07_cargar_planilla_bolsas.py "C:/ruta/planilla.xlsx" --periodo 2026-09
+python scripts/etl/07_cargar_planilla_bolsas.py "C:/ruta/planilla.xlsx" --periodo 2026-09 --apply
+```
+
+Lee cada bloque `Semana N` y crea una guía por (semana, empresa) con la fecha
+de la semana.
+
+**Se niega a cargar si no cuadra.** Al final la planilla trae el resumen del
+mes —cantidad por prenda y neto por empresa— y el script reconstruye esos
+números desde las grillas antes de escribir. Si no coinciden, no carga nada y
+muestra prenda por prenda dónde está la diferencia. Lo mismo si alguna bolsa
+no está en el padrón o alguna prenda no está en el catálogo.
+
+Es idempotente: una guía que ya existe para esa empresa y esa fecha se saltea.
+
+**Lo que NO carga:** el `Traslado` del resumen mensual. No sale de ninguna
+grilla, es un cargo del mes, y va aparte al facturar.
+
 ### Devolver
 
 En la ficha de la guía, **Devolución por bolsa** muestra qué lleva cada una, y
