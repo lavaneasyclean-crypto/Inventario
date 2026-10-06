@@ -17,6 +17,10 @@ import {
   FORMA_PAGO_LABELS,
   TIPO_SERVICIO_LABELS,
 } from "@/lib/types";
+import Link from "next/link";
+import { Printer } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { AccionesPedido } from "./acciones-pedido";
 
 export const dynamic = "force-dynamic";
@@ -203,6 +207,14 @@ export default async function PedidoDetallePage({
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           Acciones
         </h2>
+        <div className="mb-3">
+          <Link
+            href={`/pedidos/${pedido.id}/imprimir`}
+            className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
+          >
+            <Printer className="size-5" /> Imprimir guía
+          </Link>
+        </div>
         <AccionesPedido pedido={pedido} />
       </section>
     </div>

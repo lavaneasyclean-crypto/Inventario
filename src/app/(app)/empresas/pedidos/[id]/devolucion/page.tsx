@@ -6,7 +6,7 @@ import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas
 import { agruparPorBolsa } from "@/lib/bolsas";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { BotonImprimir } from "./boton-imprimir";
+import { BotonImprimir } from "@/components/boton-imprimir";
 
 export const dynamic = "force-dynamic";
 

@@ -276,6 +276,32 @@ pantalón y 1 polerón) y el precio no aparece.
 Si alguna línea sale bajo *Sin bolsa asignada*, es una guía que se cargó antes
 de armar el padrón. Se arregla editándola.
 
+## Imprimir la guía
+
+Las guías se entregan al cliente, así que se imprimen desde su ficha con
+**Imprimir guía** — tanto las de mostrador como las de empresa.
+
+Salen en la **térmica de 5 pulgadas**, en rollo continuo: el ancho es fijo
+(127 mm) y el alto lo define el contenido, así que corta donde termina la
+guía. La impresora es la que tenga el PC como predeterminada; la app no la
+elige, solo abre el diálogo de impresión del navegador.
+
+La de **mostrador** replica la que venía imprimiendo el Access: mismo orden de
+campos, la misma tabla de prendas, el recuadro de renglones para anotar a mano
+y las condiciones al pie —"manchas sin garantía", "no nos hacemos responsables
+por prendas superiores a 60 días"—. Eso último importa: la guía es el único
+papel que el cliente se lleva, así que si las condiciones no están ahí no están
+en ningún lado.
+
+La de **empresa** no lleva precios: es el comprobante de qué se retiró, y quien
+la recibe no tiene por qué ver las tarifas. Lleva el conteo y una línea para
+firmar. Si la empresa trabaja por bolsas, el detalle va agrupado por bolsa en
+vez de por producto, que es como se cuenta al entregar.
+
+**Si el papel sale cortado o con márgenes raros**, es la configuración del
+diálogo de impresión del navegador: hay que dejar los márgenes en "ninguno" y
+el tamaño de papel en el del rollo. Chrome recuerda esa elección.
+
 ## Sincronizar los pedidos de mostrador
 
 ```bash

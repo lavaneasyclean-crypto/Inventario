@@ -6,6 +6,9 @@ import { BackButton } from "@/components/back-button";
 import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { formatCLP, formatDate } from "@/lib/format";
 import { AccionesPedidoEmpresa } from "./acciones-pedido-empresa";
+import { Printer } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { HojaDevolucion } from "./hoja-devolucion";
 
 export const dynamic = "force-dynamic";
@@ -153,6 +156,14 @@ export default async function PedidoEmpresaDetallePage({
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           Acciones
         </h2>
+        <div className="mb-3">
+          <Link
+            href={`/empresas/pedidos/${pedido.id}/imprimir`}
+            className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
+          >
+            <Printer className="size-5" /> Imprimir guía
+          </Link>
+        </div>
         <AccionesPedidoEmpresa
           id={pedido.id}
           anulado={pedido.anulado}

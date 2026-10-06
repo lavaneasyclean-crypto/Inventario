@@ -68,3 +68,16 @@ export function diasDesde(value: string | Date | null | undefined): number {
   // Redondeo porque los días de cambio de hora duran 23 o 25 horas.
   return Math.round((hoy - desde) / 86_400_000);
 }
+
+/**
+ * "15-12-2023". El formato de las guías impresas: sin hora y con el día
+ * primero, que es como lo lee el cliente en el mostrador.
+ */
+export function formatFechaCorta(
+  value: string | Date | null | undefined,
+): string {
+  const d = parse(value);
+  if (!d) return "—";
+  const [anio, mes, dia] = fechaEnChile(d).split("-");
+  return `${dia}-${mes}-${anio}`;
+}

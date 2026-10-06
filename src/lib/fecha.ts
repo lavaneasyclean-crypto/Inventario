@@ -142,3 +142,22 @@ export function rangoDelMes(fecha: string = hoyEnChile()): {
   const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return { desde, hasta: `${y}-${String(m).padStart(2, "0")}-${ultimo}` };
 }
+
+const horaFmt = new Intl.DateTimeFormat("es-CL", {
+  timeZone: TZ_CHILE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/**
+ * Fecha y hora de ahora en Chile, para el encabezado de una guía impresa.
+ *
+ * Va en dd-mm-aaaa y no en ISO porque es lo que lee quien recibe el papel, y
+ * es el formato que usaba la guía del Access.
+ */
+export function ahoraEnChile(): { fecha: string; hora: string } {
+  const d = new Date();
+  const [anio, mes, dia] = fechaEnChile(d).split("-");
+  return { fecha: `${dia}-${mes}-${anio}`, hora: horaFmt.format(d) };
+}
