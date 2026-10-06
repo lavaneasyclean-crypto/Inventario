@@ -83,6 +83,7 @@ const editarSchema = z.object({
         precio_unidad:       z.number().int().nullable(),
         cantidad:            z.number().int().positive(),
         detalle:             z.string().nullable(),
+        bolsa_id:            z.number().int().positive().nullable().optional(),
       }),
     )
     .min(1, "Agregá al menos un item"),
@@ -133,6 +134,36 @@ export async function actualizarPedidoEmpresa(
       .eq("pedido_empresa_id", id);
     if (eDel) return fallo("actualizarPedidoEmpresa", step, eDel);
 
+    // El codigo de la bolsa es un snapshot: se copia del padron y no de lo que
+    // mande el cliente, para que no pueda quedar desalineado del id. Es lo
+    // mismo que hace `crear_pedido_empresa`, pero aca el insert es directo.
+    step = "leer-bolsas";
+    const bolsaIds = [
+      ...new Set(
+        data.items
+          .map((it) => it.bolsa_id)
+          .filter((b): b is number => typeof b === "number"),
+      ),
+    ];
+    const codigoDeBolsa = new Map<number, string>();
+    if (bolsaIds.length > 0) {
+      const { data: filas, error: eBolsas } = await supabase
+        .from("empresa_bolsas")
+        .select("id, codigo")
+        .in("id", bolsaIds);
+      if (eBolsas) return fallo("actualizarPedidoEmpresa", step, eBolsas);
+      for (const b of (filas ?? []) as Array<{ id: number; codigo: string }>) {
+        codigoDeBolsa.set(b.id, b.codigo);
+      }
+      if (codigoDeBolsa.size !== bolsaIds.length) {
+        return {
+          ok: false,
+          error:
+            "Alguna de las bolsas ya no existe. Volvé a cargar la pantalla.",
+        };
+      }
+    }
+
     step = "insert-items";
     const { error: eIns } = await supabase
       .from("pedidos_empresa_items")
@@ -146,6 +177,9 @@ export async function actualizarPedidoEmpresa(
             it.precio_unidad === null ? null : it.precio_unidad * it.cantidad,
           cantidad:                 it.cantidad,
           detalle_prenda:           it.detalle,
+          bolsa_id:                 it.bolsa_id ?? null,
+          bolsa_codigo:
+            it.bolsa_id == null ? null : codigoDeBolsa.get(it.bolsa_id) ?? null,
         })),
       );
     if (eIns) return fallo("actualizarPedidoEmpresa", step, eIns);

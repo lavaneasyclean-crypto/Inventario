@@ -20,11 +20,26 @@ import type {
   EmpresaBolsa,
   ProductoEmpresaAdquirido,
 } from "@/lib/types";
-import { crearPedidoEmpresa } from "./actions";
+import { crearPedidoEmpresa } from "./nuevo/actions";
+import { actualizarPedidoEmpresa } from "./[id]/actions";
+
+/** Lo que tiene una guía que ya existe, para precargar la grilla al editar. */
+export interface GuiaInicial {
+  id: number;
+  fecha: string;
+  detalle: string;
+  /** Cantidades por "bolsaId|productoId", igual que el estado de la grilla. */
+  celdas: Record<string, string>;
+}
 
 /**
  * Carga de una guía por bolsas: una fila por trabajador, una columna por
  * prenda. Es la planilla que estas empresas vienen llenando a mano.
+ *
+ * La misma grilla sirve para crear y para editar. Son el mismo problema —una
+ * cuadrícula de cantidades— y tener dos copias garantiza que se despeguen:
+ * el orden de columnas, el salto con Enter y los totales del pie tendrían que
+ * arreglarse dos veces.
  *
  * Las cantidades se guardan como texto mientras se tipea —igual que
  * InputNumero— porque una celda tiene que poder quedar vacía sin volverse
@@ -34,15 +49,21 @@ export function GrillaBolsas({
   empresa,
   bolsas,
   productos,
+  inicial,
 }: {
   empresa: ClienteEmpresa;
   bolsas: EmpresaBolsa[];
   productos: ProductoEmpresaAdquirido[];
+  /** Sin esto es una guía nueva. */
+  inicial?: GuiaInicial;
 }) {
   const router = useRouter();
-  const [fecha, setFecha] = useState(hoyEnChile);
-  const [detalle, setDetalle] = useState("");
-  const [celdas, setCeldas] = useState<Record<string, string>>({});
+  const editando = inicial !== undefined;
+  const [fecha, setFecha] = useState(inicial?.fecha ?? hoyEnChile);
+  const [detalle, setDetalle] = useState(inicial?.detalle ?? "");
+  const [celdas, setCeldas] = useState<Record<string, string>>(
+    () => ({ ...(inicial?.celdas ?? {}) }),
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,32 +119,50 @@ export function GrillaBolsas({
       return;
     }
 
-    setLoading(true);
-    const res = await crearPedidoEmpresa({
-      rut_empresa: empresa.rut,
-      alias: empresa.alias,
-      fecha: mediodiaChile(fecha),
-      detalle: detalle.trim() || null,
-      express: false,
-      items: items.map((it) => ({
-        producto_empresa_id: it.producto_empresa_id,
-        nombre:
-          productos.find((p) => p.producto_empresa_id === it.producto_empresa_id)
-            ?.nombre ?? "(sin nombre)",
-        precio_unidad: precioDe.get(it.producto_empresa_id) ?? null,
-        cantidad: it.cantidad,
-        detalle: null,
-        bolsa_id: it.bolsa_id,
-      })),
-    });
-    setLoading(false);
+    const lineas = items.map((it) => ({
+      producto_empresa_id: it.producto_empresa_id,
+      nombre:
+        productos.find((p) => p.producto_empresa_id === it.producto_empresa_id)
+          ?.nombre ?? "(sin nombre)",
+      precio_unidad: precioDe.get(it.producto_empresa_id) ?? null,
+      cantidad: it.cantidad,
+      detalle: null,
+      bolsa_id: it.bolsa_id,
+    }));
 
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    setLoading(true);
+    let destino = inicial?.id;
+    if (inicial) {
+      const res = await actualizarPedidoEmpresa(inicial.id, {
+        fecha: mediodiaChile(fecha),
+        detalle: detalle.trim() || null,
+        express: false,
+        items: lineas,
+      });
+      setLoading(false);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+    } else {
+      const res = await crearPedidoEmpresa({
+        rut_empresa: empresa.rut,
+        alias: empresa.alias,
+        fecha: mediodiaChile(fecha),
+        detalle: detalle.trim() || null,
+        express: false,
+        items: lineas,
+      });
+      setLoading(false);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      destino = res.id;
     }
-    toast.success("Guía creada");
-    router.push(`/empresas/pedidos/${res.id}`);
+
+    toast.success(inicial ? "Guía actualizada" : "Guía creada");
+    router.push(`/empresas/pedidos/${destino}`);
   };
 
   if (bolsas.length === 0) {
@@ -332,7 +371,11 @@ export function GrillaBolsas({
           className="h-11 px-6 text-base"
         >
           <Save className="size-5" />
-          {loading ? "Guardando…" : "Guardar guía"}
+          {loading
+            ? "Guardando…"
+            : editando
+              ? "Guardar cambios"
+              : "Guardar guía"}
         </Button>
       </div>
     </div>

@@ -7,7 +7,7 @@ import type {
 } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { NuevoPedidoEmpresaForm } from "./form";
-import { GrillaBolsas } from "./grilla-bolsas";
+import { GrillaBolsas } from "../grilla-bolsas";
 
 export const dynamic = "force-dynamic";
 

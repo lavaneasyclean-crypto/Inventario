@@ -244,6 +244,16 @@ el último día del período y una sola línea sin bolsa. No sale de ninguna
 grilla: es un cargo del mes, no se reparte entre los trabajadores y no se
 devuelve, pero sin él la factura sale $80.000 corta.
 
+### Corregir una guía
+
+**Editar** en la ficha de la guía abre **la misma grilla**, precargada con lo
+que tiene. Se corrige la celda y se guarda.
+
+Guardar **reemplaza todas las líneas** por lo que diga la grilla. Si alguna
+línea quedó fuera —su bolsa se dio de baja, o es algo sin bolsa como el
+traslado— la pantalla lo avisa arriba antes de que guardes, porque guardar así
+la borraría.
+
 ### Devolver
 
 En la ficha de la guía, **Devolución por bolsa** muestra qué lleva cada una, y

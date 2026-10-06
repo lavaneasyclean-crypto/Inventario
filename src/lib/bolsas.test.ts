@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   agruparPorBolsa,
+  celdasDesdeItems,
   claveCelda,
   itemsDesdeGrilla,
   normalizarCodigoBolsa,
@@ -217,5 +218,61 @@ describe("totalesPorProducto", () => {
 
   it("sin celdas no hay totales", () => {
     expect(totalesPorProducto({}).size).toBe(0);
+  });
+});
+
+describe("celdasDesdeItems", () => {
+  it("precarga la grilla con lo que tiene la guia", () => {
+    const celdas = celdasDesdeItems([
+      item({ bolsa_id: 7, producto_empresa_id: "P01", cantidad: 6 }),
+      item({ bolsa_id: 7, producto_empresa_id: "P02", cantidad: 1 }),
+    ]);
+    expect(celdas).toEqual({
+      [claveCelda(7, "P01")]: "6",
+      [claveCelda(7, "P02")]: "1",
+    });
+  });
+
+  it("suma el mismo (bolsa, producto) repetido", () => {
+    const celdas = celdasDesdeItems([
+      item({ bolsa_id: 7, producto_empresa_id: "P01", cantidad: 2 }),
+      item({ bolsa_id: 7, producto_empresa_id: "P01", cantidad: 4 }),
+    ]);
+    expect(celdas[claveCelda(7, "P01")]).toBe("6");
+  });
+
+  it("omite lo que la grilla no puede representar", () => {
+    // Una linea sin bolsa —el traslado, por ejemplo— no tiene celda donde ir.
+    const celdas = celdasDesdeItems([
+      item({ bolsa_id: null, bolsa_codigo: null, cantidad: 1 }),
+      item({ bolsa_id: 7, producto_empresa_id: null, cantidad: 3 }),
+      item({ bolsa_id: 7, producto_empresa_id: "P01", cantidad: 5 }),
+    ]);
+    expect(Object.keys(celdas)).toHaveLength(1);
+    expect(celdas[claveCelda(7, "P01")]).toBe("5");
+  });
+
+  it("ida y vuelta: lo que se precarga es lo que se vuelve a guardar", () => {
+    // El riesgo real de editar: abrir una guia y guardarla sin tocar nada no
+    // puede cambiarle las cantidades.
+    const items = [
+      item({ bolsa_id: 3, producto_empresa_id: "P01", cantidad: 6 }),
+      item({ bolsa_id: 3, producto_empresa_id: "P02", cantidad: 1 }),
+      item({ bolsa_id: 21, producto_empresa_id: "P01", cantidad: 10 }),
+    ];
+    const vuelta = itemsDesdeGrilla(celdasDesdeItems(items));
+
+    expect(vuelta).toHaveLength(3);
+    for (const original of items) {
+      expect(vuelta).toContainEqual({
+        bolsa_id: original.bolsa_id,
+        producto_empresa_id: original.producto_empresa_id,
+        cantidad: original.cantidad,
+      });
+    }
+  });
+
+  it("sin items no precarga nada", () => {
+    expect(celdasDesdeItems([])).toEqual({});
   });
 });

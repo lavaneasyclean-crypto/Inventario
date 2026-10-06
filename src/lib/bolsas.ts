@@ -141,6 +141,32 @@ export function claveCelda(bolsaId: number, productoId: string): string {
   return `${bolsaId}|${productoId}`;
 }
 
+/**
+ * Las líneas de una guía convertidas en celdas, para precargar la grilla al
+ * editar. Es la inversa de `itemsDesdeGrilla`.
+ *
+ * Las líneas sin bolsa o sin producto no tienen celda donde ir y se omiten:
+ * la grilla no puede representarlas. Quien edita tiene que avisar de eso antes
+ * de guardar, porque guardar las borraría.
+ *
+ * El mismo (bolsa, producto) repetido en dos líneas se suma, que es como lo
+ * muestra la grilla y como volvería a guardarse.
+ */
+export function celdasDesdeItems(
+  items: readonly Pick<
+    PedidoEmpresaItem,
+    "bolsa_id" | "producto_empresa_id" | "cantidad"
+  >[],
+): Record<string, string> {
+  const celdas: Record<string, string> = {};
+  for (const it of items) {
+    if (it.bolsa_id == null || !it.producto_empresa_id) continue;
+    const k = claveCelda(it.bolsa_id, it.producto_empresa_id);
+    celdas[k] = String((Number(celdas[k]) || 0) + it.cantidad);
+  }
+  return celdas;
+}
+
 export interface ItemDeGrilla {
   bolsa_id: number;
   producto_empresa_id: string;
