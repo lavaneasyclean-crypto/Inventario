@@ -54,15 +54,12 @@ export default async function NuevoPedidoEmpresaPage({
         return ordenarProductos(
           ((data ?? []) as unknown as Fila[])
             .filter((r) => r.productos_empresa?.activo !== false)
-            // Lo que no es prenda de bolsa no lleva columna: seria una
-            // columna que nadie llena, en la pantalla donde mas molesta.
-            .filter((r) => r.en_grilla !== false)
             .map((r) => ({
               producto_empresa_id: r.producto_empresa_id,
               nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
               precio: r.precio,
               orden: r.orden,
-              en_grilla: true,
+              en_grilla: r.en_grilla ?? true,
             })),
         );
       })(),
@@ -84,7 +81,8 @@ export default async function NuevoPedidoEmpresaPage({
         <GrillaBolsas
           empresa={empresaInicial}
           bolsas={bolsas}
-          productos={productos}
+          productos={productos.filter((p) => p.en_grilla)}
+          otrosProductos={productos.filter((p) => !p.en_grilla)}
         />
       </div>
     );

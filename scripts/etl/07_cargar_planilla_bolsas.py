@@ -456,6 +456,15 @@ def main() -> int:
             print(f"  Traslado   {rut:12} ya existe (guia #{ya[0]['id']}), se saltea")
             continue
         pid, precio = catalogo[rut][norm("Traslado")]
+        # El traslado se cobra por viaje, asi que la cantidad sale de dividir
+        # el monto del mes por el precio acordado. Si no da exacto, uno de los
+        # dos esta mal y es mejor frenar que inventar una cantidad.
+        if not precio or monto % precio != 0:
+            aviso = (f"El traslado de {rut} (${monto:,}) no es multiplo del "
+                     f"precio del catalogo (${precio or 0:,}). Revisa cual de "
+                     f"los dos esta mal antes de cargar.").replace(",", ".")
+            sys.exit("\n" + aviso)
+        cantidad = monto // precio
         nuevo = supa.pedir("POST", "rpc/crear_pedido_empresa", {
             "p_pedido": {
                 "rut_empresa": rut, "alias": None,
@@ -466,10 +475,12 @@ def main() -> int:
             "p_items": [{
                 "producto_empresa_id": pid,
                 "producto_empresa_nombre": "Traslado",
-                # El precio del catalogo manda sobre el de la planilla: si
-                # difieren, el que vale es el acordado con la empresa.
-                "precio_unidad": precio if precio is not None else monto,
-                "cantidad": 1,
+                # El traslado se cobra por viaje. La planilla solo trae el
+                # monto del mes, asi que la cantidad sale de dividirlo por el
+                # precio acordado: $80.000 con precio $20.000 son 4 viajes,
+                # que es como lo muestra la factura emitida.
+                "precio_unidad": precio,
+                "cantidad": cantidad,
                 "detalle_prenda": None,
                 "bolsa_id": None,
             }],

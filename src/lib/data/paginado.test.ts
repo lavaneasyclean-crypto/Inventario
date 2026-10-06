@@ -51,7 +51,7 @@ describe("traerTodas", () => {
     // anterior: una factura corta no se distingue de una correcta.
     let n = 0;
     await expect(
-      traerTodas(async (desde, hasta) => {
+      traerTodas(async (desde) => {
         if (n++ === 1) return { data: null, error: { message: "se cayo" } };
         return {
           data: Array.from({ length: 1000 }, (_, i) => desde + i),

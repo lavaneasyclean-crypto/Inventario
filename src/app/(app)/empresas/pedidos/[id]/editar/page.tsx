@@ -55,6 +55,14 @@ export default async function EditarPedidoEmpresaPage({
   if (data.empresa.usa_bolsas) {
     const bolsas = await getBolsasDeEmpresa(data.empresa.rut);
     const celdas = celdasDesdeItems(data.items);
+    // Lo que no vino en una bolsa —el traslado— va en su propia seccion.
+    const otros: Record<string, string> = {};
+    for (const it of data.items) {
+      if (it.bolsa_id != null || !it.producto_empresa_id) continue;
+      otros[it.producto_empresa_id] = String(
+        (Number(otros[it.producto_empresa_id]) || 0) + it.cantidad,
+      );
+    }
 
     // Una linea cuya bolsa se dio de baja no tiene fila donde mostrarse. Se
     // avisa en vez de perderla en silencio al guardar.
@@ -101,12 +109,14 @@ export default async function EditarPedidoEmpresaPage({
         <GrillaBolsas
           empresa={data.empresa}
           bolsas={bolsas}
-          productos={productos}
+          productos={productos.filter((p) => p.en_grilla)}
+          otrosProductos={productos.filter((p) => !p.en_grilla)}
           inicial={{
             id: data.pedido.id,
             fecha: fechaEnChile(new Date(data.pedido.fecha)),
             detalle: data.pedido.detalle ?? "",
             celdas,
+            otros,
           }}
         />
       </div>

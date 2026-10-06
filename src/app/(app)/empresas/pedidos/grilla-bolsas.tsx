@@ -30,6 +30,8 @@ export interface GuiaInicial {
   detalle: string;
   /** Cantidades por "bolsaId|productoId", igual que el estado de la grilla. */
   celdas: Record<string, string>;
+  /** Cantidades de los cobros que no van por bolsa, por producto. */
+  otros: Record<string, string>;
 }
 
 /**
@@ -49,11 +51,18 @@ export function GrillaBolsas({
   empresa,
   bolsas,
   productos,
+  otrosProductos = [],
   inicial,
 }: {
   empresa: ClienteEmpresa;
   bolsas: EmpresaBolsa[];
   productos: ProductoEmpresaAdquirido[];
+  /**
+   * Lo que se le cobra a la empresa sin venir en una bolsa: el traslado. No
+   * tiene columna —seria una que nadie llena— pero tiene que poder sumarse a
+   * la guia de la semana, que es cuando se presta el servicio.
+   */
+  otrosProductos?: ProductoEmpresaAdquirido[];
   /** Sin esto es una guía nueva. */
   inicial?: GuiaInicial;
 }) {
@@ -63,6 +72,9 @@ export function GrillaBolsas({
   const [detalle, setDetalle] = useState(inicial?.detalle ?? "");
   const [celdas, setCeldas] = useState<Record<string, string>>(
     () => ({ ...(inicial?.celdas ?? {}) }),
+  );
+  const [otros, setOtros] = useState<Record<string, string>>(
+    () => ({ ...(inicial?.otros ?? {}) }),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +88,15 @@ export function GrillaBolsas({
   const precioDe = useMemo(
     () => new Map(productos.map((p) => [p.producto_empresa_id, p.precio])),
     [productos],
+  );
+
+  // Los cobros sueltos: mismo trato que una celda, texto mientras se tipea.
+  const itemsOtros = otrosProductos
+    .map((p) => ({ producto: p, cantidad: Number(otros[p.producto_empresa_id] || 0) }))
+    .filter((x) => Number.isFinite(x.cantidad) && x.cantidad > 0);
+  const netoOtros = itemsOtros.reduce(
+    (s, x) => s + (x.producto.precio ?? 0) * x.cantidad,
+    0,
   );
 
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
@@ -114,12 +135,30 @@ export function GrillaBolsas({
 
   const guardar = async () => {
     setError(null);
-    if (items.length === 0) {
+    if (items.length === 0 && itemsOtros.length === 0) {
       setError("La grilla está vacía: cargá al menos una prenda.");
       return;
     }
 
-    const lineas = items.map((it) => ({
+    interface Linea {
+      producto_empresa_id: string;
+      nombre: string;
+      precio_unidad: number | null;
+      cantidad: number;
+      detalle: string | null;
+      bolsa_id: number | null;
+    }
+
+    const lineas: Linea[] = [
+      ...itemsOtros.map((x) => ({
+        producto_empresa_id: x.producto.producto_empresa_id,
+        nombre: x.producto.nombre,
+        precio_unidad: x.producto.precio,
+        cantidad: Math.trunc(x.cantidad),
+        detalle: null,
+        bolsa_id: null,
+      })),
+      ...items.map((it) => ({
       producto_empresa_id: it.producto_empresa_id,
       nombre:
         productos.find((p) => p.producto_empresa_id === it.producto_empresa_id)
@@ -127,8 +166,9 @@ export function GrillaBolsas({
       precio_unidad: precioDe.get(it.producto_empresa_id) ?? null,
       cantidad: it.cantidad,
       detalle: null,
-      bolsa_id: it.bolsa_id,
-    }));
+      bolsa_id: it.bolsa_id as number | null,
+    })),
+    ];
 
     setLoading(true);
     let destino = inicial?.id;
@@ -340,6 +380,57 @@ export function GrillaBolsas({
         </p>
       </section>
 
+      {otrosProductos.length > 0 && (
+        <section className="rounded-xl border bg-background p-4">
+          <header className="mb-3">
+            <h2 className="text-lg font-semibold">Otros cobros</h2>
+            <p className="text-xs text-muted-foreground">
+              Lo que se cobra sin venir en una bolsa. Se suma a esta guía y
+              entra a la factura como una línea más.
+            </p>
+          </header>
+          <ul className="flex flex-col gap-2">
+            {otrosProductos.map((p) => {
+              const valor = otros[p.producto_empresa_id] ?? "";
+              const cant = Number(valor || 0);
+              return (
+                <li
+                  key={p.producto_empresa_id}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="font-medium">{p.nombre}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {p.precio == null ? "sin precio" : `${formatCLP(p.precio)} c/u`}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={valor}
+                    onChange={(e) =>
+                      setOtros((prev) => {
+                        const limpio = e.target.value.replace(/[^\d]/g, "");
+                        const next = { ...prev };
+                        if (limpio === "") delete next[p.producto_empresa_id];
+                        else next[p.producto_empresa_id] = limpio;
+                        return next;
+                      })
+                    }
+                    aria-label={`Cantidad de ${p.nombre}`}
+                    className="h-9 w-20 rounded border bg-background text-center tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <span className="w-28 text-right font-mono font-semibold tabular-nums">
+                    {cant > 0 ? formatCLP((p.precio ?? 0) * cant) : "—"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {haySinPrecio && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
           <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
@@ -359,15 +450,19 @@ export function GrillaBolsas({
 
       <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
-          {items.length} línea{items.length === 1 ? "" : "s"} ·{" "}
+          {items.length + itemsOtros.length} línea
+          {items.length + itemsOtros.length === 1 ? "" : "s"} ·{" "}
           {totalUnidades} prenda{totalUnidades === 1 ? "" : "s"} ·{" "}
-          <strong className="text-foreground">{formatCLP(neto)}</strong> neto
+          <strong className="text-foreground">
+            {formatCLP(neto + netoOtros)}
+          </strong>{" "}
+          neto
         </div>
         <Button
           type="button"
           size="lg"
           onClick={guardar}
-          disabled={loading || items.length === 0}
+          disabled={loading || (items.length === 0 && itemsOtros.length === 0)}
           className="h-11 px-6 text-base"
         >
           <Save className="size-5" />

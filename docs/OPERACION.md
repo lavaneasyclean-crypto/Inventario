@@ -184,6 +184,16 @@ ocupa una columna en la grilla ni sale en la hoja de devolución.
 Sin eso, agregarlo al catálogo le mete una columna vacía a la grilla, en la
 pantalla donde más molesta.
 
+Para que igual se pueda cobrar, la pantalla de carga tiene abajo una sección
+**Otros cobros** con esos productos y una casilla de cantidad. El traslado se
+agrega ahí, en la guía de la semana en que se hizo.
+
+**El traslado se cobra por viaje, no por mes**: el precio del catálogo es
+$20.000 y la cantidad son los viajes. Un mes de cuatro semanas factura
+`4 × $20.000`, uno de cinco `5 × $20.000`. Así lo muestran las facturas
+emitidas, y así se consolida solo al facturar aunque se haya cargado un viaje
+por semana en guías distintas.
+
 ### El orden de las columnas
 
 Las columnas de la grilla salen del orden de las prendas de la empresa, y
