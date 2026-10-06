@@ -73,7 +73,9 @@ PRENDAS = [
 # pero marcado `en_grilla = false` para que no ocupe una columna que nadie
 # llena. El monto sale del "Traslado" del resumen de la planilla.
 SERVICIOS = [
-    ("Traslado", 80000),
+    # Por viaje, no por mes: las facturas lo muestran como "4 x $20.000" en un
+    # mes de cuatro semanas y "5 x $20.000" en uno de cinco.
+    ("Traslado", 20000),
 ]
 
 # Nombres que van al catalogo pero no a la grilla.
