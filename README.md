@@ -27,6 +27,10 @@ pedidos de mostrador desde el Access, facturar el mes y llevar las cuentas— ve
   estado de pago.
 - **Servicio express**: una guía puede venir apurada y pagar un recargo
   —el porcentaje lo fija cada empresa— que se factura como documento aparte.
+- **Bolsas por trabajador**: algunas empresas mandan la ropa separada por
+  bolsa numerada y hay que devolverla igual. Esas guías se cargan en una
+  grilla (fila por bolsa, columna por prenda) y tienen su hoja de devolución
+  imprimible.
 
 ## Estructura
 

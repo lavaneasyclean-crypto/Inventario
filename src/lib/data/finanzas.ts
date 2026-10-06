@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { esFechaValida } from "@/lib/fecha";
 import { filtroContiene } from "@/lib/postgrest";
+import { enGrupos, traerTodas } from "./paginado";
 import type {
   CategoriaGasto,
   ClienteEmpresa,
@@ -237,19 +238,27 @@ export async function getGuiasFacturadas(
   const mapa = new Map<number, GuiaFacturada>();
   if (pedidoIds.length === 0) return mapa;
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("facturas_guias")
-    .select("pedido_empresa_id, facturas!inner(id, tipo, estado)")
-    .in("pedido_empresa_id", [...pedidoIds])
-    .neq("facturas.estado", "anulada");
-
   type Fila = {
     pedido_empresa_id: number;
     facturas: { id: number; tipo: TipoFactura } | null;
   };
 
-  for (const fila of (data ?? []) as unknown as Fila[]) {
+  const supabase = await createClient();
+  const data: Fila[] = [];
+  for (const grupo of enGrupos([...pedidoIds])) {
+    data.push(
+      ...((await traerTodas((desde, hasta) =>
+        supabase
+          .from("facturas_guias")
+          .select("pedido_empresa_id, facturas!inner(id, tipo, estado)")
+          .in("pedido_empresa_id", grupo)
+          .neq("facturas.estado", "anulada")
+          .range(desde, hasta),
+      )) as unknown as Fila[]),
+    );
+  }
+
+  for (const fila of data) {
     if (!fila.facturas) continue;
     const actual = mapa.get(fila.pedido_empresa_id) ?? {
       normal: null,

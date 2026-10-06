@@ -2,8 +2,12 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
 import { filtroContiene } from "@/lib/postgrest";
+import { enGrupos, traerTodas } from "./paginado";
+import { ordenarBolsas } from "@/lib/bolsas";
+import { ordenarProductos } from "@/lib/orden-productos";
 import type {
   ClienteEmpresa,
+  EmpresaBolsa,
   PedidoEmpresa,
   PedidoEmpresaItem,
   ProductoEmpresa,
@@ -43,14 +47,20 @@ export async function searchEmpresas(query: string): Promise<EmpresaResultado[]>
 
   // Para cada empresa: contar pedidos + último
   const ruts = empresas.map((e) => e.rut);
-  const { data: pedidosAgg } = await supabase
-    .from("pedidos_empresa")
-    .select("rut_empresa, fecha")
-    .in("rut_empresa", ruts)
-    .order("fecha", { ascending: false });
+  // Paginado: entre todas las empresas hay miles de pedidos y PostgREST solo
+  // devuelve los primeros mil, asi que los conteos salian cortos.
+  const pedidosAgg = await traerTodas<{ rut_empresa: string; fecha: string }>(
+    (desde, hasta) =>
+      supabase
+        .from("pedidos_empresa")
+        .select("rut_empresa, fecha")
+        .in("rut_empresa", ruts)
+        .order("fecha", { ascending: false })
+        .range(desde, hasta),
+  );
 
   const aggMap = new Map<string, { count: number; ultima: string | null }>();
-  for (const row of pedidosAgg ?? []) {
+  for (const row of pedidosAgg) {
     const r = row.rut_empresa as string;
     const cur = aggMap.get(r);
     if (!cur) aggMap.set(r, { count: 1, ultima: row.fecha as string });
@@ -90,12 +100,24 @@ export async function getEmpresaDetalle(
 
   const itemsByPedido = new Map<number, { count: number; unidades: number }>();
   if (pedidoIds.length > 0) {
-    const { data: items } = await supabase
-      .from("pedidos_empresa_items")
-      .select("pedido_empresa_id, cantidad")
-      .in("pedido_empresa_id", pedidoIds);
+    // Acacias tiene 415 pedidos y 8.514 lineas: sin paginar, PostgREST
+    // devolvia las primeras mil —las de los pedidos mas viejos— y toda la
+    // ficha mostraba "0 items".
+    const items: Array<{ pedido_empresa_id: number; cantidad: number }> = [];
+    for (const grupo of enGrupos(pedidoIds)) {
+      items.push(
+        ...(await traerTodas<{ pedido_empresa_id: number; cantidad: number }>(
+          (desde, hasta) =>
+            supabase
+              .from("pedidos_empresa_items")
+              .select("pedido_empresa_id, cantidad")
+              .in("pedido_empresa_id", grupo)
+              .range(desde, hasta),
+        )),
+      );
+    }
 
-    for (const it of items ?? []) {
+    for (const it of items) {
       const pid = it.pedido_empresa_id as number;
       const cur = itemsByPedido.get(pid);
       const cantidad = it.cantidad as number;
@@ -194,14 +216,24 @@ export async function getPedidosEmpresaParaFacturacion(
   if (lista.length === 0) return [];
 
   const ids = lista.map((p) => p.id);
-  const { data: items } = await supabase
-    .from("pedidos_empresa_items")
-    .select("*")
-    .in("pedido_empresa_id", ids)
-    .order("id", { ascending: true });
+  // Paginado, y no por prolijidad: un rango con mas de mil lineas habria
+  // emitido una factura por menos de lo que corresponde, sin ninguna senal.
+  const items: PedidoEmpresaItem[] = [];
+  for (const grupo of enGrupos(ids)) {
+    items.push(
+      ...(await traerTodas<PedidoEmpresaItem>((desde, hasta) =>
+        supabase
+          .from("pedidos_empresa_items")
+          .select("*")
+          .in("pedido_empresa_id", grupo)
+          .order("id", { ascending: true })
+          .range(desde, hasta),
+      )),
+    );
+  }
 
   const itemsByPedido = new Map<number, PedidoEmpresaItem[]>();
-  for (const it of (items ?? []) as PedidoEmpresaItem[]) {
+  for (const it of items) {
     const arr = itemsByPedido.get(it.pedido_empresa_id) ?? [];
     arr.push(it);
     itemsByPedido.set(it.pedido_empresa_id, arr);
@@ -240,17 +272,22 @@ export async function getPedidosEmpresaPorIds(
   const lista = (pedidos ?? []) as PedidoEmpresa[];
   if (lista.length === 0) return [];
 
-  const { data: items } = await supabase
-    .from("pedidos_empresa_items")
-    .select("*")
-    .in(
-      "pedido_empresa_id",
-      lista.map((p) => p.id),
-    )
-    .order("id", { ascending: true });
+  const items: PedidoEmpresaItem[] = [];
+  for (const grupo of enGrupos(lista.map((p) => p.id))) {
+    items.push(
+      ...(await traerTodas<PedidoEmpresaItem>((desde, hasta) =>
+        supabase
+          .from("pedidos_empresa_items")
+          .select("*")
+          .in("pedido_empresa_id", grupo)
+          .order("id", { ascending: true })
+          .range(desde, hasta),
+      )),
+    );
+  }
 
   const itemsByPedido = new Map<number, PedidoEmpresaItem[]>();
-  for (const it of (items ?? []) as PedidoEmpresaItem[]) {
+  for (const it of items) {
     const arr = itemsByPedido.get(it.pedido_empresa_id) ?? [];
     arr.push(it);
     itemsByPedido.set(it.pedido_empresa_id, arr);
@@ -260,6 +297,22 @@ export async function getPedidosEmpresaPorIds(
     pedido: p,
     items: itemsByPedido.get(p.id) ?? [],
   }));
+}
+
+/**
+ * El padron de bolsas de una empresa, en el orden de la grilla: primero las
+ * numeradas y despues las que van por nombre.
+ */
+export async function getBolsasDeEmpresa(
+  rut: string,
+  opciones: { incluirInactivas?: boolean } = {},
+): Promise<EmpresaBolsa[]> {
+  const supabase = await createClient();
+  let q = supabase.from("empresa_bolsas").select("*").eq("rut_empresa", rut);
+  if (!opciones.incluirInactivas) q = q.eq("activo", true);
+
+  const { data } = await q;
+  return ordenarBolsas((data ?? []) as EmpresaBolsa[]);
 }
 
 export async function getProductosEmpresaActivos(): Promise<ProductoEmpresa[]> {
@@ -279,24 +332,29 @@ export async function getProductosDeEmpresa(
   const supabase = await createClient();
   const { data } = await supabase
     .from("empresa_productos")
-    .select("producto_empresa_id, precio, productos_empresa(nombre, activo)")
+    .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
     .eq("rut_empresa", rut);
 
   type Row = {
     producto_empresa_id: string;
     precio: number | null;
+    orden: number | null;
+    en_grilla: boolean;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
 
   const rows = (data ?? []) as unknown as Row[];
-  return rows
-    .filter((r) => r.productos_empresa?.activo !== false)
-    .map((r) => ({
-      producto_empresa_id: r.producto_empresa_id,
-      nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
-      precio: r.precio,
-    }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  return ordenarProductos(
+    rows
+      .filter((r) => r.productos_empresa?.activo !== false)
+      .map((r) => ({
+        producto_empresa_id: r.producto_empresa_id,
+        nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
+        precio: r.precio,
+        orden: r.orden,
+        en_grilla: r.en_grilla ?? true,
+      })),
+  );
 }
 
 /** Productos del catálogo global que la empresa NO ha adquirido todavía. */

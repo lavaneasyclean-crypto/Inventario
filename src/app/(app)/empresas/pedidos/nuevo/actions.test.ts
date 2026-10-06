@@ -82,7 +82,32 @@ describe("crearPedidoEmpresa", () => {
       precio_unidad: 2500,
       cantidad: 12,
       detalle_prenda: null,
+      bolsa_id: null,
     });
+  });
+
+  it("manda la bolsa cuando la guia viene de la grilla", async () => {
+    const fake = montar({ "rpc.crear_pedido_empresa": { data: 1 } });
+    const base = pedidoBase();
+    await crearPedidoEmpresa({
+      ...base,
+      items: [{ ...base.items[0], bolsa_id: 42 }],
+    });
+
+    const { p_items } = fake.rpcs[0].args as {
+      p_items: Record<string, unknown>[];
+    };
+    expect(p_items[0].bolsa_id).toBe(42);
+  });
+
+  it("rechaza una bolsa que no es un id valido", async () => {
+    montar({ "rpc.crear_pedido_empresa": { data: 1 } });
+    const base = pedidoBase();
+    const res = await crearPedidoEmpresa({
+      ...base,
+      items: [{ ...base.items[0], bolsa_id: 0 }],
+    });
+    expect(res.ok).toBe(false);
   });
 
   it("deja pasar un producto sin precio acordado", async () => {

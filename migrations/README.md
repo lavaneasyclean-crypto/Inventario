@@ -31,15 +31,18 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0009_finanzas.sql` | `facturas`, `facturas_lineas`, `facturas_guias`, `gastos` y la función `registrar_factura` |
 | `0010_pedidos_express.sql` | `express` en las guías, `recargo_express` por empresa y `crear_pedido_empresa` recalculado |
 | `0011_facturas_abonos.sql` | `facturas_abonos` + `monto_pagado` mantenido por trigger: una factura se puede pagar de a poco |
+| `0012_bolsas_por_trabajador.sql` | `empresa_bolsas`, `usa_bolsas` por empresa, la bolsa en cada línea y `crear_pedido_empresa` recalculado |
+| `0013_orden_productos_empresa.sql` | `orden` en `empresa_productos`: las columnas de la grilla siguen el orden de la planilla |
+| `0014_productos_fuera_de_grilla.sql` | `en_grilla` en `empresa_productos`: lo que se factura sin ser una prenda de bolsa (el traslado) |
 
-⚠️ **De la `0006` a la `0011` hay que aplicarlas antes de desplegar el código
+⚠️ **De la `0006` a la `0014` hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de
 empresa y las facturas llamando a esas funciones; si no existen todavía, los
 botones de guardar fallan con el aviso "falta aplicar una migración".
 
-`0010` reemplaza `crear_pedido_empresa` (definida en `0006`), así que hay que
-aplicarla **después** de aquella. En una base nueva, el orden numérico ya lo
-resuelve.
+`crear_pedido_empresa` se redefine tres veces: nace en `0006`, le agrega
+`express` la `0010` y la bolsa la `0012`. Hay que aplicarlas en orden; en una
+base nueva el orden numérico ya lo resuelve.
 
 Nota sobre `0007`: si el catálogo heredado del Access ya trae nombres
 repetidos en `productos_empresa`, el índice único no se crea y la migración lo

@@ -28,6 +28,9 @@ const baseSchema = z.object({
     .min(0, "El recargo no puede ser negativo")
     .max(500, "Un recargo de mas de 500% seguro es un error de tipeo")
     .default(0),
+  // La ropa viene separada por bolsa de trabajador. Casi ninguna empresa
+  // trabaja asi, de ahi el default.
+  usa_bolsas: z.boolean().default(false),
 });
 
 const createSchema = baseSchema.extend({
@@ -92,6 +95,7 @@ export async function crearEmpresa(
       correo:     data.correo || null,
       activo:     data.activo,
       recargo_express: data.recargo_express,
+      usa_bolsas: data.usa_bolsas,
     });
     if (error) return fallo("crearEmpresa", step, error);
 
@@ -134,6 +138,7 @@ export async function actualizarEmpresa(
         correo:     data.correo || null,
         activo:     data.activo,
         recargo_express: data.recargo_express,
+        usa_bolsas: data.usa_bolsas,
       })
       .eq("rut", rut);
 

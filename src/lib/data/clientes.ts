@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { filtroContienePorCampo } from "@/lib/postgrest";
+import { traerTodas } from "./paginado";
 import type { Cliente, Pedido } from "@/lib/types";
 
 const SEARCH_LIMIT = 50;
@@ -45,14 +46,22 @@ export async function searchClientes(query: string): Promise<ClienteResultado[]>
 
   // Para cada cliente: contar pedidos y obtener fecha del último
   const ruts = clientes.map((c) => c.rut);
-  const { data: pedidosAgg } = await supabase
-    .from("pedidos")
-    .select("rut_cliente, fecha_recepcion")
-    .in("rut_cliente", ruts)
-    .order("fecha_recepcion", { ascending: false });
+  // Paginado: hay mas de mil pedidos de mostrador y PostgREST corta ahi, asi
+  // que los conteos de los clientes mas antiguos salian cortos.
+  const pedidosAgg = await traerTodas<{
+    rut_cliente: string;
+    fecha_recepcion: string;
+  }>((desde, hasta) =>
+    supabase
+      .from("pedidos")
+      .select("rut_cliente, fecha_recepcion")
+      .in("rut_cliente", ruts)
+      .order("fecha_recepcion", { ascending: false })
+      .range(desde, hasta),
+  );
 
   const aggMap = new Map<string, { count: number; ultima: string | null }>();
-  for (const row of pedidosAgg ?? []) {
+  for (const row of pedidosAgg) {
     const r = row.rut_cliente as string;
     const cur = aggMap.get(r);
     if (!cur) {

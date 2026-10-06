@@ -13,6 +13,9 @@ const asignarSchema = z.object({
   rut_empresa:         z.string().min(1),
   producto_empresa_id: z.string().min(1),
   precio:              z.number().int().nullable(),
+  // false para lo que se factura pero no es una prenda de bolsa: no ocupa
+  // columna en la grilla. Opcional para no tocar a quien ya llamaba esto.
+  en_grilla:           z.boolean().optional(),
 });
 
 /** Asocia un producto existente del catálogo global a una empresa con su precio. */
@@ -37,6 +40,7 @@ export async function asignarProducto(
         rut_empresa:         data.rut_empresa,
         producto_empresa_id: data.producto_empresa_id,
         precio:              data.precio,
+        ...(data.en_grilla === undefined ? {} : { en_grilla: data.en_grilla }),
       },
       { onConflict: "rut_empresa,producto_empresa_id" },
     );
@@ -141,5 +145,45 @@ export async function desasignarProducto(
     return { ok: true };
   } catch (err) {
     return fallo("desasignarProducto", step, err);
+  }
+}
+
+/**
+ * Fija el orden de las prendas de una empresa.
+ *
+ * Recibe la lista completa en el orden nuevo y reescribe todas las posiciones,
+ * en vez de intercambiar las dos que se movieron. Es a proposito: cuando
+ * algunas prendas todavia tienen `orden` en NULL —las que nunca se acomodaron—
+ * un intercambio dejaria posiciones repetidas o huecos, y el resultado
+ * dependeria de datos que no se pueden garantizar. Reescribir todo es
+ * idempotente y siempre deja 0..n-1.
+ */
+export async function reordenarProductos(
+  rut: string,
+  ids: string[],
+): Promise<ProductoEmpresaActionResult> {
+  let step = "validar";
+  try {
+    if (ids.length === 0) return { ok: true };
+    if (new Set(ids).size !== ids.length) {
+      return { ok: false, error: "La lista de orden trae prendas repetidas." };
+    }
+
+    step = "upsert";
+    const supabase = await createClient();
+    const { error } = await supabase.from("empresa_productos").upsert(
+      ids.map((id, i) => ({
+        rut_empresa: rut,
+        producto_empresa_id: id,
+        orden: i,
+      })),
+      { onConflict: "rut_empresa,producto_empresa_id" },
+    );
+    if (error) return fallo("reordenarProductos", step, error);
+
+    revalidatePath(`/empresas/${rut}`);
+    return { ok: true };
+  } catch (err) {
+    return fallo("reordenarProductos", step, err);
   }
 }

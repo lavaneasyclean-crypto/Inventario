@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import { searchEmpresas } from "@/lib/data/empresas";
+import { getBolsasDeEmpresa, searchEmpresas } from "@/lib/data/empresas";
+import { ordenarProductos } from "@/lib/orden-productos";
 import type {
   ClienteEmpresa,
   ProductoEmpresaAdquirido,
 } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { NuevoPedidoEmpresaForm } from "./form";
+import { GrillaBolsas } from "../grilla-bolsas";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,67 @@ export default async function NuevoPedidoEmpresaPage({
     empresaInicial = (data as ClienteEmpresa) ?? null;
   }
 
+  // Las empresas que trabajan por bolsa cargan la guia en una grilla y no con
+  // el buscador de items: son 32 filas x 7 columnas y agregarlas de a una es
+  // inviable. Se resuelve antes de armar el resto para no cargar de gusto los
+  // productos de todas las empresas.
+  if (empresaInicial?.usa_bolsas) {
+    const [bolsas, productos] = await Promise.all([
+      getBolsasDeEmpresa(empresaInicial.rut),
+      (async () => {
+        const supabase = await createClient();
+        const { data } = await supabase
+          .from("empresa_productos")
+          .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
+          .eq("rut_empresa", empresaInicial.rut);
+        type Fila = {
+          producto_empresa_id: string;
+          precio: number | null;
+          orden: number | null;
+          en_grilla: boolean;
+          productos_empresa: { nombre: string; activo: boolean } | null;
+        };
+        // El orden de las columnas de la grilla sale de aca: tiene que seguir
+        // el de la planilla de papel que se esta copiando.
+        return ordenarProductos(
+          ((data ?? []) as unknown as Fila[])
+            .filter((r) => r.productos_empresa?.activo !== false)
+            // Lo que no es prenda de bolsa no lleva columna: seria una
+            // columna que nadie llena, en la pantalla donde mas molesta.
+            .filter((r) => r.en_grilla !== false)
+            .map((r) => ({
+              producto_empresa_id: r.producto_empresa_id,
+              nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
+              precio: r.precio,
+              orden: r.orden,
+              en_grilla: true,
+            })),
+        );
+      })(),
+    ]);
+
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mb-4">
+          <BackButton />
+        </div>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">
+          Nueva guía — {empresaInicial.alias || empresaInicial.nombre}
+        </h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Cargá las prendas de cada bolsa. Es la misma grilla de la planilla.
+          Una guía por entrega: si retiran dos veces en la semana, van dos.
+        </p>
+
+        <GrillaBolsas
+          empresa={empresaInicial}
+          bolsas={bolsas}
+          productos={productos}
+        />
+      </div>
+    );
+  }
+
   const empresas = await searchEmpresas("");
 
   // Cargo productos por empresa de TODAS las empresas. Es chico (10 empresas
@@ -36,13 +99,15 @@ export default async function NuevoPedidoEmpresaPage({
   const { data: ep } = await supabase
     .from("empresa_productos")
     .select(
-      "rut_empresa, producto_empresa_id, precio, productos_empresa(nombre, activo)",
+      "rut_empresa, producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)",
     );
 
   type Row = {
     rut_empresa: string;
     producto_empresa_id: string;
     precio: number | null;
+    orden: number | null;
+    en_grilla: boolean;
     productos_empresa: { nombre: string; activo: boolean } | null;
   };
   const productosByEmpresa = new Map<string, ProductoEmpresaAdquirido[]>();
@@ -53,11 +118,13 @@ export default async function NuevoPedidoEmpresaPage({
       producto_empresa_id: row.producto_empresa_id,
       nombre: row.productos_empresa?.nombre ?? "(sin nombre)",
       precio: row.precio,
+      orden: row.orden,
+      en_grilla: row.en_grilla ?? true,
     });
     productosByEmpresa.set(row.rut_empresa, arr);
   }
-  for (const arr of productosByEmpresa.values()) {
-    arr.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  for (const [k, arr] of productosByEmpresa.entries()) {
+    productosByEmpresa.set(k, ordenarProductos(arr));
   }
   const productosByEmpresaObj: Record<string, ProductoEmpresaAdquirido[]> = {};
   for (const [k, v] of productosByEmpresa.entries()) {

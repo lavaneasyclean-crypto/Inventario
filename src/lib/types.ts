@@ -96,6 +96,24 @@ export interface ClienteEmpresa {
    * 0 = no cobra express.
    */
   recargo_express: number;
+  /**
+   * La ropa viene separada por bolsa de trabajador y se devuelve igual.
+   * Habilita la grilla de carga y la hoja de devolucion.
+   */
+  usa_bolsas: boolean;
+}
+
+/**
+ * Una bolsa del padron de una empresa. El codigo es texto porque no todas son
+ * numeros: en la planilla de Termomin conviven 1..32 con "Nicolas", "DV" y
+ * "Maxis", que son personas sin bolsa numerada.
+ */
+export interface EmpresaBolsa {
+  id: number;
+  rut_empresa: string;
+  codigo: string;
+  nombre: string | null;
+  activo: boolean;
 }
 
 export interface PedidoEmpresa {
@@ -120,6 +138,10 @@ export interface PedidoEmpresaItem {
   importe: number | null;
   cantidad: number;
   detalle_prenda: string | null;
+  /** De que bolsa salio. Null en las empresas que no trabajan por bolsa. */
+  bolsa_id: number | null;
+  /** Snapshot del codigo, por si la bolsa se renombra o se da de baja. */
+  bolsa_codigo: string | null;
   created_at: string;
 }
 
@@ -137,6 +159,17 @@ export interface ProductoEmpresaAdquirido {
   producto_empresa_id: string;
   nombre: string;
   precio: number | null;
+  /**
+   * Posicion en la ficha y en las columnas de la grilla. null = al final,
+   * alfabetico. Importa porque la grilla se carga copiando de una planilla de
+   * papel y las columnas tienen que seguir el mismo orden.
+   */
+  orden: number | null;
+  /**
+   * false para lo que se factura pero no es una prenda de bolsa (traslado,
+   * recargos): no ocupa columna en la grilla ni sale en la devolucion.
+   */
+  en_grilla: boolean;
 }
 
 // =========================================================

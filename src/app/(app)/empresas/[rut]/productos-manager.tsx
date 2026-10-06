@@ -2,7 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2, X, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+  Search,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,24 +29,64 @@ import type {
   ProductoEmpresaAdquirido,
 } from "@/lib/types";
 import { formatCLP } from "@/lib/format";
+import { moverProducto } from "@/lib/orden-productos";
 import {
   asignarProducto,
   crearYAsignarProducto,
   desasignarProducto,
+  reordenarProductos,
 } from "./productos-actions";
 
 export function ProductosManager({
   rut,
   productos,
   globalesDisponibles,
+  ordenImporta = false,
 }: {
   rut: string;
   productos: ProductoEmpresaAdquirido[];
   globalesDisponibles: ProductoEmpresa[];
+  /**
+   * Muestra las flechas para acomodar el orden. Solo hace falta donde ese
+   * orden se nota: en la grilla de bolsas, que lo usa para sus columnas.
+   */
+  ordenImporta?: boolean;
 }) {
   const [agregarOpen, setAgregarOpen] = useState(false);
+  // Copia local para que la lista se mueva al instante. El servidor confirma
+  // despues; si falla, se vuelve a lo que diga la base.
+  const [orden, setOrden] = useState(productos);
+  const [guardandoOrden, setGuardandoOrden] = useState(false);
+  const routerOrden = useRouter();
 
+  // La lista del servidor manda: si cambia —se agrego o borro una prenda— se
+  // descarta la copia local en vez de quedar mostrando algo viejo.
+  const [previas, setPrevias] = useState(productos);
+  if (previas !== productos) {
+    setPrevias(productos);
+    setOrden(productos);
+  }
+
+  const lista = ordenImporta ? orden : productos;
   const sinPrecio = productos.filter((p) => p.precio === null).length;
+
+  const mover = async (id: string, direccion: -1 | 1) => {
+    const nueva = moverProducto(orden, id, direccion);
+    if (nueva === orden) return;
+    setOrden(nueva);
+    setGuardandoOrden(true);
+    const res = await reordenarProductos(
+      rut,
+      nueva.map((p) => p.producto_empresa_id),
+    );
+    setGuardandoOrden(false);
+    if (!res.ok) {
+      setOrden(productos);
+      toast.error(res.error);
+      return;
+    }
+    routerOrden.refresh();
+  };
 
   return (
     <section className="rounded-xl border bg-background p-4">
@@ -54,6 +103,15 @@ export function ProductosManager({
         </Button>
       </header>
 
+      {ordenImporta && productos.length > 1 && (
+        <p className="mb-3 rounded border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Este orden es el de las columnas en la grilla de carga. Acomodalo
+          igual que la planilla de papel: así cada columna cae donde la
+          esperás y no se anota una cantidad en la prenda de al lado.
+          {guardandoOrden && <span className="ml-1">Guardando…</span>}
+        </p>
+      )}
+
       {sinPrecio > 0 && (
         <div className="mb-3 rounded border border-amber-500/40 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
           Hay {sinPrecio} producto{sinPrecio === 1 ? "" : "s"} sin precio
@@ -68,8 +126,24 @@ export function ProductosManager({
         </div>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {productos.map((p) => (
-            <ProductoCard key={p.producto_empresa_id} rut={rut} producto={p} />
+          {lista.map((p, i) => (
+            <ProductoCard
+              key={p.producto_empresa_id}
+              rut={rut}
+              producto={p}
+              posicion={ordenImporta ? i + 1 : null}
+              onSubir={
+                ordenImporta && i > 0
+                  ? () => mover(p.producto_empresa_id, -1)
+                  : undefined
+              }
+              onBajar={
+                ordenImporta && i < lista.length - 1
+                  ? () => mover(p.producto_empresa_id, 1)
+                  : undefined
+              }
+              mostrarFueraDeGrilla={ordenImporta}
+            />
           ))}
         </ul>
       )}
@@ -87,9 +161,17 @@ export function ProductosManager({
 function ProductoCard({
   rut,
   producto,
+  posicion,
+  onSubir,
+  onBajar,
+  mostrarFueraDeGrilla,
 }: {
   rut: string;
   producto: ProductoEmpresaAdquirido;
+  posicion?: number | null;
+  onSubir?: () => void;
+  onBajar?: () => void;
+  mostrarFueraDeGrilla?: boolean;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -112,8 +194,42 @@ function ProductoCard({
   return (
     <li className="rounded-lg border bg-background p-3">
       <div className="flex items-start justify-between gap-2">
+        {(onSubir || onBajar) && (
+          <div className="flex shrink-0 flex-col">
+            <button
+              type="button"
+              onClick={onSubir}
+              disabled={!onSubir}
+              aria-label={`Subir ${producto.nombre}`}
+              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
+            >
+              <ChevronUp className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onBajar}
+              disabled={!onBajar}
+              aria-label={`Bajar ${producto.nombre}`}
+              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
+            >
+              <ChevronDown className="size-4" />
+            </button>
+          </div>
+        )}
         <div className="min-w-0 flex-1">
-          <div className="font-medium">{producto.nombre}</div>
+          <div className="flex items-baseline gap-1.5 font-medium">
+            {posicion != null && (
+              <span className="font-mono text-xs text-muted-foreground">
+                {posicion}.
+              </span>
+            )}
+            <span className="truncate">{producto.nombre}</span>
+          </div>
+          {mostrarFueraDeGrilla && !producto.en_grilla && (
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              No va en la grilla
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setEditOpen(true)}
@@ -202,6 +318,7 @@ function EditarPrecioDialog({
   const [precio, setPrecio] = useState(producto.precio?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [enGrilla, setEnGrilla] = useState(producto.en_grilla);
 
   // Reset al abrir. Antes la condicion era `precio === ""`, que tambien se
   // cumple cuando la persona borra el campo a mano: el precio volvia a
@@ -212,6 +329,7 @@ function EditarPrecioDialog({
     setAbiertoPrevio(open);
     if (open) {
       setPrecio(producto.precio?.toString() ?? "");
+      setEnGrilla(producto.en_grilla);
       setError(null);
     }
   }
@@ -229,6 +347,7 @@ function EditarPrecioDialog({
       const res = await asignarProducto({
         rut_empresa: rut,
         producto_empresa_id: producto.producto_empresa_id,
+        en_grilla: enGrilla,
         precio: precioNum,
       });
       setLoading(false);
@@ -268,6 +387,24 @@ function EditarPrecioDialog({
               Dejar vacío si no querés definir precio todavía.
             </p>
           </div>
+
+          <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={enGrilla}
+              onChange={(e) => setEnGrilla(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <span className="font-medium">Es una prenda de bolsa</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Destildalo para lo que se factura pero no viene en una bolsa,
+                como el traslado: se cobra igual, pero no ocupa una columna en
+                la grilla ni aparece en la hoja de devolución.
+              </span>
+            </span>
+          </label>
+
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>

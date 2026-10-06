@@ -138,6 +138,134 @@ vuelven a quedar disponibles para facturar, que es lo que hace falta cuando se
 emite una nota de crédito. Un gasto sí se borra, porque es una anotación
 nuestra y no un documento emitido.
 
+## Empresas que trabajan por bolsas
+
+Termomín y Termochemical no mandan un bulto de ropa: mandan **la bolsa de cada
+trabajador**, numerada, y hay que devolverla tal cual. La bolsa 3 vuelve con
+las mismas 6 poleras y el mismo pantalón con que entró.
+
+Para esas empresas la guía deja de ser una lista de items y pasa a ser una
+grilla: **una fila por bolsa, una columna por prenda**, igual que la planilla
+que vienen llenando a mano.
+
+La bolsa es **logística, no comercial**: no cambia el precio. La facturación
+sigue consolidando por producto y la ignora.
+
+### Alta de una empresa de estas
+
+Tres cosas, en este orden:
+
+1. **La empresa**, con la casilla *Trabaja por bolsas* prendida en su ficha.
+2. **Su catálogo** de prendas con el precio acordado.
+3. **El padrón de bolsas**, que son las filas de la grilla.
+
+Para Termomín y Termochemical eso ya está automatizado:
+
+```bash
+python scripts/etl/06_alta_empresa_bolsas.py --empresa todas          # simulación
+python scripts/etl/06_alta_empresa_bolsas.py --empresa todas --apply  # escribe
+```
+
+Es idempotente: lo que ya existe no se duplica, y se puede volver a correr
+para agregar bolsas nuevas o corregir un precio.
+
+Para otra empresa, a mano: en su ficha, **Padrón de bolsas** → *Cargar rango*
+crea de la 1 a la N de una vez, y *Agregar* suma las que van por nombre. En la
+planilla de Termomín conviven las numeradas con `Nicolás`, `DV` y `Maxis`, que
+son personas sin bolsa asignada — por eso el código es texto y no un número.
+
+### Lo que se factura pero no es una prenda
+
+El traslado se cobra como una línea más, pero no viene en ninguna bolsa. Está
+en el catálogo de la empresa con la casilla **"Es una prenda de bolsa"
+destildada**: se factura igual —entra al consolidado y a la factura— pero no
+ocupa una columna en la grilla ni sale en la hoja de devolución.
+
+Sin eso, agregarlo al catálogo le mete una columna vacía a la grilla, en la
+pantalla donde más molesta.
+
+### El orden de las columnas
+
+Las columnas de la grilla salen del orden de las prendas de la empresa, y
+conviene que **sigan el mismo orden que la planilla de papel**. Cargar la
+grilla es copiar del papel: si las columnas están en otro orden, cada fila de
+siete celdas es una oportunidad de anotar la cantidad en la prenda de al lado.
+
+Se acomoda en la ficha de la empresa, con las flechitas de cada producto. El
+número a la izquierda del nombre es su posición.
+
+`06_alta_empresa_bolsas.py` ya lo deja puesto para Termomín y Termochemical,
+en el orden de su planilla:
+
+```
+Polera | Pantalón | Pantalón térmico | Cotona | Polerón | Overol térmico | Gorro
+```
+
+Una prenda que se agregue después entra sin posición y va al final; se sube
+con las flechas si hace falta.
+
+### Cargar la semana
+
+Desde la ficha de la empresa, **Nuevo pedido**. Si trabaja por bolsas aparece
+la grilla en vez del buscador de items. Se tipean las cantidades y listo:
+Enter y las flechas bajan a la fila siguiente, como en Excel.
+
+**El pie de la grilla tiene que coincidir con el de la planilla.** Si no
+coincide, algo se tipeó mal. Es la misma verificación que ya se hace con las
+planillas de Acacias.
+
+**Una guía por entrega**, con su fecha. No hay nada semanal en el sistema: si
+retiran dos veces en la semana van dos guías, y si en una semana no retiran no
+va ninguna. La planilla las agrupa por semana porque así la vienen llevando,
+pero la facturación suma el rango que elijas igual que con cualquier empresa.
+
+### Importar una planilla ya llena
+
+Para no retipear un mes que ya está en Excel:
+
+```bash
+python scripts/etl/07_cargar_planilla_bolsas.py "C:/ruta/planilla.xlsx" --periodo 2026-09
+python scripts/etl/07_cargar_planilla_bolsas.py "C:/ruta/planilla.xlsx" --periodo 2026-09 --apply
+```
+
+Lee cada bloque `Semana N` y crea una guía por (semana, empresa) con la fecha
+de la semana.
+
+**Se niega a cargar si no cuadra.** Al final la planilla trae el resumen del
+mes —cantidad por prenda y neto por empresa— y el script reconstruye esos
+números desde las grillas antes de escribir. Si no coinciden, no carga nada y
+muestra prenda por prenda dónde está la diferencia. Lo mismo si alguna bolsa
+no está en el padrón o alguna prenda no está en el catálogo.
+
+Es idempotente: una guía que ya existe para esa empresa y esa fecha se saltea.
+
+**El `Traslado`** del resumen mensual se carga como una **guía aparte**, con
+el último día del período y una sola línea sin bolsa. No sale de ninguna
+grilla: es un cargo del mes, no se reparte entre los trabajadores y no se
+devuelve, pero sin él la factura sale $80.000 corta.
+
+### Corregir una guía
+
+**Editar** en la ficha de la guía abre **la misma grilla**, precargada con lo
+que tiene. Se corrige la celda y se guarda.
+
+Guardar **reemplaza todas las líneas** por lo que diga la grilla. Si alguna
+línea quedó fuera —su bolsa se dio de baja, o es algo sin bolsa como el
+traslado— la pantalla lo avisa arriba antes de que guardes, porque guardar así
+la borraría.
+
+### Devolver
+
+En la ficha de la guía, **Devolución por bolsa** muestra qué lleva cada una, y
+*Ver para imprimir* abre la hoja lista para mandar con la ropa.
+
+Es la vista opuesta a la de facturación: para cobrar importa el producto (52
+poleras en total), para devolver importa la bolsa (la 3 lleva 6 poleras, 1
+pantalón y 1 polerón) y el precio no aparece.
+
+Si alguna línea sale bajo *Sin bolsa asignada*, es una guía que se cargó antes
+de armar el padrón. Se arregla editándola.
+
 ## Sincronizar los pedidos de mostrador
 
 ```bash
@@ -227,5 +355,5 @@ terminal, y la que está en `.env.local` está vencida.
 ## Migraciones
 
 Se aplican a mano en el SQL Editor de Supabase, en orden. Ver
-`migrations/README.md`. Las `0006` a `0011` hay que aplicarlas **antes** de
+`migrations/README.md`. Las `0006` a `0014` hay que aplicarlas **antes** de
 desplegar el código que las usa: la app llama a funciones que se crean ahí.
