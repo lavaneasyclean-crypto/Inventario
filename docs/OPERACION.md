@@ -138,6 +138,31 @@ vuelven a quedar disponibles para facturar, que es lo que hace falta cuando se
 emite una nota de crédito. Un gasto sí se borra, porque es una anotación
 nuestra y no un documento emitido.
 
+### Registrar facturas ya emitidas
+
+Para cargar de una vez las facturas que ya salieron por Haulmer, en vez de
+anotarlas a mano una por una:
+
+```bash
+python scripts/etl/08_cargar_facturas_emitidas.py
+python scripts/etl/08_cargar_facturas_emitidas.py --apply
+```
+
+Los PDF del SII **no traen capa de texto** —son una imagen por página, sin
+fuentes—, así que los montos no se pueden extraer: se transcriben a mano en la
+lista `FACTURAS` del script. La transcripción se verifica sola antes de
+escribir: si el neto más el IVA no da el total, esa fila no se carga.
+
+Entran como **pendientes**. Marcarlas cobradas se hace desde la app, que pide
+la fecha del pago; ponerlas pagadas desde el script con una fecha inventada
+sería peor que no tenerlas.
+
+Crea las empresas que las facturas mencionen y no existan todavía, y amarra a
+sus guías las que cubren un período conocido, para que la app avise si alguien
+vuelve a facturarlo.
+
+Es idempotente: un folio ya registrado se saltea.
+
 ## Empresas que trabajan por bolsas
 
 Termomín y Termochemical no mandan un bulto de ropa: mandan **la bolsa de cada
@@ -380,9 +405,24 @@ guías con número propio, hay que empujar la secuencia:
 select setval('pedidos_empresa_id_seq', (select max(id) from pedidos_empresa) + 1, false);
 ```
 
+**Verificar que las migraciones estén realmente aplicadas.** No alcanza con
+que el archivo esté en `migrations/`. La `0005` llevaba meses sin aplicarse y
+nadie se enteró: la columna `anulado` solo la usaban pantallas que no se
+tocaban, hasta que `registrar_factura` empezó a necesitarla y el botón de
+facturar habría fallado la primera vez que se apretaba. Una consulta rápida
+contra la base, por cada columna que agrega una migración, cuesta menos que
+descubrirlo en producción.
+
 **Supabase se pausa.** El plan gratuito pausa el proyecto tras unos días sin
 actividad y la app deja de andar (el login también pega contra Supabase). Se
 reactiva desde el dashboard con *Restore*. Ya pasó dos veces.
+
+**PostgREST devuelve 1.000 filas como máximo, en silencio.** No da error:
+responde 200 con las primeras mil. La ficha de Acacias mostraba "0 items" en
+todos sus pedidos por eso, y la misma trampa estaba en la consulta que arma el
+consolidado para facturar — un rango de más de mil líneas habría emitido una
+factura por menos de lo que corresponde. Cualquier consulta que pueda devolver
+muchas filas tiene que pasar por `traerTodas()` de `src/lib/data/paginado.ts`.
 
 **`SUPABASE_DB_URL` no la usa nadie.** Ni la app ni el ETL abren una conexión
 Postgres directa: todo va por el REST API. Solo sirve para conectarse por
