@@ -133,3 +133,42 @@
     @apply font-sans;
   }
 }
+/* =========================================================
+   Impresión de guías
+   =========================================================
+   Las guías se imprimen en una térmica de 5 pulgadas con rollo continuo: el
+   ancho es fijo y el alto lo define el contenido, así que el papel no se
+   "pasa de hoja" sino que corta donde termina.
+
+   `size: <ancho> auto` es lo que entiende Chrome para ese caso. Si una
+   impresora lo ignora, el contenedor del ticket igual está limitado al mismo
+   ancho, así que no se corta por los lados.
+
+   Todo lo que no va al papel —menú, barra superior, botones— se esconde con
+   `print:hidden` de Tailwind en cada lugar. Acá solo va lo que no se puede
+   expresar con utilidades.
+   ========================================================= */
+@media print {
+  @page {
+    size: 127mm auto;
+    margin: 4mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    /* El fondo gris de la app desperdicia tinta y en térmica sale manchado. */
+  }
+
+  /* El navegador no imprime fondos por defecto, pero sí los bordes: en
+     térmica un borde fino se ve mejor que un relleno. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Nada de la guía debería partirse al medio entre dos cortes de papel. */
+  .evitar-corte {
+    break-inside: avoid;
+  }
+}
