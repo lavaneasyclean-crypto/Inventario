@@ -112,11 +112,68 @@ export function SelectorItems({
 
   return (
     <div className="flex flex-col gap-3">
-      {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-          Buscá productos abajo y agregalos al pedido.
+      {/* El buscador va arriba del listado: abajo, cada item que se
+          agregaba lo empujaba mas lejos y habia que scrollear para
+          cargar el siguiente. Arriba queda siempre en el mismo lugar. */}
+      <div>
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            placeholder={
+              items.length === 0
+                ? `Tocá para ver ${productos.length} productos...`
+                : "Agregar otro item..."
+            }
+            className="h-11 pl-9 text-base"
+          />
         </div>
-      ) : (
+        {showDropdown && (
+          <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-sm text-muted-foreground">
+                Sin productos para &ldquo;{query}&rdquo;.
+              </li>
+            ) : (
+              filtered.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => addItem(p)}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                  >
+                    <div>
+                      <div className="font-medium">{p.nombre}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {TIPO_SERVICIO_LABELS[p.tipo_servicio]}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm tabular-nums">
+                        {formatCLP(p.precio)}
+                      </span>
+                      <Plus className="size-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
+
+      {/* Sin items no se muestra nada: antes habia un recuadro vacio con
+          borde punteado que invitaba a escribir ahi, que es justo lo que no
+          hace. El buscador de arriba es el unico lugar donde se agregan. */}
+      {items.length > 0 && (
         <ul className="flex flex-col gap-2">
           {items.map((it) => (
             <li
@@ -247,63 +304,6 @@ export function SelectorItems({
           ))}
         </ul>
       )}
-
-      {/* Buscador para agregar items — al final asi no hay que volver
-          arriba despues de cargar uno. */}
-      <div>
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setTimeout(() => setFocused(false), 150)}
-            placeholder={
-              items.length === 0
-                ? `Tocá para ver ${productos.length} productos...`
-                : "Agregar otro item..."
-            }
-            className="h-11 pl-9 text-base"
-          />
-        </div>
-        {showDropdown && (
-          <ul className="mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-lg border bg-background">
-            {filtered.length === 0 ? (
-              <li className="px-3 py-3 text-sm text-muted-foreground">
-                Sin productos para &ldquo;{query}&rdquo;.
-              </li>
-            ) : (
-              filtered.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => addItem(p)}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent"
-                  >
-                    <div>
-                      <div className="font-medium">{p.nombre}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {TIPO_SERVICIO_LABELS[p.tipo_servicio]}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm tabular-nums">
-                        {formatCLP(p.precio)}
-                      </span>
-                      <Plus className="size-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        )}
-      </div>
 
       {items.length > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
