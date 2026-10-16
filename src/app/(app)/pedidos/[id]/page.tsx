@@ -77,7 +77,7 @@ export default async function PedidoDetallePage({
             {pedido.fecha_entrega && (
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="size-4" />
-                Entrega prometida: {formatDateShort(pedido.fecha_entrega)}
+                Entrega: {formatDateShort(pedido.fecha_entrega)}
               </span>
             )}
             {pedido.fecha_retiro && (

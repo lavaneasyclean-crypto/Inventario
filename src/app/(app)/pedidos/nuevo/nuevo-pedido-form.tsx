@@ -135,7 +135,7 @@ export function NuevoPedidoForm({
       <Section title="3. Detalles">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fecha_entrega">Fecha de entrega prometida</Label>
+            <Label htmlFor="fecha_entrega">Fecha de entrega</Label>
             <Input
               id="fecha_entrega"
               type="date"
