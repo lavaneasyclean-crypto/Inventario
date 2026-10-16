@@ -169,6 +169,73 @@ describe("crearYAsignarProducto — producto nuevo del catalogo", () => {
     expect(error).toMatch(/catálogo/i);
   });
 
+  it("manda a la lista de la empresa cuando el producto ya esta asignado ahi", async () => {
+    montar({
+      "rpc.crear_producto_empresa": {
+        error: {
+          code: "23505",
+          message: 'Ya existe el producto "Mantel Ovalado" con id 019',
+        },
+      },
+      "productos_empresa.select": {
+        data: [{ id: "019", nombre: "Mantel Ovalado", activo: true }],
+      },
+      "empresa_productos.select": { data: { producto_empresa_id: "019" } },
+    });
+    const res = await crearYAsignarProducto({
+      rut_empresa: RUT,
+      nombre: "mantel ovalado",
+      precio: 1800,
+    });
+
+    expect(res.ok).toBe(false);
+    const error = (res as { error: string }).error;
+    // El bug: mandaba a la solapa del catalogo, donde un producto que la
+    // empresa ya tiene nunca va a aparecer.
+    expect(error).toMatch(/ya está en la lista de esta empresa/i);
+    expect(error).toMatch(/lápiz/i);
+    expect(error).not.toMatch(/buscalo en la pestaña/i);
+  });
+
+  it("manda al catalogo cuando el producto existe y la empresa no lo tiene", async () => {
+    montar({
+      "rpc.crear_producto_empresa": {
+        error: { code: "23505", message: "duplicado" },
+      },
+      "productos_empresa.select": {
+        data: [{ id: "019", nombre: "Mantel Ovalado", activo: true }],
+      },
+      "empresa_productos.select": { data: null },
+    });
+    const res = await crearYAsignarProducto({
+      rut_empresa: RUT,
+      nombre: "Mantel Ovalado",
+      precio: 1800,
+    });
+
+    const error = (res as { error: string }).error;
+    expect(error).toMatch(/buscalo en la pestaña del catálogo/i);
+  });
+
+  it("avisa que esta desactivado cuando el producto existe pero no esta activo", async () => {
+    montar({
+      "rpc.crear_producto_empresa": {
+        error: { code: "23505", message: "duplicado" },
+      },
+      "productos_empresa.select": {
+        data: [{ id: "019", nombre: "Mantel Ovalado", activo: false }],
+      },
+    });
+    const res = await crearYAsignarProducto({
+      rut_empresa: RUT,
+      nombre: "Mantel Ovalado",
+      precio: 1800,
+    });
+
+    const error = (res as { error: string }).error;
+    expect(error).toMatch(/desactivado/i);
+  });
+
   it("exige nombre y no llega a tocar la base", async () => {
     const fake = montar();
     const res = await crearYAsignarProducto({

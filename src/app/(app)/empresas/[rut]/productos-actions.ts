@@ -59,6 +59,56 @@ const crearYAsignarSchema = z.object({
   precio:      z.number().int().nullable(),
 });
 
+/**
+ * Explica de dónde viene el choque de nombre, que no siempre es el mismo lugar.
+ *
+ * El índice único mira todo el catálogo —lower(btrim(nombre)), migrations/0007—
+ * pero la solapa "Del catálogo" solo lista lo que está activo y todavía *no*
+ * asignado a esta empresa. Cuando el choque es contra un producto que la
+ * empresa ya tiene, mandarla a buscarlo ahí es mandarla a un lugar donde nunca
+ * va a aparecer.
+ *
+ * Trae el catálogo entero y compara acá en vez de filtrar con ilike: son unos
+ * cien nombres, corre solo en el camino del error, y así la comparación es la
+ * misma que usa el índice sin tener que escapar comodines de LIKE.
+ */
+async function mensajeNombreTomado(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rut: string,
+  nombre: string,
+): Promise<string> {
+  const generico =
+    "Ya existe un producto con ese nombre en el catálogo. Buscalo en la pestaña del catálogo en vez de crearlo de nuevo.";
+
+  const buscado = nombre.trim().toLowerCase();
+
+  const { data: catalogo } = await supabase
+    .from("productos_empresa")
+    .select("id, nombre, activo");
+
+  const existente = (catalogo ?? []).find(
+    (p) => String(p.nombre).trim().toLowerCase() === buscado,
+  );
+  if (!existente) return generico;
+
+  if (!existente.activo) {
+    return `«${existente.nombre}» ya está en el catálogo, pero desactivado: por eso no lo ves en la lista. Reactivalo en vez de crear otro.`;
+  }
+
+  const { data: asignado } = await supabase
+    .from("empresa_productos")
+    .select("producto_empresa_id")
+    .eq("rut_empresa", rut)
+    .eq("producto_empresa_id", existente.id)
+    .maybeSingle();
+
+  if (asignado) {
+    return `«${existente.nombre}» ya está en la lista de esta empresa, por eso no aparece en el catálogo. Si lo que querés es ponerle precio, editá su fila con el lápiz.`;
+  }
+
+  return generico;
+}
+
 /** Crea un producto NUEVO en el catálogo global y lo asigna a la empresa. */
 export async function crearYAsignarProducto(
   input: z.input<typeof crearYAsignarSchema>,
@@ -92,10 +142,10 @@ export async function crearYAsignarProducto(
       // catálogo. Es el único 23505 que puede salir de acá: el choque de id se
       // reintenta adentro y cualquier otro se propaga con su propio código.
       if (error.code === "23505") {
+        step = "nombre-tomado";
         return {
           ok: false,
-          error:
-            "Ya existe un producto con ese nombre en el catálogo. Buscalo en la pestaña del catálogo en vez de crearlo de nuevo.",
+          error: await mensajeNombreTomado(supabase, data.rut_empresa, data.nombre),
         };
       }
       return fallo("crearYAsignarProducto", step, error);
