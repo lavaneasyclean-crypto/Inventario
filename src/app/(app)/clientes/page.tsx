@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Search, Phone, MapPin, Package } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Phone, MapPin, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { searchClientes } from "@/lib/data/clientes";
 import { formatDateShort } from "@/lib/format";
+import { Buscador } from "@/components/buscador";
 
 export const dynamic = "force-dynamic";
 
@@ -25,19 +25,11 @@ export default async function ClientesPage({
       </div>
 
       <form className="mb-6 flex gap-2" action="/clientes" method="get">
-        <div className="relative flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            name="q"
-            defaultValue={q}
-            placeholder="Ej: 12345678-9, María, +56 9..."
-            className="h-11 pl-9 text-base"
-            autoFocus
-          />
-        </div>
+        <Buscador
+          defaultValue={q}
+          placeholder="Ej: 12345678-9, María, +56 9..."
+          autoFocus
+        />
         <Button type="submit" size="lg" className="h-11 px-5">
           Buscar
         </Button>

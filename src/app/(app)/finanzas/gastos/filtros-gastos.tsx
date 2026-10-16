@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { CATEGORIA_GASTO_LABELS, CATEGORIAS_GASTO } from "@/lib/types";
 import type { GastosFilter } from "@/lib/data/finanzas";
+import { Buscador } from "@/components/buscador";
 
 export function FiltrosGastos({ initial }: { initial: GastosFilter }) {
   const [categoria, setCategoria] = useState(initial.categoria ?? "todas");
@@ -34,19 +35,10 @@ export function FiltrosGastos({ initial }: { initial: GastosFilter }) {
       className="rounded-xl border bg-background p-4"
     >
       <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={initial.q ?? ""}
-            placeholder="Buscar por descripción, proveedor o documento…"
-            className="h-11 pl-9 text-base"
-          />
-        </div>
+        <Buscador
+          defaultValue={initial.q ?? ""}
+          placeholder="Buscar por descripción, proveedor o documento…"
+        />
         <Button type="submit" size="lg" className="h-11 px-5">
           Buscar
         </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import type { PedidosFilter } from "@/lib/data/pedidos";
+import { Buscador } from "@/components/buscador";
 
 export function FiltrosPedidos({ initial }: { initial: PedidosFilter }) {
   // Estado local solo para los selects controlados (evita hidratación rara)
@@ -35,19 +36,10 @@ export function FiltrosPedidos({ initial }: { initial: PedidosFilter }) {
     >
       {/* Búsqueda principal */}
       <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={initial.q ?? ""}
-            placeholder="Buscar por # de pedido, nombre o RUT..."
-            className="h-11 pl-9 text-base"
-          />
-        </div>
+        <Buscador
+          defaultValue={initial.q ?? ""}
+          placeholder="Buscar por # de pedido, nombre o RUT..."
+        />
         <Button type="submit" size="lg" className="h-11 px-5">
           Buscar
         </Button>

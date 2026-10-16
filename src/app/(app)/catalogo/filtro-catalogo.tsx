@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import type { TipoServicio } from "@/lib/types";
 import { TIPO_SERVICIO_LABELS } from "@/lib/types";
+import { Buscador } from "@/components/buscador";
 
 const TIPOS: TipoServicio[] = [
   "lavado",
@@ -44,19 +44,10 @@ export function FiltroCatalogo({
       className="rounded-xl border bg-background p-4"
     >
       <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={initial.q}
-            placeholder="Buscar por nombre o ID del producto..."
-            className="h-11 pl-9 text-base"
-          />
-        </div>
+        <Buscador
+          defaultValue={initial.q}
+          placeholder="Buscar por nombre o ID del producto..."
+        />
         <Button type="submit" size="lg" className="h-11 px-5">
           Buscar
         </Button>
