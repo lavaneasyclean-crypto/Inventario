@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { KeyRound, Menu, LogOut } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Sheet,
   SheetContent,
@@ -48,6 +50,13 @@ export function TopBar({ userEmail }: { userEmail: string }) {
         <span className="hidden text-sm text-muted-foreground sm:block">
           {userEmail}
         </span>
+        <Link
+          href="/auth/password"
+          aria-label="Cambiar contraseña"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
+        >
+          <KeyRound className="size-5" />
+        </Link>
         <form action="/auth/logout" method="post">
           <Button type="submit" variant="ghost" size="icon" aria-label="Cerrar sesión">
             <LogOut className="size-5" />
