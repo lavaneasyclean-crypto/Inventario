@@ -5,6 +5,7 @@ import {
   getPedidosEmpresaParaFacturacion,
 } from "@/lib/data/empresas";
 import { getGuiasFacturadas } from "@/lib/data/finanzas";
+import { esAdmin } from "@/lib/data/perfil";
 import type { ClienteEmpresa } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { FacturacionClient } from "./facturacion-cliente";
@@ -29,6 +30,11 @@ export default async function FacturacionPage({
     idHasta?: string;
   }>;
 }) {
+  // Facturar es finanzas aunque viva dentro de Empresas: lee que guias ya
+  // estan facturadas y escribe en `facturas`. Para ventas, las dos cosas
+  // estan cerradas por RLS y la pantalla mostraria datos incompletos.
+  if (!(await esAdmin())) notFound();
+
   const { rut: rutEncoded } = await params;
   const rut = decodeURIComponent(rutEncoded);
   const sp = await searchParams;

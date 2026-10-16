@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
+import { getRolActual } from "@/lib/data/perfil";
 
 export default async function AppLayout({
   children,
@@ -14,5 +15,11 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  return <AppShell userEmail={user.email ?? ""}>{children}</AppShell>;
+  const rol = await getRolActual();
+
+  return (
+    <AppShell userEmail={user.email ?? ""} esAdmin={rol === "admin"}>
+      {children}
+    </AppShell>
+  );
 }

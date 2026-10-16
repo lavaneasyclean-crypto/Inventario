@@ -3,9 +3,11 @@ import { SidebarNav } from "./sidebar-nav";
 
 export function AppShell({
   userEmail,
+  esAdmin,
   children,
 }: {
   userEmail: string;
+  esAdmin: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -13,12 +15,12 @@ export function AppShell({
       {/* El menú y la barra no van al papel: la guía se imprime en una
           térmica angosta y cada milímetro cuenta. */}
       <div className="print:hidden">
-        <TopBar userEmail={userEmail} />
+        <TopBar userEmail={userEmail} esAdmin={esAdmin} />
       </div>
       <div className="flex">
         <aside className="hidden w-60 shrink-0 border-r bg-background md:block print:hidden">
           <div className="sticky top-14">
-            <SidebarNav />
+            <SidebarNav esAdmin={esAdmin} />
           </div>
         </aside>
         <main className="flex-1 min-w-0">{children}</main>

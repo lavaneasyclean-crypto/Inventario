@@ -13,6 +13,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Lo resuelve Next, no existe como paquete: sin esto no se puede
+      // importar nada de src/lib/data desde un test.
+      "server-only": fileURLToPath(
+        new URL("./src/lib/testing/server-only.ts", import.meta.url),
+      ),
     },
   },
 });

@@ -17,6 +17,7 @@ import {
   getProductosDeEmpresa,
   getProductosGlobalesDisponibles,
 } from "@/lib/data/empresas";
+import { esAdmin } from "@/lib/data/perfil";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditarEmpresaButton } from "../editor-empresa";
@@ -33,12 +34,13 @@ export default async function EmpresaDetallePage({
   const { rut: rutEncoded } = await params;
   const rut = decodeURIComponent(rutEncoded);
 
-  const [data, productosEmpresa, productosDisponibles, bolsas] =
+  const [data, productosEmpresa, productosDisponibles, bolsas, admin] =
     await Promise.all([
       getEmpresaDetalle(rut),
       getProductosDeEmpresa(rut),
       getProductosGlobalesDisponibles(rut),
       getBolsasDeEmpresa(rut, { incluirInactivas: true }),
+      esAdmin(),
     ]);
   if (!data) notFound();
 
@@ -122,24 +124,30 @@ export default async function EmpresaDetallePage({
         >
           <Plus className="size-5" /> Nuevo pedido
         </Link>
-        <Link
-          href={`/empresas/${encodeURIComponent(empresa.rut)}/facturacion`}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "lg" }),
-            "h-11 px-4 text-base",
-          )}
-        >
-          <FileSpreadsheet className="size-5" /> Facturar período
-        </Link>
-        <Link
-          href={`/finanzas/facturas?rut=${encodeURIComponent(empresa.rut)}`}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "lg" }),
-            "h-11 px-4 text-base",
-          )}
-        >
-          <FileText className="size-5" /> Ver facturas
-        </Link>
+        {/* Facturar y ver facturas son finanzas: ventas no los ve, y si
+            llegara por la URL la pantalla devuelve 404 igual. */}
+        {admin && (
+          <>
+            <Link
+              href={`/empresas/${encodeURIComponent(empresa.rut)}/facturacion`}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "h-11 px-4 text-base",
+              )}
+            >
+              <FileSpreadsheet className="size-5" /> Facturar período
+            </Link>
+            <Link
+              href={`/finanzas/facturas?rut=${encodeURIComponent(empresa.rut)}`}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "h-11 px-4 text-base",
+              )}
+            >
+              <FileText className="size-5" /> Ver facturas
+            </Link>
+          </>
+        )}
       </div>
 
       {empresa.usa_bolsas && (

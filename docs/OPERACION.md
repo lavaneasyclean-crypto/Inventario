@@ -97,6 +97,25 @@ botón para el documento de recargo.
 
 El folio se puede dejar vacío y completar después, cuando vuelve del SII.
 
+## Quién ve qué
+
+Hay dos roles, en la tabla `perfiles`:
+
+- **admin**: ve todo, incluido Finanzas y *Facturar período*.
+- **ventas**: todo lo de mostrador y empresas, pero **no** Finanzas.
+
+No es solo el menu: las tablas de facturas, gastos, proveedores y auditoría
+están cerradas por RLS, así que una cuenta de ventas tampoco puede leerlas
+pidiéndolas por la API.
+
+Una cuenta nueva nace como **ventas**. Para hacerla admin, en el SQL Editor:
+
+```sql
+update perfiles set rol = 'admin' where email = 'quien@ejemplo.cl';
+```
+
+Y para sacarle el acceso, lo mismo con `'ventas'`.
+
 ## Cobros y gastos
 
 En **Finanzas**:

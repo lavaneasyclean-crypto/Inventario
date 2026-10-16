@@ -12,6 +12,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Solo para admins. Ventas no lo ve ni puede leer sus datos (RLS). */
+  soloAdmin?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -20,5 +22,5 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/clientes",  label: "Clientes",       icon: Users },
   { href: "/empresas",  label: "Empresas",       icon: Building2 },
   { href: "/catalogo",  label: "Catálogo",       icon: ShoppingBasket },
-  { href: "/finanzas",  label: "Finanzas",       icon: Wallet },
+  { href: "/finanzas",  label: "Finanzas",       icon: Wallet, soloAdmin: true },
 ];

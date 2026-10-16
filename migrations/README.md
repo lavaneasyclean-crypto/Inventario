@@ -36,6 +36,7 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0014_productos_fuera_de_grilla.sql` | `en_grilla` en `empresa_productos`: lo que se factura sin ser una prenda de bolsa (el traslado) |
 | `0015_fix_estado_recalcular_pago.sql` | Arregla `recalcular_pago_factura`: el CASE del estado se resolvía como `text` y hacía fallar todo registro de pago |
 | `0016_proveedores.sql` | Tabla `proveedores` (RUT, contacto y datos de transferencia) y `gastos.proveedor_id`: el proveedor deja de ser texto suelto |
+| `0017_roles.sql` | Roles `admin` / `ventas` en `perfiles` y RLS: solo los admins leen facturas, gastos, proveedores y auditoría |
 
 ⚠️ **De la `0006` en adelante hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de

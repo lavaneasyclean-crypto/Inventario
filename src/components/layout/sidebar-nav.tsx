@@ -5,12 +5,19 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "./nav-items";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  esAdmin,
+}: {
+  onNavigate?: () => void;
+  esAdmin: boolean;
+}) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((i) => esAdmin || !i.soloAdmin);
 
   return (
     <nav className="flex flex-col gap-1 p-3">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         const active =
           item.href === "/"

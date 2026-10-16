@@ -15,7 +15,13 @@ import {
 import { Logo } from "@/components/logo";
 import { SidebarNav } from "./sidebar-nav";
 
-export function TopBar({ userEmail }: { userEmail: string }) {
+export function TopBar({
+  userEmail,
+  esAdmin,
+}: {
+  userEmail: string;
+  esAdmin: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,7 +45,7 @@ export function TopBar({ userEmail }: { userEmail: string }) {
               <Logo size={28} /> Inventario
             </SheetTitle>
           </SheetHeader>
-          <SidebarNav onNavigate={() => setOpen(false)} />
+          <SidebarNav onNavigate={() => setOpen(false)} esAdmin={esAdmin} />
         </SheetContent>
       </Sheet>
 
