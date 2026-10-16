@@ -34,6 +34,7 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0012_bolsas_por_trabajador.sql` | `empresa_bolsas`, `usa_bolsas` por empresa, la bolsa en cada línea y `crear_pedido_empresa` recalculado |
 | `0013_orden_productos_empresa.sql` | `orden` en `empresa_productos`: las columnas de la grilla siguen el orden de la planilla |
 | `0014_productos_fuera_de_grilla.sql` | `en_grilla` en `empresa_productos`: lo que se factura sin ser una prenda de bolsa (el traslado) |
+| `0015_fix_estado_recalcular_pago.sql` | Arregla `recalcular_pago_factura`: el CASE del estado se resolvía como `text` y hacía fallar todo registro de pago |
 
 ⚠️ **De la `0006` a la `0014` hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de
