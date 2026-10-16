@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { esFechaValida } from "@/lib/fecha";
 import { filtroContiene } from "@/lib/postgrest";
 import { enGrupos, traerTodas } from "./paginado";
+import { idsProveedoresQueCoinciden } from "./proveedores";
 import type {
   CategoriaGasto,
   ClienteEmpresa,
@@ -11,6 +12,7 @@ import type {
   FacturaAbono,
   FacturaLinea,
   Gasto,
+  GastoConProveedor,
   PedidoEmpresa,
   TipoFactura,
 } from "@/lib/types";
@@ -284,12 +286,12 @@ export interface GastosFilter {
 
 export async function searchGastos(
   filtros: GastosFilter = {},
-): Promise<Gasto[]> {
+): Promise<GastoConProveedor[]> {
   const supabase = await createClient();
 
   let q = supabase
     .from("gastos")
-    .select("*")
+    .select("*, proveedores(nombre)")
     .order("fecha", { ascending: false })
     .order("id", { ascending: false })
     .limit(LIMITE);
@@ -304,11 +306,25 @@ export async function searchGastos(
 
   const termino = filtros.q?.trim();
   if (termino) {
-    q = q.or(filtroContiene(["descripcion", "proveedor", "documento"], termino));
+    // El nombre del proveedor ya no vive en la fila del gasto. Se resuelve a
+    // ids primero y entra al mismo OR, para que buscar "mercado" siga trayendo
+    // sus gastos como cuando el proveedor era texto suelto.
+    const ids = await idsProveedoresQueCoinciden(termino);
+    const campos = filtroContiene(["descripcion", "documento"], termino);
+    q = q.or(
+      ids.length ? `${campos},proveedor_id.in.(${ids.join(",")})` : campos,
+    );
   }
 
   const { data } = await q;
-  return (data ?? []) as Gasto[];
+
+  type Fila = Gasto & { proveedores: { nombre: string } | null };
+  return ((data ?? []) as unknown as Fila[]).map(
+    ({ proveedores, ...gasto }) => ({
+      ...gasto,
+      proveedor_nombre: proveedores?.nombre ?? null,
+    }),
+  );
 }
 
 export async function getGasto(id: number): Promise<Gasto | null> {

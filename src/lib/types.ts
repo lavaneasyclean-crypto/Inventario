@@ -258,7 +258,8 @@ export interface Gasto {
   id: number;
   categoria: CategoriaGasto;
   descripcion: string;
-  proveedor: string | null;
+  /** Ficha del proveedor. NULL cuando el gasto no tiene a quien atribuirse. */
+  proveedor_id: number | null;
   /** N° de la boleta o factura del proveedor, para cruzar con el papel. */
   documento: string | null;
   fecha: string;
@@ -284,6 +285,54 @@ export const ESTADO_FACTURA_LABELS: Record<EstadoFactura, string> = {
   pagada: "Pagada",
   anulada: "Anulada",
 };
+
+export type TipoCuenta = "corriente" | "vista" | "ahorro" | "cuenta_rut";
+
+export const TIPO_CUENTA_LABELS: Record<TipoCuenta, string> = {
+  corriente: "Cuenta corriente",
+  vista: "Cuenta vista",
+  ahorro: "Cuenta de ahorro",
+  cuenta_rut: "Cuenta RUT",
+};
+
+export const TIPOS_CUENTA: TipoCuenta[] = [
+  "corriente",
+  "vista",
+  "cuenta_rut",
+  "ahorro",
+];
+
+/**
+ * A quién le pagamos. Todo opcional menos el nombre: de Mercado Libre no
+ * interesa mas que el nombre, y de la persona que trae el detergente hace
+ * falta el RUT y la cuenta para transferirle.
+ */
+export interface Proveedor {
+  id: number;
+  nombre: string;
+  rut: string | null;
+  /** Con quién se habla, que no siempre se llama igual que el proveedor. */
+  contacto: string | null;
+  telefono: string | null;
+  correo: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  giro: string | null;
+  banco: string | null;
+  tipo_cuenta: TipoCuenta | null;
+  numero_cuenta: string | null;
+  /** Vacío significa que la cuenta es del propio proveedor. */
+  titular: string | null;
+  rut_titular: string | null;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Un gasto con el nombre del proveedor ya resuelto, para los listados. */
+export interface GastoConProveedor extends Gasto {
+  proveedor_nombre: string | null;
+}
 
 export const CATEGORIA_GASTO_LABELS: Record<CategoriaGasto, string> = {
   luz: "Luz",

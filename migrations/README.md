@@ -35,8 +35,9 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0013_orden_productos_empresa.sql` | `orden` en `empresa_productos`: las columnas de la grilla siguen el orden de la planilla |
 | `0014_productos_fuera_de_grilla.sql` | `en_grilla` en `empresa_productos`: lo que se factura sin ser una prenda de bolsa (el traslado) |
 | `0015_fix_estado_recalcular_pago.sql` | Arregla `recalcular_pago_factura`: el CASE del estado se resolvía como `text` y hacía fallar todo registro de pago |
+| `0016_proveedores.sql` | Tabla `proveedores` (RUT, contacto y datos de transferencia) y `gastos.proveedor_id`: el proveedor deja de ser texto suelto |
 
-⚠️ **De la `0006` a la `0014` hay que aplicarlas antes de desplegar el código
+⚠️ **De la `0006` en adelante hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de
 empresa y las facturas llamando a esas funciones; si no existen todavía, los
 botones de guardar fallan con el aviso "falta aplicar una migración".

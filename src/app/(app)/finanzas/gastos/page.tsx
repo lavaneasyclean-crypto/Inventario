@@ -1,4 +1,5 @@
 import { searchGastos, type GastosFilter } from "@/lib/data/finanzas";
+import { getProveedores } from "@/lib/data/proveedores";
 import { hoyEnChile } from "@/lib/fecha";
 import { resumirGastos } from "@/lib/finanzas";
 import { formatCLP } from "@/lib/format";
@@ -42,7 +43,10 @@ export default async function GastosPage({
   const filtros = parseFiltros(params);
   const hoy = hoyEnChile();
 
-  const gastos = await searchGastos(filtros);
+  const [gastos, proveedores] = await Promise.all([
+    searchGastos(filtros),
+    getProveedores(),
+  ]);
   const resumen = resumirGastos(gastos, hoy);
 
   return (
@@ -53,7 +57,7 @@ export default async function GastosPage({
             ? "Sin gastos para este filtro."
             : `${gastos.length} gasto${gastos.length === 1 ? "" : "s"} · ${formatCLP(resumen.pendiente.total)} por pagar`}
         </p>
-        <NuevoGastoButton hoy={hoy} />
+        <NuevoGastoButton hoy={hoy} proveedores={proveedores} />
       </div>
 
       <FiltrosGastos initial={filtros} />
@@ -67,7 +71,7 @@ export default async function GastosPage({
           </p>
         </div>
       ) : (
-        <ListaGastos gastos={gastos} hoy={hoy} />
+        <ListaGastos gastos={gastos} hoy={hoy} proveedores={proveedores} />
       )}
     </div>
   );

@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/select";
 import { periodoDeFecha, vencimientoPorDefecto } from "@/lib/finanzas";
 import { CATEGORIA_GASTO_LABELS, CATEGORIAS_GASTO } from "@/lib/types";
-import type { CategoriaGasto, Gasto } from "@/lib/types";
+import type { CategoriaGasto, Gasto, Proveedor } from "@/lib/types";
+import { SelectorProveedor } from "../proveedores/selector-proveedor";
 import { actualizarGasto, crearGasto } from "../actions";
 
 /**
@@ -37,12 +38,14 @@ export function EditorGasto({
   abierto,
   onAbrir,
   hoy,
+  proveedores,
 }: {
   /** Sin gasto es un alta. */
   gasto?: Gasto;
   abierto: boolean;
   onAbrir: (v: boolean) => void;
   hoy: string;
+  proveedores: Proveedor[];
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -51,7 +54,9 @@ export function EditorGasto({
     gasto?.categoria ?? "luz",
   );
   const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? "");
-  const [proveedor, setProveedor] = useState(gasto?.proveedor ?? "");
+  const [proveedorId, setProveedorId] = useState<number | null>(
+    gasto?.proveedor_id ?? null,
+  );
   const [documento, setDocumento] = useState(gasto?.documento ?? "");
   const [fecha, setFecha] = useState(gasto?.fecha ?? hoy);
   const [vence, setVence] = useState(
@@ -68,7 +73,7 @@ export function EditorGasto({
     const payload = {
       categoria,
       descripcion,
-      proveedor: proveedor || null,
+      proveedor_id: proveedorId,
       documento: documento || null,
       fecha,
       fecha_vence: vence || null,
@@ -146,27 +151,21 @@ export function EditorGasto({
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="proveedor">Proveedor (opcional)</Label>
-              <Input
-                id="proveedor"
-                value={proveedor}
-                onChange={(e) => setProveedor(e.target.value)}
-                placeholder="Ej: Enel"
-                className="h-10"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="documento">N° documento (opcional)</Label>
-              <Input
-                id="documento"
-                value={documento}
-                onChange={(e) => setDocumento(e.target.value)}
-                placeholder="Boleta o factura"
-                className="h-10"
-              />
-            </div>
+          <SelectorProveedor
+            proveedores={proveedores}
+            valor={proveedorId}
+            onCambio={setProveedorId}
+          />
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="documento">N° documento (opcional)</Label>
+            <Input
+              id="documento"
+              value={documento}
+              onChange={(e) => setDocumento(e.target.value)}
+              placeholder="Boleta o factura"
+              className="h-10"
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -233,7 +232,13 @@ export function EditorGasto({
   );
 }
 
-export function NuevoGastoButton({ hoy }: { hoy: string }) {
+export function NuevoGastoButton({
+  hoy,
+  proveedores,
+}: {
+  hoy: string;
+  proveedores: Proveedor[];
+}) {
   const [abierto, setAbierto] = useState(false);
   return (
     <>
@@ -248,6 +253,7 @@ export function NuevoGastoButton({ hoy }: { hoy: string }) {
           abierto={abierto}
           onAbrir={setAbierto}
           hoy={hoy}
+          proveedores={proveedores}
         />
       )}
     </>

@@ -46,7 +46,7 @@ function gasto(partial: Partial<Gasto> = {}): Gasto {
     id: 1,
     categoria: "luz",
     descripcion: "Boleta luz",
-    proveedor: "Enel",
+    proveedor_id: null,
     documento: null,
     fecha: "2026-09-01",
     fecha_vence: "2026-09-20",

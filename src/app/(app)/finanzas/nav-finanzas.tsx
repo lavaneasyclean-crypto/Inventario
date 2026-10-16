@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, PieChart } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, PieChart, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SECCIONES = [
   { href: "/finanzas", label: "Resumen", icon: PieChart, exacta: true },
   { href: "/finanzas/facturas", label: "Por cobrar", icon: ArrowDownLeft },
   { href: "/finanzas/gastos", label: "Por pagar", icon: ArrowUpRight },
+  { href: "/finanzas/proveedores", label: "Proveedores", icon: Truck },
 ];
 
 export function NavFinanzas() {

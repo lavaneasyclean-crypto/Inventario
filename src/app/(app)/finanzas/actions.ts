@@ -545,7 +545,13 @@ export async function reactivarFactura(id: number): Promise<FinanzasResult> {
 const gastoSchema = z.object({
   categoria: z.enum(CATEGORIAS_GASTO as [(typeof CATEGORIAS_GASTO)[number]]),
   descripcion: z.string().min(1, "Poné una descripción"),
-  proveedor: textoOpcional,
+  // Ficha del proveedor en vez del texto que había antes: ver migrations/0016.
+  proveedor_id: z
+    .number()
+    .int()
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
   documento: textoOpcional,
   fecha: FECHA,
   fecha_vence: FECHA_OPCIONAL,

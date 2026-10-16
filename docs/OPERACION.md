@@ -106,9 +106,24 @@ En **Finanzas**:
   internet, teléfono, impuestos, mantención—. Se anotan al recibir la boleta y
   se marcan pagados al pagarla.
 - *Resumen*: cuánto nos deben, cuánto debemos, y el movimiento del mes.
+- *Proveedores*: a quién le pagamos. Guarda el RUT, con quién se habla y los
+  datos de la cuenta para transferirle.
 
 El **período** de un gasto es el mes del consumo, no el de la boleta: la luz de
 septiembre llega en octubre y para comparar meses importa septiembre.
+
+### Proveedores
+
+Antes el proveedor de un gasto era texto libre. Ahora es una ficha: se elige de
+una lista al cargar el gasto, o se crea ahí mismo sin salir del formulario.
+
+Solo el nombre es obligatorio. De Mercado Libre no hace falta nada más; de la
+persona que trae el detergente conviene cargar el RUT y la cuenta, que es lo
+que se anda buscando en WhatsApp cada vez que hay que transferirle.
+
+Un proveedor con gastos cargados **no se puede borrar** —dejaría esos gastos sin
+decir a quién se le pagó—. Se **desactiva**: deja de ofrecerse al cargar un gasto
+nuevo y los viejos siguen mostrando su nombre.
 
 ### Cobrar una factura, entera o de a poco
 

@@ -25,7 +25,8 @@ import { formatCLP } from "@/lib/format";
 import {
   CATEGORIA_GASTO_LABELS,
   FORMA_PAGO_LABELS,
-  type Gasto,
+  type GastoConProveedor,
+  type Proveedor,
 } from "@/lib/types";
 import { BadgeEstadoGasto } from "../badges";
 import { DialogoPago } from "../dialogo-pago";
@@ -39,22 +40,32 @@ import {
 export function ListaGastos({
   gastos,
   hoy,
+  proveedores,
 }: {
-  gastos: Gasto[];
+  gastos: GastoConProveedor[];
+  proveedores: Proveedor[];
   hoy: string;
 }) {
   return (
     <ul className="grid gap-2 lg:grid-cols-2">
       {gastos.map((g) => (
         <li key={g.id}>
-          <FilaGasto gasto={g} hoy={hoy} />
+          <FilaGasto gasto={g} hoy={hoy} proveedores={proveedores} />
         </li>
       ))}
     </ul>
   );
 }
 
-function FilaGasto({ gasto, hoy }: { gasto: Gasto; hoy: string }) {
+function FilaGasto({
+  gasto,
+  hoy,
+  proveedores,
+}: {
+  gasto: GastoConProveedor;
+  hoy: string;
+  proveedores: Proveedor[];
+}) {
   const router = useRouter();
   const [pagando, setPagando] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -89,9 +100,9 @@ function FilaGasto({ gasto, hoy }: { gasto: Gasto; hoy: string }) {
           </div>
           <p className="mt-1.5 font-medium">{gasto.descripcion}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {gasto.proveedor && (
+            {gasto.proveedor_nombre && (
               <span className="inline-flex items-center gap-1">
-                <Truck className="size-3.5" /> {gasto.proveedor}
+                <Truck className="size-3.5" /> {gasto.proveedor_nombre}
               </span>
             )}
             {gasto.documento && (
@@ -178,6 +189,7 @@ function FilaGasto({ gasto, hoy }: { gasto: Gasto; hoy: string }) {
           abierto={editando}
           onAbrir={setEditando}
           hoy={hoy}
+          proveedores={proveedores}
         />
       )}
 

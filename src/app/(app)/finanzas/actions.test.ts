@@ -475,7 +475,7 @@ describe("crearGasto", () => {
     const res = await crearGasto({
       categoria: "luz",
       descripcion: "Boleta septiembre",
-      proveedor: "Enel",
+      proveedor_id: null,
       documento: null,
       fecha: "2026-10-05",
       fecha_vence: "2026-10-20",
@@ -499,7 +499,7 @@ describe("crearGasto", () => {
     const res = await crearGasto({
       categoria: "agua",
       descripcion: "Boleta",
-      proveedor: null,
+      proveedor_id: null,
       documento: null,
       fecha: "2026-10-05",
       fecha_vence: null,
@@ -516,7 +516,7 @@ describe("crearGasto", () => {
     const res = await crearGasto({
       categoria: "otros",
       descripcion: "Algo",
-      proveedor: null,
+      proveedor_id: null,
       documento: null,
       fecha: "2026-10-05",
       fecha_vence: null,
