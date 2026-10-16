@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidRutFormat, normalizeRut } from "./rut";
+import { isValidRutFormat, normalizeRut, rutValido } from "./rut";
 
 describe("normalizeRut", () => {
   it("acepta el formato canonico tal cual", () => {
@@ -58,5 +58,42 @@ describe("isValidRutFormat", () => {
     expect(isValidRutFormat("76116233-k")).toBe(false);
     expect(isValidRutFormat("")).toBe(false);
     expect(isValidRutFormat(null as unknown as string)).toBe(false);
+  });
+});
+
+describe("rutValido", () => {
+  it("acepta RUTs reales", () => {
+    // Los de las empresas que ya estan cargadas en la base.
+    expect(rutValido("10521674-2")).toBe(true);
+    expect(rutValido("76095839-5")).toBe(true);
+    expect(rutValido("59214430-1")).toBe(true);
+  });
+
+  it("acepta el K como digito verificador", () => {
+    expect(rutValido("20432171-K")).toBe(true);
+    expect(rutValido("20432171-k")).toBe(true);
+  });
+
+  it("normaliza antes de validar, asi se puede pegar con puntos", () => {
+    expect(rutValido("10.521.674-2")).toBe(true);
+    expect(rutValido("105216742")).toBe(true);
+  });
+
+  it("rechaza el digito verificador equivocado", () => {
+    // Mismo numero, digito cambiado: es lo que pasaba antes cuando alguien
+    // tipeaba cualquier cosa y el formato igual daba por bueno.
+    expect(rutValido("10521674-3")).toBe(false);
+    expect(rutValido("12345678-9")).toBe(false);
+  });
+
+  it("rechaza basura y vacios", () => {
+    expect(rutValido("")).toBe(false);
+    expect(rutValido("no-es-rut")).toBe(false);
+    expect(rutValido(null)).toBe(false);
+    expect(rutValido(undefined)).toBe(false);
+  });
+
+  it("rechaza numeros demasiado cortos para ser un RUT", () => {
+    expect(rutValido("1-9")).toBe(false);
   });
 });

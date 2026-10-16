@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
 import { importeLinea } from "@/lib/medidas";
+import { normalizeRut, rutValido } from "@/lib/rut";
 import type { TipoServicio } from "@/lib/types";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
@@ -133,9 +134,17 @@ export async function crearPedido(
 }
 
 const clienteSchema = z.object({
-  rut:      z.string().regex(RUT_RE, "RUT con formato inválido"),
-  nombre:   z.string().min(1, "Nombre requerido"),
-  telefono: z.string().nullable(),
+  // No alcanza con la forma: el digito verificador tiene que cuadrar. Un RUT
+  // inventado despues no se puede corregir sin tocar todos los pedidos que
+  // cuelgan de el, porque es la clave primaria del cliente.
+  rut: z
+    .string()
+    .min(1, "El RUT es obligatorio")
+    .refine(rutValido, "Ese RUT no existe: revisá el número y el dígito verificador.")
+    .transform((v) => normalizeRut(v) as string),
+  nombre:   z.string().trim().min(1, "El nombre es obligatorio"),
+  // Obligatorio: sin telefono no hay como avisar que el pedido esta listo.
+  telefono: z.string().trim().min(1, "El teléfono es obligatorio"),
   correo:   z
     .string()
     .email("Correo inválido")
@@ -175,7 +184,7 @@ export async function crearCliente(
     // usuario efectivamente completó.
     const campos = {
       nombre:   data.nombre,
-      telefono: data.telefono || null,
+      telefono: data.telefono,
       correo:   data.correo || null,
       comuna:   data.comuna || null,
       calle:    data.calle || null,
@@ -185,28 +194,29 @@ export async function crearCliente(
     step = "buscar-existente";
     const { data: existente, error: eSel } = await supabase
       .from("clientes")
-      .select("rut")
+      .select("rut, nombre")
       .eq("rut", data.rut)
       .maybeSingle();
     if (eSel) return fallo("crearCliente", step, eSel);
 
+    // Antes, un RUT que ya existia se actualizaba en silencio: quien creia
+    // estar creando un cliente terminaba editando otro sin enterarse. Ahora se
+    // avisa y se deja que lo busquen, que es lo que querian hacer.
     if (existente) {
-      step = "update";
-      const parche = Object.fromEntries(
-        Object.entries(campos).filter(([, v]) => v !== null),
-      );
-      const { error } = await supabase
-        .from("clientes")
-        .update(parche)
-        .eq("rut", data.rut);
-      if (error) return fallo("crearCliente", step, error);
-    } else {
-      step = "insert";
-      const { error } = await supabase
-        .from("clientes")
-        .insert({ rut: data.rut, ...campos });
-      if (error) return fallo("crearCliente", step, error);
+      const nombre = (existente as { nombre?: string }).nombre;
+      return {
+        ok: false,
+        error: nombre
+          ? `Ese RUT ya está cargado: ${nombre}. Buscalo en el buscador de arriba.`
+          : "Ese RUT ya está cargado. Buscalo en el buscador de arriba.",
+      };
     }
+
+    step = "insert";
+    const { error } = await supabase
+      .from("clientes")
+      .insert({ rut: data.rut, ...campos });
+    if (error) return fallo("crearCliente", step, error);
 
     step = "done";
     return { ok: true, rut: data.rut };

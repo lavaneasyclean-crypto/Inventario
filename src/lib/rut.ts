@@ -37,3 +37,46 @@ export function isValidRutFormat(s: unknown): boolean {
   if (typeof s !== "string") return false;
   return RUT_CANONICAL_RE.test(s);
 }
+
+/**
+ * Digito verificador segun el modulo 11 que usa el SII.
+ *
+ * Se recorre el numero de derecha a izquierda multiplicando por 2,3,4,5,6,7 y
+ * volviendo a empezar. El resto de 11 menos la suma da el digito; 11 es 0 y
+ * 10 es K.
+ */
+export function digitoVerificador(numero: string): string {
+  let suma = 0;
+  let multiplicador = 2;
+
+  for (let i = numero.length - 1; i >= 0; i--) {
+    suma += Number(numero[i]) * multiplicador;
+    multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+  }
+
+  const resto = 11 - (suma % 11);
+  if (resto === 11) return "0";
+  if (resto === 10) return "K";
+  return String(resto);
+}
+
+/**
+ * True si el RUT existe de verdad: formato correcto **y** digito verificador
+ * que cuadra.
+ *
+ * `isValidRutFormat` solo mira la forma, asi que "12345678-9" le pasaba aunque
+ * el digito este mal. Eso dejaba entrar RUTs inventados, que despues no se
+ * pueden corregir sin tocar todos los pedidos que cuelgan de ellos: el RUT es
+ * la clave primaria del cliente.
+ */
+export function rutValido(raw: unknown): boolean {
+  const normalizado = normalizeRut(raw);
+  if (!normalizado) return false;
+
+  const [numero, dv] = normalizado.split("-");
+  // Menos de 7 digitos no es un RUT de persona: son rangos que el SII no
+  // asigna, y casi siempre es alguien tipeando cualquier cosa.
+  if (numero.length < 7) return false;
+
+  return digitoVerificador(numero) === dv;
+}

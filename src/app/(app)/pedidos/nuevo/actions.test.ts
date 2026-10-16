@@ -368,9 +368,11 @@ describe("crearPedido — errores", () => {
 
 describe("crearCliente", () => {
   const clienteBase = {
-    rut: "12345678-9",
+    // RUT real: el digito verificador de 12345678 es 5. El "12345678-9" que
+    // usaba este test antes no existe, y pasaba porque solo se miraba la forma.
+    rut: "12345678-5",
     nombre: "Ana Pérez",
-    telefono: "912345678",
+    telefono: "+56 9 1234 5678",
     correo: "ana@example.cl",
     comuna: "Ñuñoa",
     calle: "Irarrázaval 123",
@@ -381,53 +383,66 @@ describe("crearCliente", () => {
     const fake = montar({ "clientes.select": { data: null } });
     const res = await crearCliente(clienteBase);
 
-    expect(res).toEqual({ ok: true, rut: "12345678-9" });
+    expect(res).toEqual({ ok: true, rut: "12345678-5" });
     const insert = fake.ultima("clientes", "insert");
     expect(insert?.payload).toMatchObject({
-      rut: "12345678-9",
+      rut: "12345678-5",
       nombre: "Ana Pérez",
-      telefono: "912345678",
+      telefono: "+56 9 1234 5678",
     });
+  });
+
+  it("un RUT que ya existe no se pisa: avisa de quién es", async () => {
+    const fake = montar({
+      "clientes.select": { data: { rut: "12345678-5", nombre: "Juan Soto" } },
+    });
+    const res = await crearCliente(clienteBase);
+
+    expect(res.ok).toBe(false);
+    // Antes esto actualizaba en silencio: quien creía crear un cliente
+    // terminaba editando otro sin enterarse.
+    expect((res as { error: string }).error).toMatch(/Juan Soto/);
+    expect(fake.ultima("clientes", "insert")).toBeUndefined();
     expect(fake.ultima("clientes", "update")).toBeUndefined();
   });
 
-  it("si el RUT ya existe actualiza en vez de insertar", async () => {
-    const fake = montar({ "clientes.select": { data: { rut: "12345678-9" } } });
-    const res = await crearCliente(clienteBase);
+  it("rechaza un RUT con el dígito verificador equivocado", async () => {
+    const fake = montar();
+    const res = await crearCliente({ ...clienteBase, rut: "12345678-9" });
 
-    expect(res.ok).toBe(true);
-    expect(fake.ultima("clientes", "insert")).toBeUndefined();
-    const update = fake.ultima("clientes", "update");
-    expect(update?.filtros).toContainEqual({
-      metodo: "eq",
-      args: ["rut", "12345678-9"],
-    });
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/dígito verificador/i);
+    expect(fake.llamadas).toHaveLength(0);
   });
 
-  it("al actualizar no pisa con nulos lo que ya estaba guardado", async () => {
-    const fake = montar({ "clientes.select": { data: { rut: "12345678-9" } } });
-    await crearCliente({
-      ...clienteBase,
-      telefono: null,
-      correo: null,
-      comuna: null,
-      calle: null,
-      dpto: null,
-    });
+  it("acepta el RUT con puntos y lo guarda normalizado", async () => {
+    const fake = montar({ "clientes.select": { data: null } });
+    const res = await crearCliente({ ...clienteBase, rut: "12.345.678-5" });
 
-    const parche = fake.ultima("clientes", "update")?.payload as Record<
+    expect(res).toEqual({ ok: true, rut: "12345678-5" });
+    const payload = fake.ultima("clientes", "insert")?.payload as Record<
       string,
       unknown
     >;
-    // Solo viaja lo que la persona completó: el resto queda como estaba.
-    expect(parche).toEqual({ nombre: "Ana Pérez" });
+    expect(payload.rut).toBe("12345678-5");
   });
 
-  it("rechaza un RUT con puntos", async () => {
-    montar();
-    const res = await crearCliente({ ...clienteBase, rut: "12.345.678-9" });
+  it("exige teléfono", async () => {
+    const fake = montar();
+    const res = await crearCliente({ ...clienteBase, telefono: "" });
 
-    expect(res).toEqual({ ok: false, error: "RUT con formato inválido" });
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/teléfono/i);
+    expect(fake.llamadas).toHaveLength(0);
+  });
+
+  it("exige nombre", async () => {
+    const fake = montar();
+    const res = await crearCliente({ ...clienteBase, nombre: "   " });
+
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/nombre/i);
+    expect(fake.llamadas).toHaveLength(0);
   });
 
   it("rechaza un correo mal formado", async () => {
@@ -437,7 +452,7 @@ describe("crearCliente", () => {
     expect(res).toEqual({ ok: false, error: "Correo inválido" });
   });
 
-  it("acepta correo vacio como sin correo", async () => {
+  it("acepta correo vacío como sin correo", async () => {
     const fake = montar({ "clientes.select": { data: null } });
     const res = await crearCliente({ ...clienteBase, correo: "" });
 

@@ -16,13 +16,18 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/browser";
 import type { Cliente } from "@/lib/types";
+import { InputTelefono } from "@/components/input-telefono";
+import { normalizeRut, rutValido } from "@/lib/rut";
+import {
+  partirTelefono,
+  telefonoChilenoCompleto,
+  telefonoExtranjeroCompleto,
+} from "@/lib/telefono";
 import { crearCliente } from "./actions";
 
-const RUT_RE = /^\d{1,8}-[\dkK]$/;
-
-function normalizeRut(raw: string): string {
-  return raw.replace(/\./g, "").replace(/\s/g, "").toUpperCase();
-}
+// La validacion vive en @/lib/rut: aca habia una copia que solo limpiaba
+// puntos y no miraba el digito verificador, asi que daba por bueno cualquier
+// numero bien formateado.
 
 export function SelectorCliente({
   cliente,
@@ -163,7 +168,7 @@ export function SelectorCliente({
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={onSelect}
-        rutHint={query.match(/\d/) ? normalizeRut(query) : ""}
+        rutHint={query.match(/\d/) ? (normalizeRut(query) ?? "") : ""}
       />
     </div>
   );
@@ -197,7 +202,7 @@ function CrearClienteDialog({
   if (open !== abiertoPrevio) {
     setAbiertoPrevio(open);
     if (open) {
-      setRut(RUT_RE.test(rutHint) ? rutHint : "");
+      setRut(rutHint);
       setNombre("");
       setTelefono("");
       setCorreo("");
@@ -210,13 +215,30 @@ function CrearClienteDialog({
 
   const handleSubmit = () => {
     setError(null);
-    const rutNorm = normalizeRut(rut);
-    if (!RUT_RE.test(rutNorm)) {
-      setError("RUT con formato inválido. Ejemplo: 12345678-9");
+    if (!rutValido(rut)) {
+      setError(
+        "Ese RUT no existe: revisá el número y el dígito verificador.",
+      );
       return;
     }
+    const rutNorm = normalizeRut(rut) as string;
+
     if (!nombre.trim()) {
-      setError("Nombre requerido");
+      setError("El nombre es obligatorio.");
+      return;
+    }
+
+    // Sin teléfono no hay forma de avisar que el pedido está listo.
+    const tel = partirTelefono(telefono);
+    const telOk = tel.esChileno
+      ? telefonoChilenoCompleto(tel.numero)
+      : telefonoExtranjeroCompleto(tel.numero);
+    if (!telOk) {
+      setError(
+        tel.esChileno
+          ? "El teléfono es obligatorio y va con 9 dígitos. Ejemplo: 9 1234 5678"
+          : "El teléfono es obligatorio. Poné el número con su código de país.",
+      );
       return;
     }
     start(async () => {
@@ -224,7 +246,7 @@ function CrearClienteDialog({
         const res = await crearCliente({
           rut: rutNorm,
           nombre: nombre.trim(),
-          telefono: telefono.trim() || null,
+          telefono: telefono.trim(),
           correo: correo.trim() || null,
           comuna: comuna.trim() || null,
           calle: calle.trim() || null,
@@ -237,7 +259,7 @@ function CrearClienteDialog({
         onCreated({
           rut: rutNorm,
           nombre: nombre.trim(),
-          telefono: telefono.trim() || null,
+          telefono: telefono.trim(),
           correo: correo.trim() || null,
           comuna: comuna.trim() || null,
           calle: calle.trim() || null,
@@ -257,7 +279,8 @@ function CrearClienteDialog({
         <DialogHeader>
           <DialogTitle>Nuevo cliente</DialogTitle>
           <DialogDescription>
-            Solo el RUT y el nombre son obligatorios.
+            RUT, nombre y teléfono son obligatorios. La dirección y el correo
+            se pueden completar después.
           </DialogDescription>
         </DialogHeader>
 
@@ -271,7 +294,15 @@ function CrearClienteDialog({
             <Field label="Dpto" value={dpto} onChange={setDpto} />
           </div>
           <Field label="Comuna" value={comuna} onChange={setComuna} />
-          <Field label="Teléfono" value={telefono} onChange={setTelefono} type="tel" />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cli-telefono">Teléfono</Label>
+            <InputTelefono
+              id="cli-telefono"
+              value={telefono}
+              onChange={setTelefono}
+              disabled={pending}
+            />
+          </div>
           <Field label="Correo" value={correo} onChange={setCorreo} type="email" />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
