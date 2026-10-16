@@ -1,7 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { filtroContienePorCampo } from "@/lib/postgrest";
-import { traerTodas } from "./paginado";
 import type { Cliente, Pedido } from "@/lib/types";
 
 const SEARCH_LIMIT = 50;
@@ -19,9 +18,16 @@ export async function searchClientes(query: string): Promise<ClienteResultado[]>
   const supabase = await createClient();
   const q = query.trim();
 
+  // `clientes_resumen` (migrations/0018) ya trae la cantidad de pedidos y la
+  // fecha del último. Antes esto eran dos viajes, y el segundo se bajaba
+  // *todos* los pedidos de los 50 clientes para contarlos en JavaScript: 325
+  // filas y 25 KB para calcular un numero y una fecha. Cada viaje cuesta mas
+  // de medio segundo, así que pesaba mas el viaje que la cuenta.
   let baseQuery = supabase
-    .from("clientes")
-    .select("rut, nombre, comuna, calle, dpto, telefono, correo")
+    .from("clientes_resumen")
+    .select(
+      "rut, nombre, comuna, calle, dpto, telefono, correo, pedidos_count, ultimo_pedido",
+    )
     .limit(SEARCH_LIMIT);
 
   if (q) {
@@ -36,46 +42,12 @@ export async function searchClientes(query: string): Promise<ClienteResultado[]>
     );
   }
 
-  const { data: clientesData } = await baseQuery.order("nombre", {
+  const { data } = await baseQuery.order("nombre", {
     ascending: true,
     nullsFirst: false,
   });
 
-  const clientes = (clientesData ?? []) as Cliente[];
-  if (clientes.length === 0) return [];
-
-  // Para cada cliente: contar pedidos y obtener fecha del último
-  const ruts = clientes.map((c) => c.rut);
-  // Paginado: hay mas de mil pedidos de mostrador y PostgREST corta ahi, asi
-  // que los conteos de los clientes mas antiguos salian cortos.
-  const pedidosAgg = await traerTodas<{
-    rut_cliente: string;
-    fecha_recepcion: string;
-  }>((desde, hasta) =>
-    supabase
-      .from("pedidos")
-      .select("rut_cliente, fecha_recepcion")
-      .in("rut_cliente", ruts)
-      .order("fecha_recepcion", { ascending: false })
-      .range(desde, hasta),
-  );
-
-  const aggMap = new Map<string, { count: number; ultima: string | null }>();
-  for (const row of pedidosAgg) {
-    const r = row.rut_cliente as string;
-    const cur = aggMap.get(r);
-    if (!cur) {
-      aggMap.set(r, { count: 1, ultima: row.fecha_recepcion as string });
-    } else {
-      cur.count++;
-    }
-  }
-
-  return clientes.map((c) => ({
-    ...c,
-    pedidos_count: aggMap.get(c.rut)?.count ?? 0,
-    ultimo_pedido: aggMap.get(c.rut)?.ultima ?? null,
-  }));
+  return (data ?? []) as ClienteResultado[];
 }
 
 export interface ClienteDetalle {

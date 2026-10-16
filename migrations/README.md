@@ -37,6 +37,7 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0015_fix_estado_recalcular_pago.sql` | Arregla `recalcular_pago_factura`: el CASE del estado se resolvía como `text` y hacía fallar todo registro de pago |
 | `0016_proveedores.sql` | Tabla `proveedores` (RUT, contacto y datos de transferencia) y `gastos.proveedor_id`: el proveedor deja de ser texto suelto |
 | `0017_roles.sql` | Roles `admin` / `ventas` en `perfiles` y RLS: solo los admins leen facturas, gastos, proveedores y auditoría |
+| `0018_clientes_resumen.sql` | Vista `clientes_resumen` con el conteo de pedidos y la fecha del último: el listado deja de bajar todos los pedidos para contarlos |
 
 ⚠️ **De la `0006` en adelante hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de
