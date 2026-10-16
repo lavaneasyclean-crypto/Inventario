@@ -1,7 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
-import { filtroContiene } from "@/lib/postgrest";
+import { filtroContienePorCampo } from "@/lib/postgrest";
+import { normalizeRut } from "@/lib/rut";
 import type { EstadoPedido, Pedido, PedidoItem } from "@/lib/types";
 
 export interface DashboardData {
@@ -86,14 +87,32 @@ export async function searchPedidos(
 
   let query = supabase.from("pedidos").select("*", { count: "exact" });
 
-  // Búsqueda libre: si es solo dígitos -> buscar por id; sino -> nombre
+  // Busqueda libre por numero de pedido, nombre o RUT.
+  //
+  // Antes, un termino de solo digitos se tomaba como numero de pedido y nada
+  // mas. Un RUT sin guion es todo digitos, asi que buscar por RUT no tenia
+  // forma de funcionar: "201588" se iba a buscar el pedido numero 201588.
+  //
+  // Ahora los tres caminos van en el mismo OR. El RUT se busca tal cual se
+  // escribio *y* normalizado, porque en la base esta canonico con guion:
+  // quien tipea "201588" encuentra por el pedazo, y quien tipea el RUT
+  // completo sin guion tambien.
   if (f.q?.trim()) {
     const term = f.q.trim();
-    if (/^\d+$/.test(term)) {
-      query = query.eq("id", Number(term));
-    } else {
-      query = query.or(filtroContiene(["nombre_cliente", "rut_cliente"], term));
-    }
+
+    const pares: Array<[string, string]> = [
+      ["nombre_cliente", term],
+      ["rut_cliente", term],
+    ];
+    const rutNorm = normalizeRut(term);
+    if (rutNorm && rutNorm !== term) pares.push(["rut_cliente", rutNorm]);
+
+    const partes = [filtroContienePorCampo(pares)];
+    // El limite de digitos evita mandar a Postgres un numero que no entra en
+    // bigint cuando alguien pega cualquier cosa.
+    if (/^\d{1,15}$/.test(term)) partes.push(`id.eq.${term}`);
+
+    query = query.or(partes.join(","));
   }
 
   if (f.estado && f.estado !== "todos") {

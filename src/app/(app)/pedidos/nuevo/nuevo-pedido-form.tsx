@@ -115,25 +115,37 @@ export function NuevoPedidoForm({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <Section title="1. Cliente">
-        <SelectorCliente
-          cliente={cliente}
-          onSelect={setCliente}
-          onClear={() => setCliente(null)}
-        />
-      </Section>
+    /*
+     * Dos columnas en pantalla ancha: a la izquierda lo que crece —cliente e
+     * items—, a la derecha lo que tiene que estar siempre a mano. Con la
+     * columna unica, cada item empujaba la fecha y el pago mas abajo y habia
+     * que scrollear para terminar el pedido.
+     *
+     * La derecha es `sticky`: por largo que se ponga el listado de items, la
+     * fecha, el pago y el total quedan en la pantalla. En celular y tablet
+     * (`lg:` para abajo) se apila como antes, que es lo correcto ahi.
+     */
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-6">
+        <Section title="1. Cliente">
+          <SelectorCliente
+            cliente={cliente}
+            onSelect={setCliente}
+            onClear={() => setCliente(null)}
+          />
+        </Section>
 
-      <Section title="2. Items">
-        <SelectorItems
-          productos={productos}
-          items={items}
-          onChange={setItems}
-        />
-      </Section>
+        <Section title="2. Items">
+          <SelectorItems
+            productos={productos}
+            items={items}
+            onChange={setItems}
+          />
+        </Section>
+      </div>
 
-      <Section title="3. Detalles">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <div className="flex w-full flex-col gap-6 lg:sticky lg:top-20 lg:w-[22rem] lg:shrink-0">
+        <Section title="3. Detalles">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="fecha_entrega">Fecha de entrega</Label>
             <Input
@@ -144,63 +156,94 @@ export function NuevoPedidoForm({
               className="h-10"
             />
           </div>
-        </div>
-        <div className="mt-3 flex flex-col gap-1.5">
-          <Label htmlFor="notas">Notas internas (opcional)</Label>
-          <Input
-            id="notas"
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            placeholder="Cualquier observación general del pedido"
-            className="h-10"
-          />
-        </div>
-      </Section>
-
-      <Section title="4. Pago">
-        <div className="flex flex-col gap-3">
-          <label className="flex items-center gap-3 text-base">
-            <input
-              type="checkbox"
-              checked={pagar}
-              onChange={(e) => setPagar(e.target.checked)}
-              className="size-5"
+          <div className="mt-3 flex flex-col gap-1.5">
+            <Label htmlFor="notas">Notas internas (opcional)</Label>
+            <Input
+              id="notas"
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Observaciones del pedido"
+              className="h-10"
             />
-            <span>Cobrar ahora</span>
-          </label>
+          </div>
+        </Section>
 
-          {pagar && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="forma_pago">Forma de pago</Label>
-              <Select
-                value={formaPago}
-                onValueChange={(v) => setFormaPago(v as FormaPago)}
-              >
-                <SelectTrigger id="forma_pago" className="h-10 max-w-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["efectivo", "transferencia", "redcompra"] as const).map(
-                    (f) => (
-                      <SelectItem key={f} value={f}>
-                        {FORMA_PAGO_LABELS[f]}
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <Section title="4. Pago">
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-3 text-base">
+              <input
+                type="checkbox"
+                checked={pagar}
+                onChange={(e) => setPagar(e.target.checked)}
+                className="size-5"
+              />
+              <span>Cobrar ahora</span>
+            </label>
+
+            {pagar && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="forma_pago">Forma de pago</Label>
+                <Select
+                  value={formaPago}
+                  onValueChange={(v) => setFormaPago(v as FormaPago)}
+                >
+                  <SelectTrigger id="forma_pago" className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["efectivo", "transferencia", "redcompra"] as const).map(
+                      (f) => (
+                        <SelectItem key={f} value={f}>
+                          {FORMA_PAGO_LABELS[f]}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {error && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {/* En pantalla ancha el total y el boton viven en la columna fija, al
+            lado de lo que se esta cargando. La barra de abajo queda solo para
+            cuando esta todo apilado. */}
+        <div className="hidden rounded-xl border bg-background p-4 lg:block">
+          <div className="mb-3 flex items-baseline justify-between">
+            <span className="text-sm text-muted-foreground">Total</span>
+            <span className="text-xl font-semibold tabular-nums">
+              {total.toLocaleString("es-CL", {
+                style: "currency",
+                currency: "CLP",
+                maximumFractionDigits: 0,
+              })}
+            </span>
+          </div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            {items.length === 0
+              ? "Sin items"
+              : `${items.length} item${items.length === 1 ? "" : "s"}`}
+          </p>
+          <Button
+            type="button"
+            size="lg"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className="h-11 w-full text-base"
+          >
+            <Check className="size-5" />
+            {loading ? "Creando…" : "Crear pedido"}
+          </Button>
         </div>
-      </Section>
+      </div>
 
-      {error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background/95 p-4 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between lg:hidden">
         <div className="text-sm text-muted-foreground">
           {items.length === 0
             ? "Sin items"
