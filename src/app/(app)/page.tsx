@@ -21,6 +21,15 @@ export default async function InicioPage() {
           </p>
         </div>
         <Link
+          href="/pedidos/resumen"
+          className={cn(
+            buttonVariants({ variant: "outline", size: "lg" }),
+            "h-11 px-4 text-base",
+          )}
+        >
+          <ClipboardList className="size-5" /> Resumen del día
+        </Link>
+        <Link
           href="/pedidos/nuevo"
           className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
         >

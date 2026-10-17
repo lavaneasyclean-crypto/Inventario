@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PedidoCard } from "@/components/dashboard/pedido-card";
 import { searchPedidos, type PedidosFilter } from "@/lib/data/pedidos";
@@ -63,6 +63,15 @@ export default async function PedidosPage({
             Buscá y filtrá entre todos los pedidos
           </p>
         </div>
+        <Link
+          href="/pedidos/resumen"
+          className={cn(
+            buttonVariants({ variant: "outline", size: "lg" }),
+            "h-11 px-4 text-base",
+          )}
+        >
+          <ClipboardList className="size-5" /> Resumen del día
+        </Link>
         <Link
           href="/pedidos/nuevo"
           className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
