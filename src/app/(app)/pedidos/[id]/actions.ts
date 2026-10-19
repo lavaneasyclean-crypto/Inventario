@@ -6,6 +6,7 @@ import { z } from "zod";
 import { fallo } from "@/lib/errores";
 import { hoyEnChile } from "@/lib/fecha";
 import { importeLinea } from "@/lib/medidas";
+import { registrarCambioDeItems } from "@/lib/data/registrar-cambio-items";
 
 /**
  * Estas acciones se disparan desde botones del detalle del pedido. Antes
@@ -276,6 +277,29 @@ export async function actualizarPedido(
           "Recargá la página para ver lo que quedó.",
       };
     }
+
+    // Antes de reemplazarlas, qué había. Es el único momento en que se
+    // pueden ver las viejas y las nuevas juntas.
+    step = "historial-items";
+    const { data: viejas } = await supabase
+      .from("pedidos_items")
+      .select("producto_nombre, cantidad, detalle_prenda")
+      .eq("pedido_id", id);
+    await registrarCambioDeItems(
+      "pedidos",
+      id,
+      ((viejas ?? []) as { producto_nombre: string; cantidad: number; detalle_prenda: string | null }[])
+        .map((v) => ({
+          nombre: v.producto_nombre,
+          cantidad: v.cantidad,
+          detalle: v.detalle_prenda,
+        })),
+      filas.map((f) => ({
+        nombre: f.producto_nombre,
+        cantidad: f.cantidad,
+        detalle: f.detalle_prenda,
+      })),
+    );
 
     step = "delete-items";
     const { error: eDel } = await supabase

@@ -170,6 +170,19 @@ export function etiquetaCampo(campo: string): string {
   return ETIQUETAS[campo] ?? campo.replace(/_/g, " ");
 }
 
+/** Las prendas que cambiaron, cuando la acción es "items". */
+function cambiosDeItems(reg: RegistroAuditoria): CambioLegible[] {
+  const antes = (reg.antes?.prendas ?? {}) as Record<string, string>;
+  const despues = (reg.despues?.prendas ?? {}) as Record<string, string>;
+  return [...new Set([...Object.keys(antes), ...Object.keys(despues)])]
+    .sort((a, b) => a.localeCompare(b, "es"))
+    .map((prenda) => ({
+      campo: prenda,
+      antes: antes[prenda] ?? "—",
+      despues: despues[prenda] ?? "—",
+    }));
+}
+
 /**
  * Los cambios de un registro, listos para poner en pantalla.
  *
@@ -178,6 +191,10 @@ export function etiquetaCampo(campo: string): string {
  * diga "notas: —".
  */
 export function cambiosLegibles(reg: RegistroAuditoria): CambioLegible[] {
+  // Los cambios de prendas no son campos de una tabla: vienen de comparar
+  // dos listas de líneas, y se guardan bajo "prendas" (ver lib/diff-items).
+  if (reg.accion === "items") return cambiosDeItems(reg);
+
   const antes = reg.antes ?? {};
   const despues = reg.despues ?? {};
   const campos = [...new Set([...Object.keys(antes), ...Object.keys(despues)])]
@@ -200,6 +217,10 @@ export function cambiosLegibles(reg: RegistroAuditoria): CambioLegible[] {
 
 /** Una línea de resumen para cuando no hay espacio para el detalle. */
 export function resumenCambio(reg: RegistroAuditoria): string {
+  if (reg.accion === "items") {
+    const r = reg.despues?.resumen;
+    return typeof r === "string" ? `prendas: ${r}` : "cambió las prendas";
+  }
   const cambios = cambiosLegibles(reg);
   if (reg.accion === "alta") return "se creó";
   if (reg.accion === "baja") return "se eliminó";
@@ -240,5 +261,6 @@ export const ACCIONES = [
   { valor: "todas", label: "Todo" },
   { valor: "alta", label: "Altas" },
   { valor: "edicion", label: "Ediciones" },
+  { valor: "items", label: "Cambios de prendas" },
   { valor: "baja", label: "Bajas" },
 ] as const;

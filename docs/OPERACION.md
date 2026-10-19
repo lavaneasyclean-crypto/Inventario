@@ -163,12 +163,19 @@ correo, porque no hay persona a la que atribuirlo).
 Se guarda **solo lo que cambió**, no la fila entera. Un cambio de estado deja
 una línea que dice "estado: recibido → entregado" y nada más.
 
+### Las prendas
+
+Guardar un pedido o una guía **reemplaza todas sus líneas**, aunque se haya
+tocado una sola. Un registro fila por fila vería doce borrados y doce altas,
+y no sabría decir qué pasó.
+
+Por eso el cambio de prendas lo escribe la app y no el trigger: compara la
+lista vieja contra la nueva y deja una sola línea que dice lo que una persona
+diría —"al Ambo le cambiaste el detalle", "la bolsa 21 pasó de 3 poleras a
+5"—. Aparece como **cambio de prendas** y se puede filtrar por eso.
+
 ### Qué no queda registrado
 
-- **Las líneas de un pedido o una guía.** Guardar una guía reemplaza todas sus
-  líneas: en Termomin son hasta 160, y auditarlas una por una dejaría 320
-  registros por cada vez que alguien aprieta guardar. Sí queda el cambio de la
-  cabecera (fechas, estado, anulado, express).
 - **Lo que pasó antes de instalarlo.** El historial arranca vacío y se llena
   de ahí en adelante.
 - **Un guardado que no cambió nada.** Abrir un formulario y guardarlo sin

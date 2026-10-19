@@ -164,3 +164,49 @@ describe("quienLoHizo", () => {
     expect(quienLoHizo("a@b.cl")).toBe("a@b.cl");
   });
 });
+
+describe("cambios de prendas (accion 'items')", () => {
+  // El caso de todos los dias: se edita un pedido y se le agrega algo al
+  // detalle de una prenda. Guardar reemplaza todas las lineas, asi que el
+  // registro no son campos de una tabla sino el antes y el despues de la
+  // lista de prendas.
+  const cambioDePrendas = registro({
+    accion: "items",
+    antes: { prendas: { Ambo: "2 — color azul marino" } },
+    despues: {
+      prendas: { Ambo: "2 — color azul marino (prueba)" },
+      resumen: "1 cambiada",
+    },
+  });
+
+  it("muestra la prenda, no los nombres internos", () => {
+    expect(cambiosLegibles(cambioDePrendas)).toEqual([
+      {
+        campo: "Ambo",
+        antes: "2 — color azul marino",
+        despues: "2 — color azul marino (prueba)",
+      },
+    ]);
+  });
+
+  it("una prenda que se agrego no tiene antes", () => {
+    const c = cambiosLegibles(
+      registro({
+        accion: "items",
+        antes: { prendas: {} },
+        despues: { prendas: { Camisa: "1" }, resumen: "1 agregada" },
+      }),
+    );
+    expect(c).toEqual([{ campo: "Camisa", antes: "—", despues: "1" }]);
+  });
+
+  it("el resumen sale del registro y no se recalcula", () => {
+    expect(resumenCambio(cambioDePrendas)).toBe("prendas: 1 cambiada");
+  });
+
+  it("si falta el resumen igual dice algo util", () => {
+    expect(
+      resumenCambio(registro({ accion: "items", antes: null, despues: null })),
+    ).toBe("cambió las prendas");
+  });
+});

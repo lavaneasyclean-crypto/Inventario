@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { registrarCambioDeItems } from "@/lib/data/registrar-cambio-items";
 import { fallo } from "@/lib/errores";
 import { mediodiaChile } from "@/lib/fecha";
 
@@ -148,16 +149,13 @@ export async function actualizarPedidoEmpresa(
       return { ok: false, error: CHOQUE_DE_VERSION };
     }
 
-    step = "delete-items";
-    const { error: eDel } = await supabase
-      .from("pedidos_empresa_items")
-      .delete()
-      .eq("pedido_empresa_id", id);
-    if (eDel) return fallo("actualizarPedidoEmpresa", step, eDel);
-
     // El codigo de la bolsa es un snapshot: se copia del padron y no de lo que
     // mande el cliente, para que no pueda quedar desalineado del id. Es lo
     // mismo que hace `crear_pedido_empresa`, pero aca el insert es directo.
+    //
+    // Va ANTES de borrar. Estaba despues, y si una bolsa ya no existia la
+    // funcion cortaba con las lineas ya borradas: la guia quedaba vacia y el
+    // mensaje de error no decia que acababa de pasar eso.
     step = "leer-bolsas";
     const bolsaIds = [
       ...new Set(
@@ -185,24 +183,60 @@ export async function actualizarPedidoEmpresa(
       }
     }
 
+    const nuevasFilas = data.items.map((it) => ({
+      pedido_empresa_id:        id,
+      producto_empresa_id:      it.producto_empresa_id,
+      producto_empresa_nombre:  it.nombre,
+      precio_unidad:            it.precio_unidad,
+      importe:
+        it.precio_unidad === null ? null : it.precio_unidad * it.cantidad,
+      cantidad:                 it.cantidad,
+      detalle_prenda:           it.detalle,
+      bolsa_id:                 it.bolsa_id ?? null,
+      bolsa_codigo:
+        it.bolsa_id == null ? null : codigoDeBolsa.get(it.bolsa_id) ?? null,
+    }));
+
+    // Lo que habia, mientras todavia esta. Es el unico momento en que se
+    // pueden ver las viejas y las nuevas juntas.
+    step = "historial-items";
+    const { data: viejas } = await supabase
+      .from("pedidos_empresa_items")
+      .select("producto_empresa_nombre, cantidad, detalle_prenda, bolsa_codigo")
+      .eq("pedido_empresa_id", id);
+    await registrarCambioDeItems(
+      "pedidos_empresa",
+      id,
+      ((viejas ?? []) as Array<{
+        producto_empresa_nombre: string;
+        cantidad: number;
+        detalle_prenda: string | null;
+        bolsa_codigo: string | null;
+      }>).map((v) => ({
+        nombre: v.producto_empresa_nombre,
+        cantidad: v.cantidad,
+        detalle: v.detalle_prenda,
+        bolsa: v.bolsa_codigo,
+      })),
+      nuevasFilas.map((f) => ({
+        nombre: f.producto_empresa_nombre,
+        cantidad: f.cantidad,
+        detalle: f.detalle_prenda,
+        bolsa: f.bolsa_codigo,
+      })),
+    );
+
+    step = "delete-items";
+    const { error: eDel } = await supabase
+      .from("pedidos_empresa_items")
+      .delete()
+      .eq("pedido_empresa_id", id);
+    if (eDel) return fallo("actualizarPedidoEmpresa", step, eDel);
+
     step = "insert-items";
     const { error: eIns } = await supabase
       .from("pedidos_empresa_items")
-      .insert(
-        data.items.map((it) => ({
-          pedido_empresa_id:        id,
-          producto_empresa_id:      it.producto_empresa_id,
-          producto_empresa_nombre:  it.nombre,
-          precio_unidad:            it.precio_unidad,
-          importe:
-            it.precio_unidad === null ? null : it.precio_unidad * it.cantidad,
-          cantidad:                 it.cantidad,
-          detalle_prenda:           it.detalle,
-          bolsa_id:                 it.bolsa_id ?? null,
-          bolsa_codigo:
-            it.bolsa_id == null ? null : codigoDeBolsa.get(it.bolsa_id) ?? null,
-        })),
-      );
+      .insert(nuevasFilas);
     if (eIns) return fallo("actualizarPedidoEmpresa", step, eIns);
 
     revalidatePath(`/empresas/pedidos/${id}`);

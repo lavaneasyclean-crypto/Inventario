@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FilePlus2, PencilLine, Trash2 } from "lucide-react";
+import { FilePlus2, PencilLine, Shirt, Trash2 } from "lucide-react";
 import {
   cambiosLegibles,
   etiquetaEntidad,
@@ -36,6 +36,11 @@ const ESTILO = {
     icono: PencilLine,
     clase: "text-muted-foreground",
     verbo: "editó",
+  },
+  items: {
+    icono: Shirt,
+    clase: "text-sky-700 dark:text-sky-400",
+    verbo: "cambió las prendas de",
   },
 } as const;
 
@@ -80,7 +85,7 @@ export function Registro({ reg }: { reg: RegistroAuditoria }) {
                   <td className="py-1 pr-3 align-top text-muted-foreground">
                     {c.campo}
                   </td>
-                  {reg.accion === "edicion" ? (
+                  {reg.accion === "edicion" || reg.accion === "items" ? (
                     <>
                       <td className="py-1 pr-2 align-top text-muted-foreground line-through decoration-muted-foreground/50">
                         {c.antes}

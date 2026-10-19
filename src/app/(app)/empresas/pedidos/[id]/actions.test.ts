@@ -11,6 +11,9 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => estado.supabase,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/data/registrar-cambio-items", () => ({
+  registrarCambioDeItems: vi.fn(),
+}));
 
 import { actualizarPedidoEmpresa } from "./actions";
 
@@ -104,5 +107,30 @@ describe("actualizarPedidoEmpresa — dos personas en la misma guía", () => {
 
     expect(res.ok).toBe(false);
     expect(fake.llamadas).toHaveLength(0);
+  });
+});
+
+describe("actualizarPedidoEmpresa — una bolsa que ya no existe", () => {
+  it("corta ANTES de borrar las lineas", async () => {
+    // Estaba al reves: borraba y despues validaba, asi que una bolsa dada de
+    // baja dejaba la guia vacia y el mensaje de error no decia nada de eso.
+    const fake = crearSupabaseFake({
+      "pedidos_empresa.update": { data: [{ id: 1670 }] },
+      // El padron devuelve menos bolsas de las que se pidieron.
+      "empresa_bolsas.select": { data: [] },
+    });
+    estado.supabase = fake;
+
+    const res = await actualizarPedidoEmpresa(1670, {
+      ...entrada,
+      items: [{ ...entrada.items[0], bolsa_id: 21 }],
+    });
+
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/bolsas ya no existe/i);
+
+    // Lo que importa: el conteo sigue ahi.
+    expect(fake.ultima("pedidos_empresa_items", "delete")).toBeUndefined();
+    expect(fake.ultima("pedidos_empresa_items", "insert")).toBeUndefined();
   });
 });
