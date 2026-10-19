@@ -240,7 +240,10 @@ describe("actualizarPedido", () => {
     detalle: null,
   };
 
+  const VERSION = "2026-10-19T15:00:00+00:00";
+
   const entrada = {
+    version: VERSION,
     fecha_entrega: "2026-10-25",
     notas: "Sin suavizante",
     items: [itemBase],
@@ -249,7 +252,7 @@ describe("actualizarPedido", () => {
   function montarOk(extra: Record<string, RespuestaFake> = {}) {
     return montar({
       "pedidos.select": { data: { estado: "recibido" } },
-      "pedidos.update": { data: null },
+      "pedidos.update": { data: [{ id: 13544 }] },
       "pedidos_items.delete": { data: null },
       "pedidos_items.insert": { data: null },
       ...extra,
@@ -343,6 +346,26 @@ describe("actualizarPedido", () => {
     const res = await actualizarPedido(99999, entrada);
 
     expect(res).toEqual({ ok: false, error: "El pedido no existe." });
+  });
+
+  it("si otro guardo primero, avisa y NO borra las lineas", async () => {
+    // La base no toca ninguna fila porque updated_at ya no coincide.
+    const fake = montarOk({ "pedidos.update": { data: [] } });
+    const res = await actualizarPedido(13544, entrada);
+
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/alguien más guardó/i);
+    expect(fake.ultima("pedidos_items", "delete")).toBeUndefined();
+  });
+
+  it("manda la version en el update, para que la base decida", async () => {
+    const fake = montarOk();
+    await actualizarPedido(13544, entrada);
+
+    expect(fake.ultima("pedidos", "update")?.filtros).toContainEqual({
+      metodo: "eq",
+      args: ["updated_at", VERSION],
+    });
   });
 
   it("exige al menos un item", async () => {

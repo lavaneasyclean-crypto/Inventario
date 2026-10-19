@@ -27,6 +27,8 @@ import { actualizarPedidoEmpresa } from "./[id]/actions";
 /** Lo que tiene una guía que ya existe, para precargar la grilla al editar. */
 export interface GuiaInicial {
   id: number;
+  /** El `updated_at` que tenia la guia al abrirla: ver CHOQUE_DE_VERSION. */
+  version: string;
   fecha: string;
   detalle: string;
   /** Cantidades por "bolsaId|productoId", igual que el estado de la grilla. */
@@ -175,6 +177,7 @@ export function GrillaBolsas({
     let destino = inicial?.id;
     if (inicial) {
       const res = await actualizarPedidoEmpresa(inicial.id, {
+        version: inicial.version,
         fecha: mediodiaChile(fecha),
         detalle: detalle.trim() || null,
         express: false,

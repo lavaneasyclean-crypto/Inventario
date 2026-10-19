@@ -113,6 +113,7 @@ export default async function EditarPedidoEmpresaPage({
           otrosProductos={productos.filter((p) => !p.en_grilla)}
           inicial={{
             id: data.pedido.id,
+            version: data.pedido.updated_at,
             fecha: fechaEnChile(new Date(data.pedido.fecha)),
             detalle: data.pedido.detalle ?? "",
             celdas,

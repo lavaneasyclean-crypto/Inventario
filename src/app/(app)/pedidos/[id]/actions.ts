@@ -138,6 +138,14 @@ export async function anularPedido(
 }
 
 const editarSchema = z.object({
+  /**
+   * El `updated_at` que tenia el pedido al abrirlo.
+   *
+   * Guardar borra todas las lineas y las reescribe: sin esto, dos personas
+   * editando el mismo pedido terminan con que la ultima se lleva puesto el
+   * trabajo de la otra sin que ninguna se entere.
+   */
+  version: z.string().min(1),
   fecha_entrega: z.string().nullable(),
   notas: z.string().nullable(),
   items: z
@@ -246,15 +254,28 @@ export async function actualizarPedido(
       };
     }
 
+    // Con la version puesta: si no coincide no toca ninguna fila y se corta
+    // aca, antes de borrar las lineas.
     step = "update-pedido";
-    const { error: ePed } = await supabase
+    const { data: tocadas, error: ePed } = await supabase
       .from("pedidos")
       .update({
         fecha_entrega: data.fecha_entrega,
         notas: data.notas,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("updated_at", data.version)
+      .select("id");
     if (ePed) return fallo("actualizarPedido", step, ePed);
+
+    if (!tocadas || tocadas.length === 0) {
+      return {
+        ok: false,
+        error:
+          "Alguien más guardó este pedido mientras lo estabas editando. " +
+          "Recargá la página para ver lo que quedó.",
+      };
+    }
 
     step = "delete-items";
     const { error: eDel } = await supabase

@@ -83,6 +83,7 @@ export function EditarPedidoForm({
 
     setGuardando(true);
     const res = await actualizarPedido(pedido.id, {
+      version: pedido.updated_at,
       fecha_entrega: fechaEntrega || null,
       notas: notas.trim() || null,
       items: items.map((it) => ({

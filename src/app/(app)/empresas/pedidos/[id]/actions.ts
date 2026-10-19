@@ -6,6 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
 import { mediodiaChile } from "@/lib/fecha";
 
+const CHOQUE_DE_VERSION =
+  "Alguien más guardó esta guía mientras la estabas cargando. Recargá la página para ver lo que quedó y volvé a cargar lo tuyo: si guardaras ahora, se perdería lo que cargó la otra persona.";
+
 export type PedidoEmpresaActionResult =
   | { ok: true }
   | { ok: false; error: string };
@@ -73,6 +76,14 @@ export async function marcarExpress(
 }
 
 const editarSchema = z.object({
+  /**
+   * El `updated_at` que tenia la guia cuando se abrio.
+   *
+   * Guardar borra todas las lineas y las reescribe. Sin esto, dos personas
+   * cargando la misma guia terminan con que la ultima en guardar se lleva
+   * puesto el conteo de la otra, sin que ninguna se entere.
+   */
+  version: z.string().min(1),
   fecha:   z.string().min(1),
   detalle: z.string().nullable(),
   express: z.boolean().default(false),
@@ -117,16 +128,25 @@ export async function actualizarPedidoEmpresa(
     step = "supabase";
     const supabase = await createClient();
 
+    // El update va primero y con la version puesta: si no coincide no toca
+    // ninguna fila, y se corta aca, antes de borrar las lineas. Al reves se
+    // borrarian primero y el choque dejaria la guia vacia.
     step = "update-pedido";
-    const { error: ePed } = await supabase
+    const { data: tocadas, error: ePed } = await supabase
       .from("pedidos_empresa")
       .update({
         fecha:   data.fecha,
         detalle: data.detalle,
         express: data.express,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("updated_at", data.version)
+      .select("id");
     if (ePed) return fallo("actualizarPedidoEmpresa", step, ePed);
+
+    if (!tocadas || tocadas.length === 0) {
+      return { ok: false, error: CHOQUE_DE_VERSION };
+    }
 
     step = "delete-items";
     const { error: eDel } = await supabase

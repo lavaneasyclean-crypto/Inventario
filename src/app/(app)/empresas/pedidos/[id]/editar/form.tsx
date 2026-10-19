@@ -111,6 +111,7 @@ export function EditarPedidoEmpresaForm({
     setLoading(true);
     try {
       const res = await actualizarPedidoEmpresa(pedido.id, {
+        version: pedido.updated_at,
         fecha: mediodiaChile(fecha),
         detalle: detalle.trim() || null,
         express,
