@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { esFechaValida, finDeDiaChile, inicioDeDiaChile } from "@/lib/fecha";
 import { filtroContienePorCampo } from "@/lib/postgrest";
 import { normalizeRut } from "@/lib/rut";
-import type { EstadoPedido, Pedido, PedidoItem } from "@/lib/types";
+import type {
+  EstadoPedido,
+  Pedido,
+  PedidoAbono,
+  PedidoItem,
+} from "@/lib/types";
 
 export interface DashboardData {
   pendientes: Pedido[];
@@ -152,15 +157,22 @@ export async function searchPedidos(
 export async function getPedidoDetalle(id: number): Promise<{
   pedido: Pedido;
   items: PedidoItem[];
+  abonos: PedidoAbono[];
 } | null> {
   const supabase = await createClient();
 
-  const [pedidoRes, itemsRes] = await Promise.all([
+  const [pedidoRes, itemsRes, abonosRes] = await Promise.all([
     supabase.from("pedidos").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("pedidos_items")
       .select("*")
       .eq("pedido_id", id)
+      .order("id", { ascending: true }),
+    supabase
+      .from("pedidos_abonos")
+      .select("*")
+      .eq("pedido_id", id)
+      .order("fecha", { ascending: true })
       .order("id", { ascending: true }),
   ]);
 
@@ -169,5 +181,6 @@ export async function getPedidoDetalle(id: number): Promise<{
   return {
     pedido: pedidoRes.data as Pedido,
     items: (itemsRes.data ?? []) as PedidoItem[],
+    abonos: (abonosRes.data ?? []) as PedidoAbono[],
   };
 }

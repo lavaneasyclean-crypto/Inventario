@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { fallo } from "@/lib/errores";
+import { hoyEnChile } from "@/lib/fecha";
 import { importeLinea } from "@/lib/medidas";
-import type { FormaPago } from "@/lib/types";
 
 /**
  * Estas acciones se disparan desde botones del detalle del pedido. Antes
@@ -16,13 +16,6 @@ import type { FormaPago } from "@/lib/types";
 export type AccionPedidoResult = { ok: true } | { ok: false; error: string };
 
 const ERROR_ID = "No se pudo identificar el pedido.";
-
-const FORMAS_PAGO: readonly FormaPago[] = [
-  "efectivo",
-  "transferencia",
-  "redcompra",
-  "no_pago",
-];
 
 function leerId(formData: FormData): number | null {
   const id = Number(formData.get("id"));
@@ -86,8 +79,10 @@ export async function marcarEntregado(
 export async function marcarPagado(
   formData: FormData,
 ): Promise<AccionPedidoResult> {
-  const forma = String(formData.get("forma_pago") ?? "efectivo") as FormaPago;
-  if (!FORMAS_PAGO.includes(forma)) {
+  // "no_pago" significa justamente que no pago: no sirve para cobrar.
+  const FORMAS_COBRO = ["efectivo", "transferencia", "redcompra"] as const;
+  const forma = String(formData.get("forma_pago") ?? "efectivo");
+  if (!FORMAS_COBRO.includes(forma as (typeof FORMAS_COBRO)[number])) {
     return { ok: false, error: "La forma de pago no es válida." };
   }
 
@@ -96,23 +91,44 @@ export async function marcarPagado(
     return { ok: false, error: "El total del pedido no es un monto válido." };
   }
 
-  return actualizar("marcarPagado", formData, {
-    pagado: true,
-    forma_pago: forma,
-    monto_abonado: total,
-    fecha_pago: new Date().toISOString(),
+  const id = leerId(formData);
+  if (id === null) return { ok: false, error: ERROR_ID };
+
+  // Cobrar todo es registrar un abono por el saldo, no escribir el estado: el
+  // estado lo deriva la base de la suma de abonos (migrations/0020). Si se
+  // escribiera aca, el primer abono parcial que alguien cargue despues lo
+  // recalcularia y pisaria este.
+  return registrarAbono(id, {
+    fecha: hoyEnChile(),
+    monto: total,
+    forma_pago: forma as (typeof FORMAS_COBRO)[number],
+    notas: null,
+    soloSaldo: true,
   });
 }
 
 export async function marcarSinPagar(
   formData: FormData,
 ): Promise<AccionPedidoResult> {
-  return actualizar("marcarSinPagar", formData, {
-    pagado: false,
-    forma_pago: "no_pago",
-    monto_abonado: 0,
-    fecha_pago: null,
-  });
+  const id = leerId(formData);
+  if (id === null) return { ok: false, error: ERROR_ID };
+
+  try {
+    const supabase = await createClient();
+    // Se borran los abonos y el trigger deja el pedido impago. Escribir
+    // `pagado: false` dejando los abonos haria que la cabecera dijera una cosa
+    // y el detalle de pagos otra.
+    const { error } = await supabase
+      .from("pedidos_abonos")
+      .delete()
+      .eq("pedido_id", id);
+    if (error) return fallo("marcarSinPagar", "delete-abonos", error);
+
+    await refresh(id);
+    return { ok: true };
+  } catch (err) {
+    return fallo("marcarSinPagar", "delete-abonos", err);
+  }
 }
 
 export async function anularPedido(
@@ -255,5 +271,112 @@ export async function actualizarPedido(
     return { ok: true };
   } catch (err) {
     return fallo("actualizarPedido", step, err);
+  }
+}
+
+
+const abonoSchema = z.object({
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha con formato inválido"),
+  monto: z.number().positive("El abono tiene que ser mayor a cero"),
+  forma_pago: z.enum(["efectivo", "transferencia", "redcompra"]),
+  notas: z.string().nullable(),
+  /** Para "cobrar todo": si ya hay algo abonado, cobra solo lo que falta. */
+  soloSaldo: z.boolean().optional(),
+});
+
+export type AbonoPedidoInput = z.input<typeof abonoSchema>;
+
+/**
+ * Registra un pago recibido a cuenta de un pedido.
+ *
+ * No se escribe `pagado` ni `monto_abonado`: los recalcula el trigger de la
+ * base a partir de la suma de abonos. Es la misma regla que en las facturas, y
+ * por el mismo motivo: dos lugares decidiendo si algo esta pagado terminan
+ * diciendo cosas distintas.
+ */
+export async function registrarAbono(
+  pedidoId: number,
+  input: AbonoPedidoInput,
+): Promise<AccionPedidoResult> {
+  let step = "init";
+  try {
+    step = "parse";
+    const parsed = abonoSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Datos inválidos",
+      };
+    }
+    const data = parsed.data;
+
+    step = "leer-pedido";
+    const supabase = await createClient();
+    const { data: pedido } = await supabase
+      .from("pedidos")
+      .select("estado, total_venta, monto_abonado")
+      .eq("id", pedidoId)
+      .maybeSingle();
+    if (!pedido) return { ok: false, error: "El pedido no existe." };
+
+    const p = pedido as {
+      estado: string;
+      total_venta: number;
+      monto_abonado: number;
+    };
+    if (p.estado === "anulado") {
+      return {
+        ok: false,
+        error: "El pedido está anulado: no se le pueden registrar pagos.",
+      };
+    }
+
+    const saldo = Math.max(0, Number(p.total_venta) - Number(p.monto_abonado));
+    if (saldo <= 0) {
+      return { ok: false, error: "Este pedido ya está pagado." };
+    }
+
+    const monto = data.soloSaldo ? Math.min(data.monto, saldo) : data.monto;
+    if (monto > saldo) {
+      return {
+        ok: false,
+        error: `El abono supera el saldo. Falta cobrar ${saldo.toLocaleString("es-CL")}.`,
+      };
+    }
+
+    step = "insert";
+    const { error } = await supabase.from("pedidos_abonos").insert({
+      pedido_id: pedidoId,
+      fecha: data.fecha,
+      monto,
+      forma_pago: data.forma_pago,
+      notas: data.notas,
+    });
+    if (error) return fallo("registrarAbono", step, error);
+
+    await refresh(pedidoId);
+    return { ok: true };
+  } catch (err) {
+    return fallo("registrarAbono", step, err);
+  }
+}
+
+export async function eliminarAbono(
+  pedidoId: number,
+  abonoId: number,
+): Promise<AccionPedidoResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("pedidos_abonos")
+      .delete()
+      .eq("id", abonoId)
+      .eq("pedido_id", pedidoId);
+    if (error) return fallo("eliminarAbono", "delete", error);
+
+    await refresh(pedidoId);
+    return { ok: true };
+  } catch (err) {
+    return fallo("eliminarAbono", "delete", err);
   }
 }

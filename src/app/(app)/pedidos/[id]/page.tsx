@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
 import { getPedidoDetalle } from "@/lib/data/pedidos";
+import { hoyEnChile } from "@/lib/fecha";
 import { formatCLP, formatDate, formatDateShort } from "@/lib/format";
 import { UNIDAD_PRECIO_LABELS, describirMedida } from "@/lib/medidas";
 import {
@@ -22,6 +23,7 @@ import { Pencil, Printer } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AccionesPedido } from "./acciones-pedido";
+import { PagosPedido } from "./pagos-pedido";
 
 export const dynamic = "force-dynamic";
 
@@ -203,6 +205,14 @@ export default async function PedidoDetallePage({
       )}
 
       {/* Acciones */}
+      <PagosPedido
+        pedidoId={pedido.id}
+        total={Number(pedido.total_venta)}
+        abonos={data.abonos}
+        hoy={hoyEnChile()}
+        anulado={pedido.estado === "anulado"}
+      />
+
       <section className="rounded-xl border bg-background p-4">
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           Acciones

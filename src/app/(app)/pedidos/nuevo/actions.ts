@@ -126,6 +126,23 @@ export async function crearPedido(
       return { ok: false, error: "No se pudo crear el pedido (sin id)" };
     }
 
+    // Cobrado al tomarlo: queda como abono, que es de donde sale el estado de
+    // pago (migrations/0020). crear_pedido ya dejo el pedido en pagado con
+    // su monto, y este insert lo recalcula al mismo valor; lo que evita es que
+    // el pedido quede pagado pero sin ningun pago anotado, porque entonces el
+    // primer abono que alguien cargue despues lo dejaria impago.
+    if (data.pagado && total > 0) {
+      step = "abono-inicial";
+      const { error: eAbono } = await supabase.from("pedidos_abonos").insert({
+        pedido_id: pedidoId,
+        fecha: ahora.slice(0, 10),
+        monto: total,
+        forma_pago: data.forma_pago,
+        notas: "Cobrado al tomar el pedido",
+      });
+      if (eAbono) return fallo("crearPedido", step, eAbono);
+    }
+
     step = "done";
     return { ok: true, id: pedidoId };
   } catch (err) {

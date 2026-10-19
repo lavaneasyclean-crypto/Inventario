@@ -84,18 +84,62 @@ describe("cambios de estado", () => {
 });
 
 describe("cobro", () => {
-  it("marcarPagado guarda forma de pago, monto y fecha", async () => {
-    const fake = montar();
+  it("marcarPagado registra un abono por el saldo, no escribe el estado", async () => {
+    const fake = montar({
+      "pedidos.select": {
+        data: { estado: "recibido", total_venta: 10600, monto_abonado: 0 },
+      },
+      "pedidos_abonos.insert": { data: null },
+    });
     const res = await marcarPagado(
       form({ id: "42", forma_pago: "transferencia", total: "10600" }),
     );
 
     expect(res).toEqual({ ok: true });
-    const payload = payloadDe(fake);
-    expect(payload.pagado).toBe(true);
-    expect(payload.forma_pago).toBe("transferencia");
-    expect(payload.monto_abonado).toBe(10600);
-    expect(typeof payload.fecha_pago).toBe("string");
+    // El estado de pago lo deriva el trigger de la suma de abonos: escribirlo
+    // aca tambien seria tener dos fuentes para el mismo dato.
+    expect(fake.ultima("pedidos", "update")).toBeUndefined();
+    const abono = fake.ultima("pedidos_abonos", "insert")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(abono).toMatchObject({
+      pedido_id: 42,
+      monto: 10600,
+      forma_pago: "transferencia",
+    });
+  });
+
+  it("marcarPagado sobre un pedido con abono previo cobra solo el saldo", async () => {
+    const fake = montar({
+      "pedidos.select": {
+        data: { estado: "recibido", total_venta: 10600, monto_abonado: 4000 },
+      },
+      "pedidos_abonos.insert": { data: null },
+    });
+    await marcarPagado(
+      form({ id: "42", forma_pago: "efectivo", total: "10600" }),
+    );
+
+    const abono = fake.ultima("pedidos_abonos", "insert")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(abono.monto).toBe(6600);
+  });
+
+  it("no se cobra un pedido anulado", async () => {
+    const fake = montar({
+      "pedidos.select": {
+        data: { estado: "anulado", total_venta: 10600, monto_abonado: 0 },
+      },
+    });
+    const res = await marcarPagado(
+      form({ id: "42", forma_pago: "efectivo", total: "10600" }),
+    );
+
+    expect(res.ok).toBe(false);
+    expect(fake.ultima("pedidos_abonos", "insert")).toBeUndefined();
   });
 
   it("marcarPagado rechaza una forma de pago inventada", async () => {
@@ -105,7 +149,7 @@ describe("cobro", () => {
     );
 
     expect(res).toEqual({ ok: false, error: "La forma de pago no es válida." });
-    expect(fake.ultima("pedidos", "update")).toBeUndefined();
+    expect(fake.ultima("pedidos_abonos", "insert")).toBeUndefined();
   });
 
   it("marcarPagado rechaza un total que no es un monto", async () => {
@@ -121,15 +165,18 @@ describe("cobro", () => {
     expect(fake.ultima("pedidos", "update")).toBeUndefined();
   });
 
-  it("marcarSinPagar deja el pedido sin cobrar", async () => {
-    const fake = montar();
-    await marcarSinPagar(form({ id: "42" }));
+  it("marcarSinPagar borra los abonos y deja que el trigger recalcule", async () => {
+    const fake = montar({ "pedidos_abonos.delete": { data: null } });
+    const res = await marcarSinPagar(form({ id: "42" }));
 
-    expect(payloadDe(fake)).toEqual({
-      pagado: false,
-      forma_pago: "no_pago",
-      monto_abonado: 0,
-      fecha_pago: null,
+    expect(res).toEqual({ ok: true });
+    // Escribir `pagado: false` dejando los abonos haria que la cabecera
+    // dijera una cosa y el detalle de pagos otra.
+    expect(fake.ultima("pedidos", "update")).toBeUndefined();
+    const borrado = fake.ultima("pedidos_abonos", "delete");
+    expect(borrado?.filtros).toContainEqual({
+      metodo: "eq",
+      args: ["pedido_id", 42],
     });
   });
 });

@@ -229,6 +229,17 @@ export interface Factura {
 }
 
 /** Un pago recibido a cuenta de una factura. Puede haber varios. */
+/** Un pago recibido a cuenta de un pedido de mostrador. */
+export interface PedidoAbono {
+  id: number;
+  pedido_id: number;
+  fecha: string;
+  monto: number;
+  forma_pago: FormaPago | null;
+  notas: string | null;
+  created_at: string;
+}
+
 export interface FacturaAbono {
   id: number;
   factura_id: number;
