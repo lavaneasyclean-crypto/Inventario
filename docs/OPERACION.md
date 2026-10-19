@@ -16,6 +16,25 @@ Desde septiembre 2026 el Access **dejó de mandar en los pedidos de empresa**.
 `03_sync_desde_access.py` no escribe `pedidos_empresa` ni sus líneas: si lo
 hiciera, la próxima corrida se llevaría puesto lo cargado desde las planillas.
 
+### Pedidos que quedaron a medio crear
+
+En octubre 2026 se anularon **156 pedidos** que estaban en "en proceso" desde
+2024 y 2025 **sin una sola prenda cargada**: registros que alguien empezó y
+nunca terminó. No había nada que entregar ni que cobrar.
+
+Si vuelve a juntarse basura así:
+
+```bash
+python scripts/etl/09_anular_pedidos_vacios.py            # simulacion
+python scripts/etl/09_anular_pedidos_vacios.py --apply    # escribe
+```
+
+Solo toca pedidos que cumplen **las cuatro**: en proceso, impagos, sin ninguna
+línea y de hace más de 30 días. Los que tienen prendas no se tocan: ahí hubo
+ropa de verdad y decidir si se entregó no es algo que resuelva un script.
+
+Anular no borra: se revierte desde la app, uno por uno.
+
 ## El Access ya no se usa
 
 Desde octubre 2026 los pedidos de mostrador se crean, se editan y se cobran
