@@ -16,6 +16,20 @@ Desde septiembre 2026 el Access **dejó de mandar en los pedidos de empresa**.
 `03_sync_desde_access.py` no escribe `pedidos_empresa` ni sus líneas: si lo
 hiciera, la próxima corrida se llevaría puesto lo cargado desde las planillas.
 
+## El Access ya no se usa
+
+Desde octubre 2026 los pedidos de mostrador se crean, se editan y se cobran
+**solo en la app**. El Access quedó como archivo histórico.
+
+`03_sync_desde_access.py` sigue ahí para una re-importación histórica, pero es
+destructivo: borra **todas** las líneas de pedido para reemplazarlas por las
+del export, y pisa el estado de pago. Corriendo eso hoy se perderían los
+pedidos creados en la app, las ediciones y la coherencia de los abonos.
+
+Por eso se planta solo: si detecta pedidos que no vienen del Access, o abonos
+cargados acá, se detiene y explica por qué. El `--forzar` existe para el día
+que alguien sepa lo que hace y lo necesite igual.
+
 ## Cargar la planilla de una empresa
 
 La planilla es una grilla —fila por prenda, columna por día— con una fila

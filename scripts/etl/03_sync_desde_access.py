@@ -236,6 +236,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="escribe en Supabase (sin esto, solo simula)")
     ap.add_argument("--desde", default="2026-08-01", help="fecha del informe de nombres (YYYY-MM-DD)")
+    ap.add_argument(
+        "--forzar",
+        action="store_true",
+        help="corre igual aunque haya datos cargados desde la app (ver GUARDIA)",
+    )
     args = ap.parse_args()
 
     env = L.load_env(ROOT / ".env.local")
@@ -297,6 +302,47 @@ def main() -> int:
     ya_emp = {p["id"] for p in supa.traer("pedidos_empresa", "id")}
     nuevos = sorted(ids_pedidos - ya)
     nuevos_emp = sorted(ids_pe - ya_emp)
+
+    # --- GUARDIA ------------------------------------------------------------
+    #
+    # Desde octubre 2026 el mostrador dejo de usar el Access: los pedidos se
+    # crean, se editan y se cobran en la app. Este script sigue sirviendo para
+    # una re-importacion historica, pero es destructivo: borra TODAS las lineas
+    # de pedido para reemplazarlas por las del export, y pisa el estado de pago
+    # de cada pedido.
+    #
+    # Corriendolo con datos de la app encima se pierde:
+    #   - los pedidos creados aca (no estan en el Access, pero sus lineas se
+    #     borran igual porque el borrado es total)
+    #   - las ediciones hechas desde la app
+    #   - la coherencia de los abonos: el upsert escribe pagado y monto_abonado
+    #     por fuera de `pedidos_abonos`, que es quien manda desde la 0020
+    #
+    # Por eso se planta solo. El --forzar existe para el dia que alguien sepa
+    # lo que hace y lo necesite igual.
+    solo_app = sorted(ya - ids_pedidos)
+    con_abonos = supa.traer("pedidos_abonos", "id")
+
+    if solo_app or con_abonos:
+        print(f"\nGUARDIA")
+        if solo_app:
+            print(f"  pedidos que no vienen del Access  {len(solo_app):>6}"
+                  f"   (#{solo_app[0]} .. #{solo_app[-1]})")
+            print(f"    -> sus lineas se borrarian y no se volverian a crear")
+        if con_abonos:
+            print(f"  abonos cargados en la app         {len(con_abonos):>6}")
+            print(f"    -> el upsert pisaria pagado y monto_abonado por fuera de ellos")
+
+        if not args.forzar:
+            print("\n" + "=" * 72)
+            print("DETENIDO: hay datos que solo viven en la app.")
+            print("Este script esta pensado para cuando el Access era la fuente.")
+            print("Si de verdad hace falta, volve a correr con --forzar.")
+            print("=" * 72)
+            return 1
+
+        print("\n  --forzar: se sigue igual, con lo de arriba a la vista.")
+    # --- fin GUARDIA --------------------------------------------------------
 
     print(f"\nComparacion con Supabase")
     print(f"  pedidos ya cargados           {len(ya):>6}")
