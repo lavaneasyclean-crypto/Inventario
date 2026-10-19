@@ -20,6 +20,7 @@ import type {
   EmpresaBolsa,
   ProductoEmpresaAdquirido,
 } from "@/lib/types";
+import { BolsasUnaPorUna } from "./bolsas-una-por-una";
 import { crearPedidoEmpresa } from "./nuevo/actions";
 import { actualizarPedidoEmpresa } from "./[id]/actions";
 
@@ -278,7 +279,7 @@ export function GrillaBolsas({
           </p>
         </header>
 
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr>
@@ -372,6 +373,19 @@ export function GrillaBolsas({
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* En celular y tablet, una bolsa a la vez. La tabla de arriba es
+            para cargar desde la planilla en un monitor; esto es para contar
+            de pie, con la bolsa en la mano. Mismo estado: lo que se carga
+            en una se ve en la otra. */}
+        <div className="lg:hidden">
+          <BolsasUnaPorUna
+            bolsas={bolsas}
+            productos={productos}
+            celdas={celdas}
+            setCelda={setCelda}
+          />
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
