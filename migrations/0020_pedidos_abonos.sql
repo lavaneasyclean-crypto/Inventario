@@ -122,9 +122,19 @@ for each row execute function trg_recalcular_pago_pedido();
 insert into pedidos_abonos (pedido_id, fecha, monto, forma_pago, notas)
 select p.id,
        coalesce(p.fecha_pago, p.fecha_recepcion)::date,
+       -- Por el total y no por monto_abonado: 46 pedidos estan marcados
+       -- pagados con un abono menor anotado (el #7255: total 18.000, abonado
+       -- 10.000). Quien manda ahi es `pagado`, asi que se dan por cobrados
+       -- enteros y el estado no les cambia. El monto que si estaba anotado no
+       -- se pierde: queda en la nota.
        p.total_venta,
        p.forma_pago,
-       'Pago registrado antes de llevar abonos'
+       case
+         when p.monto_abonado > 0 and p.monto_abonado < p.total_venta
+           then 'Pago registrado antes de llevar abonos (el Access anotaba '
+                || trim(to_char(p.monto_abonado, '999G999G999')) || ' abonados)'
+         else 'Pago registrado antes de llevar abonos'
+       end
   from pedidos p
  where p.pagado = true
    and p.total_venta > 0
