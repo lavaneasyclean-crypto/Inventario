@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Plus, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EsqueletoListaDoble } from "@/components/esqueletos";
 import { buttonVariants } from "@/components/ui/button";
 import { PedidoCard } from "@/components/dashboard/pedido-card";
 import { searchPedidos, type PedidosFilter } from "@/lib/data/pedidos";
@@ -42,6 +45,17 @@ function parseFilters(params: Record<string, string | string[] | undefined>): Pe
   };
 }
 
+/**
+ * La cabecera y los filtros no esperan a la consulta.
+ *
+ * Antes la pagina entera aguardaba a `searchPedidos` antes de dibujar nada, y
+ * desde aca esa consulta tarda entre medio segundo y uno. El resultado se
+ * sentia colgado: se tecleaba en el buscador y la pantalla quedaba quieta.
+ *
+ * Ahora lo unico que espera es la lista. La `key` del Suspense lleva los
+ * filtros: al cambiarlos el limite se remonta y vuelve a mostrar el esqueleto,
+ * que es lo que hacia falta para que filtrar y buscar se sientan vivos.
+ */
 export default async function PedidosPage({
   searchParams,
 }: {
@@ -49,10 +63,6 @@ export default async function PedidosPage({
 }) {
   const params = await searchParams;
   const filters = parseFilters(params);
-  const result = await searchPedidos(filters);
-
-  const desde = (filters.page! - 1) * result.pageSize + 1;
-  const hasta = Math.min(filters.page! * result.pageSize, result.total);
 
   return (
     <div className="p-4 sm:p-6">
@@ -84,6 +94,28 @@ export default async function PedidosPage({
         <FiltrosPedidos initial={filters} />
       </div>
 
+      <Suspense
+        key={JSON.stringify(filters)}
+        fallback={
+          <>
+            <Skeleton className="mb-3 h-4 w-56" />
+            <EsqueletoListaDoble />
+          </>
+        }
+      >
+        <Resultados filters={filters} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function Resultados({ filters }: { filters: PedidosFilter }) {
+  const result = await searchPedidos(filters);
+  const desde = (filters.page! - 1) * result.pageSize + 1;
+  const hasta = Math.min(filters.page! * result.pageSize, result.total);
+
+  return (
+    <>
       <div className="mb-3 flex items-center justify-between text-sm text-muted-foreground">
         {result.total === 0 ? (
           <span>Sin resultados</span>
@@ -117,7 +149,7 @@ export default async function PedidosPage({
       {result.totalPages > 1 && (
         <Pagination filters={filters} totalPages={result.totalPages} />
       )}
-    </div>
+    </>
   );
 }
 

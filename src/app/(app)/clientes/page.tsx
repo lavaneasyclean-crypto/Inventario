@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import { EsqueletoLista } from "@/components/esqueletos";
 import { Phone, MapPin, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { searchClientes } from "@/lib/data/clientes";
@@ -13,7 +15,6 @@ export default async function ClientesPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  const resultados = await searchClientes(q);
 
   return (
     <div className="p-4 sm:p-6">
@@ -35,6 +36,21 @@ export default async function ClientesPage({
         </Button>
       </form>
 
+      {/* La `key` lleva el termino: al cambiarlo el limite se remonta y vuelve
+          a mostrar el esqueleto. Sin eso, tipear dejaba la lista vieja quieta
+          hasta que llegaba la nueva, que se siente como que no responde. */}
+      <Suspense key={q} fallback={<EsqueletoLista filas={6} />}>
+        <Resultados q={q} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function Resultados({ q }: { q: string }) {
+  const resultados = await searchClientes(q);
+
+  return (
+    <>
       {q && resultados.length === 0 ? (
         <div className="rounded-xl border bg-background p-12 text-center">
           <p className="text-base font-medium">Sin resultados para “{q}”</p>
@@ -89,6 +105,6 @@ export default async function ClientesPage({
           Buscá arriba para filtrar.
         </p>
       )}
-    </div>
+    </>
   );
 }
