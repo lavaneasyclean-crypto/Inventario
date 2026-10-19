@@ -64,6 +64,8 @@ function guia(
     detalle: null,
     anulado: false,
     express,
+    fecha_entrega: null,
+    fecha_pago: null,
     created_at: "",
     updated_at: "",
   };

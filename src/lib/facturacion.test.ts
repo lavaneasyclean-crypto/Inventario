@@ -17,6 +17,8 @@ const BASE_PEDIDO: PedidoEmpresa = {
   detalle: null,
   anulado: false,
   express: false,
+  fecha_entrega: null,
+  fecha_pago: null,
   created_at: "",
   updated_at: "",
 };

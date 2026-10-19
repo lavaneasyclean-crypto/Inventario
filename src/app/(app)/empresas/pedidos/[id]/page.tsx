@@ -4,8 +4,11 @@ import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
 import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
+import { createClient } from "@/lib/supabase/server";
+import { hoyEnChile } from "@/lib/fecha";
 import { formatCLP, formatDate } from "@/lib/format";
 import { AccionesPedidoEmpresa } from "./acciones-pedido-empresa";
+import { FechasGuia } from "./fechas-guia";
 import { Printer } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,6 +40,17 @@ export default async function PedidoEmpresaDetallePage({
   const totalImporte = items.reduce((s, it) => s + (it.importe ?? 0), 0);
   const algunSinPrecio = items.some((it) => it.importe === null);
 
+  const supabase = await createClient();
+  const { data: cobertura } = await supabase
+    .from("facturas_guias")
+    .select("factura_id, facturas(id, folio)")
+    .eq("pedido_empresa_id", pedido.id);
+
+  type Cobertura = { facturas: { id: number; folio: string | null } | null };
+  const facturas = ((cobertura ?? []) as unknown as Cobertura[])
+    .map((c) => c.facturas)
+    .filter((f): f is { id: number; folio: string | null } => f !== null);
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
@@ -60,6 +74,14 @@ export default async function PedidoEmpresaDetallePage({
           {formatDate(pedido.fecha)}
         </p>
       </header>
+
+      <FechasGuia
+        id={pedido.id}
+        fechaEntrega={pedido.fecha_entrega}
+        fechaPago={pedido.fecha_pago}
+        hoy={hoyEnChile()}
+        facturas={facturas}
+      />
 
       {empresa && (
         <section className="mb-6 rounded-xl border bg-background p-4">

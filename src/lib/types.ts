@@ -125,6 +125,15 @@ export interface PedidoEmpresa {
   anulado: boolean;
   /** Se lavo y devolvio apurada: paga el recargo de la empresa. */
   express: boolean;
+  /** Cuando se devolvio la ropa. NULL = todavia no se entrego. */
+  fecha_entrega: string | null;
+  /**
+   * Cuando se pago esta guia. NULL = sin pagar.
+   *
+   * Para las empresas que se facturan a fin de mes el pago real vive en la
+   * factura, con sus abonos: esto es para las que pagan guia por guia.
+   */
+  fecha_pago: string | null;
   created_at: string;
   updated_at: string;
 }

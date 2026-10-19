@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
+import { mediodiaChile } from "@/lib/fecha";
 
 export type PedidoEmpresaActionResult =
   | { ok: true }
@@ -189,5 +190,60 @@ export async function actualizarPedidoEmpresa(
     return { ok: true };
   } catch (err) {
     return fallo("actualizarPedidoEmpresa", step, err);
+  }
+}
+
+/** "2026-10-19" o null; lo que manda un <input type="date"> vacio es "". */
+const FECHA_O_NULL = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha con formato inválido")
+  .nullable()
+  .or(z.literal("").transform(() => null));
+
+/**
+ * Marca cuando se devolvió la ropa, o lo borra.
+ *
+ * Se guarda al mediodía de Chile y no a medianoche: una fecha guardada a las
+ * 00:00 locales se lee como el día anterior en cualquier zona al este, y
+ * entonces el respaldo dice un día distinto al del papel.
+ */
+export async function marcarEntregaGuia(
+  id: number,
+  fecha: string | null,
+): Promise<PedidoEmpresaActionResult> {
+  return guardarFecha("marcarEntregaGuia", id, "fecha_entrega", fecha);
+}
+
+export async function marcarPagoGuia(
+  id: number,
+  fecha: string | null,
+): Promise<PedidoEmpresaActionResult> {
+  return guardarFecha("marcarPagoGuia", id, "fecha_pago", fecha);
+}
+
+async function guardarFecha(
+  contexto: string,
+  id: number,
+  columna: "fecha_entrega" | "fecha_pago",
+  fecha: string | null,
+): Promise<PedidoEmpresaActionResult> {
+  try {
+    const parsed = FECHA_O_NULL.safeParse(fecha ?? "");
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message ?? "Fecha inválida" };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("pedidos_empresa")
+      .update({ [columna]: parsed.data ? mediodiaChile(parsed.data) : null })
+      .eq("id", id);
+    if (error) return fallo(contexto, columna, error);
+
+    revalidatePath(`/empresas/pedidos/${id}`);
+    revalidatePath("/empresas");
+    return { ok: true };
+  } catch (err) {
+    return fallo(contexto, columna, err);
   }
 }

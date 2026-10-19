@@ -38,6 +38,7 @@ Todas son idempotentes, así que re-ejecutarlas no rompe nada.
 | `0016_proveedores.sql` | Tabla `proveedores` (RUT, contacto y datos de transferencia) y `gastos.proveedor_id`: el proveedor deja de ser texto suelto |
 | `0017_roles.sql` | Roles `admin` / `ventas` en `perfiles` y RLS: solo los admins leen facturas, gastos, proveedores y auditoría |
 | `0018_clientes_resumen.sql` | Vista `clientes_resumen` con el conteo de pedidos y la fecha del último: el listado deja de bajar todos los pedidos para contarlos |
+| `0019_guias_fechas.sql` | `fecha_entrega` y `fecha_pago` en `pedidos_empresa`: cuándo se devolvió la ropa y cuándo se pagó esa guia |
 
 ⚠️ **De la `0006` en adelante hay que aplicarlas antes de desplegar el código
 que las usa.** La app crea los pedidos, los productos de
