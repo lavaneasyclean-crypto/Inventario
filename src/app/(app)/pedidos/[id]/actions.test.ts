@@ -13,6 +13,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
+  actualizarPedido,
   anularPedido,
   marcarEnProceso,
   marcarEntregado,
@@ -176,5 +177,132 @@ describe("errores que antes pasaban desapercibidos", () => {
     expect(await marcarListo(form({ id: "0" }))).toMatchObject({ ok: false });
     expect(await marcarListo(form({ id: "-3" }))).toMatchObject({ ok: false });
     expect(fake.ultima("pedidos", "update")).toBeUndefined();
+  });
+});
+
+describe("actualizarPedido", () => {
+  const itemBase = {
+    producto_id: "SC014",
+    nombre: "Bermuda",
+    tipo_servicio: "lavado" as const,
+    unidad_cobro: "unidad" as const,
+    ancho: null,
+    largo: null,
+    precio_unidad: 2500,
+    cantidad: 2,
+    detalle: null,
+  };
+
+  const entrada = {
+    fecha_entrega: "2026-10-25",
+    notas: "Sin suavizante",
+    items: [itemBase],
+  };
+
+  function montarOk(extra: Record<string, RespuestaFake> = {}) {
+    return montar({
+      "pedidos.select": { data: { estado: "recibido" } },
+      "pedidos.update": { data: null },
+      "pedidos_items.delete": { data: null },
+      "pedidos_items.insert": { data: null },
+      ...extra,
+    });
+  }
+
+  it("reemplaza los items y calcula el importe de cada linea", async () => {
+    const fake = montarOk();
+    const res = await actualizarPedido(13544, entrada);
+
+    expect(res).toEqual({ ok: true });
+    // Primero borra, despues inserta: las lineas no tienen clave natural.
+    expect(fake.ultima("pedidos_items", "delete")).toBeDefined();
+    const filas = fake.ultima("pedidos_items", "insert")?.payload as Record<
+      string,
+      unknown
+    >[];
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({
+      pedido_id: 13544,
+      producto_nombre: "Bermuda",
+      cantidad: 2,
+      importe: 5000,
+    });
+  });
+
+  it("no escribe total_venta: lo recalcula el trigger de la base", async () => {
+    const fake = montarOk();
+    await actualizarPedido(13544, entrada);
+
+    const payload = fake.ultima("pedidos", "update")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(payload).toEqual({
+      fecha_entrega: "2026-10-25",
+      notas: "Sin suavizante",
+    });
+  });
+
+  it("calcula por metro cuadrado cuando corresponde", async () => {
+    const fake = montarOk();
+    await actualizarPedido(13544, {
+      ...entrada,
+      items: [
+        {
+          ...itemBase,
+          nombre: "Alfombra",
+          unidad_cobro: "m2",
+          precio_unidad: 10000,
+          cantidad: 1,
+          ancho: 1.4,
+          largo: 2.1,
+        },
+      ],
+    });
+
+    const filas = fake.ultima("pedidos_items", "insert")?.payload as Record<
+      string,
+      unknown
+    >[];
+    // 1,40 x 2,10 = 2,94 m2, que se cobran como 3 m2: la medida se redondea
+    // hacia arriba al medio metro (redondearMedida). 3 x $10.000.
+    expect(filas[0].importe).toBe(30000);
+  });
+
+  it("se niega si falta la medida, antes de borrar nada", async () => {
+    const fake = montarOk();
+    const res = await actualizarPedido(13544, {
+      ...entrada,
+      items: [{ ...itemBase, nombre: "Alfombra", unidad_cobro: "m2", ancho: null }],
+    });
+
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/medida/i);
+    // Lo importante: no alcanzo a borrar las lineas que ya estaban.
+    expect(fake.ultima("pedidos_items", "delete")).toBeUndefined();
+  });
+
+  it("no deja editar un pedido anulado", async () => {
+    const fake = montarOk({ "pedidos.select": { data: { estado: "anulado" } } });
+    const res = await actualizarPedido(13544, entrada);
+
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/anulado/i);
+    expect(fake.ultima("pedidos_items", "delete")).toBeUndefined();
+  });
+
+  it("avisa si el pedido no existe", async () => {
+    montarOk({ "pedidos.select": { data: null } });
+    const res = await actualizarPedido(99999, entrada);
+
+    expect(res).toEqual({ ok: false, error: "El pedido no existe." });
+  });
+
+  it("exige al menos un item", async () => {
+    const fake = montarOk();
+    const res = await actualizarPedido(13544, { ...entrada, items: [] });
+
+    expect(res.ok).toBe(false);
+    expect(fake.llamadas).toHaveLength(0);
   });
 });
