@@ -156,12 +156,23 @@ export default async function PedidoEmpresaDetallePage({
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           Acciones
         </h2>
-        <div className="mb-3">
+        <div className="mb-3 flex flex-wrap gap-2">
           <Link
             href={`/empresas/pedidos/${pedido.id}/imprimir`}
             className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
           >
             <Printer className="size-5" /> Imprimir guía
+          </Link>
+          {/* La valorizada va aparte: la guía sin precios es la que recibe
+              quien cuenta la ropa, y esta es la que recibe quien paga. */}
+          <Link
+            href={`/empresas/pedidos/${pedido.id}/imprimir?valorizada=1`}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-11 px-4 text-base",
+            )}
+          >
+            <Printer className="size-5" /> Con precios e IVA
           </Link>
         </div>
         <AccionesPedidoEmpresa
