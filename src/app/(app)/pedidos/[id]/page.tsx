@@ -24,6 +24,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AccionesPedido } from "./acciones-pedido";
 import { PagosPedido } from "./pagos-pedido";
+import { HistorialDe } from "@/components/historial-de";
 
 export const dynamic = "force-dynamic";
 
@@ -203,6 +204,8 @@ export default async function PedidoDetallePage({
           </dl>
         </section>
       )}
+
+      <HistorialDe entidad="pedidos" id={pedido.id} />
 
       {/* Acciones */}
       <PagosPedido

@@ -149,6 +149,38 @@ update perfiles set rol = 'admin' where email = 'quien@ejemplo.cl';
 
 Y para sacarle el acceso, lo mismo con `'ventas'`.
 
+## Quién cambió qué
+
+Desde octubre 2026 toda escritura queda registrada: quién, cuándo, y de qué
+valor a qué valor. Se ve en **Historial**, en el menú, y solo lo ven los
+admins.
+
+El registro lo escribe la base, no la app. Eso importa por dos razones: no se
+puede olvidar al escribir una pantalla nueva, y también quedan los cambios que
+hace un script por fuera de la app (ahí sale "script / ETL" en vez de un
+correo, porque no hay persona a la que atribuirlo).
+
+Se guarda **solo lo que cambió**, no la fila entera. Un cambio de estado deja
+una línea que dice "estado: recibido → entregado" y nada más.
+
+### Qué no queda registrado
+
+- **Las líneas de un pedido o una guía.** Guardar una guía reemplaza todas sus
+  líneas: en Termomin son hasta 160, y auditarlas una por una dejaría 320
+  registros por cada vez que alguien aprieta guardar. Sí queda el cambio de la
+  cabecera (fechas, estado, anulado, express).
+- **Lo que pasó antes de instalarlo.** El historial arranca vacío y se llena
+  de ahí en adelante.
+- **Un guardado que no cambió nada.** Abrir un formulario y guardarlo sin
+  tocar nada no deja rastro, a propósito.
+
+### Si la auditoría falla
+
+La operación real se guarda igual. Está probado: con la tabla de auditoría
+rota a propósito, la guía se escribe completa y lo único que se pierde es el
+registro de ese cambio. Al revés —que no se pueda recibir ropa porque el
+historial está caído— sería mucho peor.
+
 ## Cobros y gastos
 
 En **Finanzas**:

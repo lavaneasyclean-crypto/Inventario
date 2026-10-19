@@ -12,6 +12,7 @@ import { Printer } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HojaDevolucion } from "./hoja-devolucion";
+import { HistorialDe } from "@/components/historial-de";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +156,8 @@ export default async function PedidoEmpresaDetallePage({
       {empresa?.usa_bolsas && (
         <HojaDevolucion pedidoId={pedido.id} items={items} bolsas={bolsas} />
       )}
+
+      <HistorialDe entidad="pedidos_empresa" id={pedido.id} />
 
       <section className="rounded-xl border bg-background p-4">
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
