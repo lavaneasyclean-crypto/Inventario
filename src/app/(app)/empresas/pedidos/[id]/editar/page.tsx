@@ -1,11 +1,8 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
+import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { celdasDesdeItems } from "@/lib/bolsas";
 import { fechaEnChile } from "@/lib/fecha";
 import { GrillaBolsas } from "../../grilla-bolsas";
-import { ordenarProductos } from "@/lib/orden-productos";
-import type { ProductoEmpresaAdquirido } from "@/lib/types";
 import { BackButton } from "@/components/back-button";
 import { EditarPedidoEmpresaForm } from "./form";
 
@@ -23,37 +20,15 @@ export default async function EditarPedidoEmpresaPage({
   const data = await getPedidoEmpresaDetalle(id);
   if (!data || !data.empresa) notFound();
 
-  // Productos disponibles para esta empresa
-  const supabase = await createClient();
-  const { data: ep } = await supabase
-    .from("empresa_productos")
-    .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
-    .eq("rut_empresa", data.empresa.rut);
-
-  type Row = {
-    producto_empresa_id: string;
-    precio: number | null;
-    orden: number | null;
-    en_grilla: boolean;
-    productos_empresa: { nombre: string; activo: boolean } | null;
-  };
-  const productos: ProductoEmpresaAdquirido[] = ordenarProductos(
-    ((ep ?? []) as unknown as Row[])
-      .filter((r) => r.productos_empresa?.activo !== false)
-      .map((r) => ({
-        producto_empresa_id: r.producto_empresa_id,
-        nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
-        precio: r.precio,
-        orden: r.orden,
-        en_grilla: r.en_grilla ?? true,
-      })),
-  );
+  const productos = data.productos;
 
   // Las empresas que trabajan por bolsas editan en la misma grilla con que
   // cargaron: el formulario de items sueltos no deja ver de que bolsa es cada
   // linea, que es justo lo que hay que corregir cuando algo se tipeo mal.
   if (data.empresa.usa_bolsas) {
-    const bolsas = await getBolsasDeEmpresa(data.empresa.rut);
+    // Para editar solo sirven las activas: una bolsa dada de baja no
+    // deberia poder recibir ropa nueva.
+    const bolsas = data.bolsas.filter((b) => b.activo);
     const celdas = celdasDesdeItems(data.items);
     // Lo que no vino en una bolsa —el traslado— va en su propia seccion.
     const otros: Record<string, string> = {};

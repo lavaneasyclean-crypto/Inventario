@@ -139,39 +139,178 @@ export async function getEmpresaDetalle(
   };
 }
 
-export async function getPedidoEmpresaDetalle(id: number): Promise<{
+/**
+ * Todo lo que necesita una guía, en un solo viaje.
+ *
+ * Antes eran cuatro tandas encadenadas: la guía, después sus líneas y la
+ * empresa, después las bolsas de esa empresa, después las facturas que la
+ * cubren. Cada tanda tiene que esperar a la anterior porque necesita el RUT
+ * que vino en la de antes.
+ *
+ * Contra esta base una consulta tarda unos 230 ms cuando está tranquila, pero
+ * una de cada cinco se va a varios segundos. Con cuatro tandas encadenadas la
+ * probabilidad de comerse al menos un pozo es cerca del 60%: por eso entrar a
+ * una guía se sentía lento "a veces" y no siempre.
+ *
+ * PostgREST sabe seguir las claves foráneas solo. Pidiendo los anidados en el
+ * mismo select, Postgres arma todo de una y vuelve un viaje en vez de cuatro.
+ *
+ * `bolsas` vienen todas, activas e inactivas: la hoja de devolución necesita
+ * las de baja para ponerle nombre a una bolsa vieja, y el editor se queda solo
+ * con las activas. Filtrar en JS no cuesta nada y evita pedirlas dos veces.
+ */
+export interface PedidoEmpresaDetalle {
   pedido: PedidoEmpresa;
   empresa: ClienteEmpresa | null;
   items: PedidoEmpresaItem[];
+  bolsas: EmpresaBolsa[];
+  productos: ProductoEmpresaAdquirido[];
+  facturas: { id: number; folio: string | null }[];
+}
+
+/** La forma cruda que devuelve el select con anidados. */
+type FilaAnidada = PedidoEmpresa & {
+  pedidos_empresa_items: PedidoEmpresaItem[] | null;
+  clientes_empresa:
+    | (ClienteEmpresa & {
+        empresa_bolsas: EmpresaBolsa[] | null;
+        empresa_productos:
+          | {
+              producto_empresa_id: string;
+              precio: number | null;
+              orden: number | null;
+              en_grilla: boolean | null;
+              productos_empresa: { nombre: string; activo: boolean } | null;
+            }[]
+          | null;
+      })
+    | null;
+  facturas_guias:
+    | { factura_id: number; facturas: { id: number; folio: string | null } | null }[]
+    | null;
+};
+
+const SELECT_DETALLE =
+  "*," +
+  "pedidos_empresa_items(*)," +
+  "clientes_empresa(*," +
+  "empresa_bolsas(*)," +
+  "empresa_productos(producto_empresa_id,precio,orden,en_grilla," +
+  "productos_empresa(nombre,activo))" +
+  ")," +
+  "facturas_guias(factura_id,facturas(id,folio))";
+
+export async function getPedidoEmpresaDetalle(
+  id: number,
+): Promise<PedidoEmpresaDetalle | null> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("pedidos_empresa")
+    .select(SELECT_DETALLE)
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return null;
+
+  const fila = data as unknown as FilaAnidada;
+  const {
+    pedidos_empresa_items: itemsCrudos,
+    clientes_empresa: empresaCruda,
+    facturas_guias: cobertura,
+    ...pedido
+  } = fila;
+
+  const { empresa_bolsas, empresa_productos, ...empresa } = empresaCruda ?? {
+    empresa_bolsas: null,
+    empresa_productos: null,
+  };
+
+  // Las líneas salen en el orden en que se cargaron: es el orden de la
+  // planilla de papel y el que espera quien revisa la guía contra la ropa.
+  const items = [...(itemsCrudos ?? [])].sort((a, b) => a.id - b.id);
+
+  const productos = ordenarProductos(
+    (empresa_productos ?? [])
+      .filter((r) => r.productos_empresa?.activo !== false)
+      .map((r) => ({
+        producto_empresa_id: r.producto_empresa_id,
+        nombre: r.productos_empresa?.nombre ?? "(producto eliminado)",
+        precio: r.precio,
+        orden: r.orden,
+        en_grilla: r.en_grilla ?? true,
+      })),
+  );
+
+  return {
+    pedido: pedido as unknown as PedidoEmpresa,
+    empresa: empresaCruda ? (empresa as unknown as ClienteEmpresa) : null,
+    items,
+    bolsas: ordenarBolsas(empresa_bolsas ?? []),
+    productos,
+    // RLS ya filtró acá: a quien no es admin le vuelve vacío, que es lo que
+    // corresponde. La pantalla solo deja de mostrar los chips de factura.
+    facturas: (cobertura ?? [])
+      .map((c) => c.facturas)
+      .filter((f): f is { id: number; folio: string | null } => f !== null),
+  };
+}
+
+/**
+ * La empresa con lo que hace falta para abrirle una guía nueva.
+ *
+ * Mismo criterio que `getPedidoEmpresaDetalle`: antes eran dos tandas —la
+ * empresa, y recién después sus bolsas y sus precios, que necesitan el RUT—
+ * y ahora es una sola. Los chicos de Termomin abren esta pantalla varias
+ * veces al día desde el celular, donde cada viaje de más se nota.
+ *
+ * Las bolsas vuelven solo activas: una dada de baja no debería recibir ropa.
+ */
+export async function getEmpresaParaGuiaNueva(rut: string): Promise<{
+  empresa: ClienteEmpresa;
+  bolsas: EmpresaBolsa[];
+  productos: ProductoEmpresaAdquirido[];
 } | null> {
   const supabase = await createClient();
 
-  const { data: pedido } = await supabase
-    .from("pedidos_empresa")
-    .select("*")
-    .eq("id", id)
+  const { data } = await supabase
+    .from("clientes_empresa")
+    .select(
+      "*,empresa_bolsas(*)," +
+        "empresa_productos(producto_empresa_id,precio,orden,en_grilla," +
+        "productos_empresa(nombre,activo))",
+    )
+    .eq("rut", rut)
     .maybeSingle();
-  if (!pedido) return null;
+  if (!data) return null;
 
-  const [itemsRes, empresaRes] = await Promise.all([
-    supabase
-      .from("pedidos_empresa_items")
-      .select("*")
-      .eq("pedido_empresa_id", id)
-      .order("id", { ascending: true }),
-    pedido.rut_empresa
-      ? supabase
-          .from("clientes_empresa")
-          .select("*")
-          .eq("rut", pedido.rut_empresa)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const fila = data as unknown as ClienteEmpresa & {
+    empresa_bolsas: EmpresaBolsa[] | null;
+    empresa_productos:
+      | {
+          producto_empresa_id: string;
+          precio: number | null;
+          orden: number | null;
+          en_grilla: boolean | null;
+          productos_empresa: { nombre: string; activo: boolean } | null;
+        }[]
+      | null;
+  };
+  const { empresa_bolsas, empresa_productos, ...empresa } = fila;
 
   return {
-    pedido: pedido as PedidoEmpresa,
-    empresa: (empresaRes.data as ClienteEmpresa | null) ?? null,
-    items: (itemsRes.data ?? []) as PedidoEmpresaItem[],
+    empresa: empresa as ClienteEmpresa,
+    bolsas: ordenarBolsas((empresa_bolsas ?? []).filter((b) => b.activo)),
+    productos: ordenarProductos(
+      (empresa_productos ?? [])
+        .filter((r) => r.productos_empresa?.activo !== false)
+        .map((r) => ({
+          producto_empresa_id: r.producto_empresa_id,
+          nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
+          precio: r.precio,
+          orden: r.orden,
+          en_grilla: r.en_grilla ?? true,
+        })),
+    ),
   };
 }
 

@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "@/components/back-button";
-import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
-import { createClient } from "@/lib/supabase/server";
+import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { hoyEnChile } from "@/lib/fecha";
 import { formatCLP, formatDate } from "@/lib/format";
 import { AccionesPedidoEmpresa } from "./acciones-pedido-empresa";
@@ -28,28 +27,11 @@ export default async function PedidoEmpresaDetallePage({
   const data = await getPedidoEmpresaDetalle(id);
   if (!data) notFound();
 
-  const { pedido, empresa, items } = data;
+  const { pedido, empresa, items, bolsas, facturas } = data;
 
-  // El padron solo hace falta para ponerle nombre a cada bolsa en la hoja de
-  // devolucion; en las empresas que no trabajan asi ni se consulta.
-  const bolsas =
-    empresa?.usa_bolsas
-      ? await getBolsasDeEmpresa(empresa.rut, { incluirInactivas: true })
-      : [];
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
   const totalImporte = items.reduce((s, it) => s + (it.importe ?? 0), 0);
   const algunSinPrecio = items.some((it) => it.importe === null);
-
-  const supabase = await createClient();
-  const { data: cobertura } = await supabase
-    .from("facturas_guias")
-    .select("factura_id, facturas(id, folio)")
-    .eq("pedido_empresa_id", pedido.id);
-
-  type Cobertura = { facturas: { id: number; folio: string | null } | null };
-  const facturas = ((cobertura ?? []) as unknown as Cobertura[])
-    .map((c) => c.facturas)
-    .filter((f): f is { id: number; folio: string | null } => f !== null);
 
   return (
     <div className="p-4 sm:p-6">

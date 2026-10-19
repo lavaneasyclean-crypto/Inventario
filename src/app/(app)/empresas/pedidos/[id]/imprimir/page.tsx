@@ -13,7 +13,7 @@ import {
   TicketSeccion,
 } from "@/components/ticket";
 import { agruparPorBolsa } from "@/lib/bolsas";
-import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
+import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { IVA_RATE } from "@/lib/facturacion";
 import { ahoraEnChile } from "@/lib/fecha";
 import { formatCLP, formatFechaCorta } from "@/lib/format";
@@ -65,10 +65,7 @@ export default async function ImprimirPedidoEmpresaPage({
   const sinPrecio = items.filter((it) => it.precio_unidad === null);
 
   const porBolsa = empresa?.usa_bolsas
-    ? agruparPorBolsa(
-        items,
-        await getBolsasDeEmpresa(empresa.rut, { incluirInactivas: true }),
-      )
+    ? agruparPorBolsa(items, data.bolsas)
     : null;
 
   return (

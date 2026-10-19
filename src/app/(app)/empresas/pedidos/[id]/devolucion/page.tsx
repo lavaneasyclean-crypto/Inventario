@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { getBolsasDeEmpresa, getPedidoEmpresaDetalle } from "@/lib/data/empresas";
+import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
 import { agruparPorBolsa } from "@/lib/bolsas";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -29,10 +29,10 @@ export default async function DevolucionPage({
   const data = await getPedidoEmpresaDetalle(id);
   if (!data) notFound();
 
-  const bolsas = data.empresa
-    ? await getBolsasDeEmpresa(data.empresa.rut, { incluirInactivas: true })
-    : [];
-  const { bolsas: contenido, sinBolsa } = agruparPorBolsa(data.items, bolsas);
+  const { bolsas: contenido, sinBolsa } = agruparPorBolsa(
+    data.items,
+    data.bolsas,
+  );
 
   const totalPrendas = contenido.reduce((s, b) => s + b.totalPrendas, 0);
 

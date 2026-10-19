@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getBolsasDeEmpresa, searchEmpresas } from "@/lib/data/empresas";
+import { getEmpresaParaGuiaNueva, searchEmpresas } from "@/lib/data/empresas";
 import { ordenarProductos } from "@/lib/orden-productos";
 import type {
   ClienteEmpresa,
@@ -18,52 +18,19 @@ export default async function NuevoPedidoEmpresaPage({
 }) {
   const { rut } = await searchParams;
 
-  let empresaInicial: ClienteEmpresa | null = null;
-  if (rut) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("clientes_empresa")
-      .select("*")
-      .eq("rut", decodeURIComponent(rut))
-      .maybeSingle();
-    empresaInicial = (data as ClienteEmpresa) ?? null;
-  }
+  // Todo lo de la empresa —ficha, bolsas y precios— viene en un solo viaje.
+  // Antes eran dos tandas encadenadas porque las bolsas necesitan el RUT que
+  // traia la primera.
+  const inicial = rut
+    ? await getEmpresaParaGuiaNueva(decodeURIComponent(rut))
+    : null;
+  const empresaInicial: ClienteEmpresa | null = inicial?.empresa ?? null;
 
   // Las empresas que trabajan por bolsa cargan la guia en una grilla y no con
   // el buscador de items: son 32 filas x 7 columnas y agregarlas de a una es
-  // inviable. Se resuelve antes de armar el resto para no cargar de gusto los
-  // productos de todas las empresas.
-  if (empresaInicial?.usa_bolsas) {
-    const [bolsas, productos] = await Promise.all([
-      getBolsasDeEmpresa(empresaInicial.rut),
-      (async () => {
-        const supabase = await createClient();
-        const { data } = await supabase
-          .from("empresa_productos")
-          .select("producto_empresa_id, precio, orden, en_grilla, productos_empresa(nombre, activo)")
-          .eq("rut_empresa", empresaInicial.rut);
-        type Fila = {
-          producto_empresa_id: string;
-          precio: number | null;
-          orden: number | null;
-          en_grilla: boolean;
-          productos_empresa: { nombre: string; activo: boolean } | null;
-        };
-        // El orden de las columnas de la grilla sale de aca: tiene que seguir
-        // el de la planilla de papel que se esta copiando.
-        return ordenarProductos(
-          ((data ?? []) as unknown as Fila[])
-            .filter((r) => r.productos_empresa?.activo !== false)
-            .map((r) => ({
-              producto_empresa_id: r.producto_empresa_id,
-              nombre: r.productos_empresa?.nombre ?? "(sin nombre)",
-              precio: r.precio,
-              orden: r.orden,
-              en_grilla: r.en_grilla ?? true,
-            })),
-        );
-      })(),
-    ]);
+  // inviable.
+  if (inicial && empresaInicial?.usa_bolsas) {
+    const { bolsas, productos } = inicial;
 
     return (
       <div className="p-4 sm:p-6">
