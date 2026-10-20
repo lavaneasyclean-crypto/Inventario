@@ -290,7 +290,8 @@ function EmpresaDialog({
               onChange={(e) => setActivo(e.target.checked)}
               className="size-4"
             />
-            Activa (disponible al crear pedidos empresa)
+            Activa (si se destilda, deja de aparecer en la lista y no se le
+            pueden abrir guías nuevas; las viejas quedan)
           </label>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

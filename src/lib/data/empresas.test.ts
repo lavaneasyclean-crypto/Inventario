@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("server-only", () => ({}));
 
-import { getPedidoEmpresaDetalle } from "./empresas";
+import { getPedidoEmpresaDetalle, searchEmpresas } from "./empresas";
 
 /**
  * La forma cruda que devuelve PostgREST con los anidados.
@@ -135,5 +135,67 @@ describe("getPedidoEmpresaDetalle — todo en un solo viaje", () => {
     expect(d!.bolsas).toEqual([]);
     expect(d!.productos).toEqual([]);
     expect(d!.facturas).toEqual([]);
+  });
+});
+
+describe("searchEmpresas — empresas desactivadas", () => {
+  function montarEmpresas(): SupabaseFake {
+    const fake = crearSupabaseFake({
+      "clientes_empresa.select": { data: [] },
+      "pedidos_empresa.select": { data: [] },
+    });
+    estado.supabase = fake;
+    return fake;
+  }
+
+  it("por defecto pide solo las activas", async () => {
+    const fake = montarEmpresas();
+    await searchEmpresas("");
+
+    const filtros = fake.ultima("clientes_empresa", "select")?.filtros ?? [];
+    expect(filtros).toContainEqual({ metodo: "eq", args: ["activo", true] });
+  });
+
+  it("si se piden las inactivas, no filtra", async () => {
+    // Alguien tiene que poder encontrarlas para volver a activarlas.
+    const fake = montarEmpresas();
+    await searchEmpresas("", { incluirInactivas: true });
+
+    const filtros = fake.ultima("clientes_empresa", "select")?.filtros ?? [];
+    expect(filtros).not.toContainEqual({ metodo: "eq", args: ["activo", true] });
+  });
+
+  it("el filtro convive con la busqueda por texto", async () => {
+    const fake = montarEmpresas();
+    await searchEmpresas("hotel");
+
+    const filtros = fake.ultima("clientes_empresa", "select")?.filtros ?? [];
+    expect(filtros).toContainEqual({ metodo: "eq", args: ["activo", true] });
+    expect(filtros.some((f) => f.metodo === "or")).toBe(true);
+  });
+});
+
+describe("getPedidoEmpresaDetalle — guia de una empresa desactivada", () => {
+  it("se sigue viendo entera", async () => {
+    // Desactivar saca ruido de las listas, no esconde lo que ya pasó. Si la
+    // guía vieja dejara de traer su empresa, quedaría sin nombre: peor que
+    // el problema que se queria resolver.
+    const fake = crearSupabaseFake({
+      "pedidos_empresa.select": {
+        data: {
+          ...FILA_CRUDA,
+          clientes_empresa: {
+            ...FILA_CRUDA.clientes_empresa,
+            activo: false,
+          },
+        },
+      },
+    });
+    estado.supabase = fake;
+
+    const d = await getPedidoEmpresaDetalle(1633);
+    expect(d!.empresa!.nombre).toBe("Termochemical Latinoamerica S.A.");
+    expect(d!.empresa!.activo).toBe(false);
+    expect(d!.items).toHaveLength(2);
   });
 });

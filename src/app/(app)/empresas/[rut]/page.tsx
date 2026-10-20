@@ -117,13 +117,26 @@ export default async function EmpresaDetallePage({
         </div>
       </header>
 
+      {!empresa.activo && (
+        <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+          <strong>Empresa inactiva.</strong> No aparece en la lista ni se puede
+          elegir para una guía nueva. Sus guías viejas siguen acá, enteras. Para
+          volver a usarla, destildá &ldquo;inactiva&rdquo; en Editar.
+        </div>
+      )}
+
       <div className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href={`/empresas/pedidos/nuevo?rut=${encodeURIComponent(empresa.rut)}`}
-          className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
-        >
-          <Plus className="size-5" /> Nuevo pedido
-        </Link>
+        {/* A una empresa inactiva no se le abren guías nuevas. Las viejas se
+            siguen viendo y editando: desactivar saca ruido de las listas, no
+            esconde lo que ya pasó. */}
+        {empresa.activo && (
+          <Link
+            href={`/empresas/pedidos/nuevo?rut=${encodeURIComponent(empresa.rut)}`}
+            className={cn(buttonVariants({ size: "lg" }), "h-11 px-4 text-base")}
+          >
+            <Plus className="size-5" /> Nuevo pedido
+          </Link>
+        )}
         {/* Facturar y ver facturas son finanzas: ventas no los ve, y si
             llegara por la URL la pantalla devuelve 404 igual. */}
         {admin && (

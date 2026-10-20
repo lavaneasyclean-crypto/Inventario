@@ -269,6 +269,29 @@ vuelve a facturarlo.
 
 Es idempotente: un folio ya registrado se saltea.
 
+## Desactivar una empresa
+
+Una empresa con la que no se trabaja más ensucia la lista y, peor, se puede
+elegir por error al abrir una guía. Se saca del medio destildando **Activa**
+en Editar.
+
+Desactivada:
+
+- no aparece en la lista de Empresas para quien no es admin;
+- no se puede elegir al abrir una guía nueva, **ni siquiera siendo admin** —si
+  hay que volver a trabajar con ella, se reactiva primero. Una sola regla es
+  más fácil de explicar que una con excepciones;
+- sus guías viejas **siguen enteras**, se ven y se editan igual, y entrar a la
+  ficha desde una de ellas funciona.
+
+Los admins la siguen viendo en la lista, marcada como *inactiva*, que es por
+donde se vuelve a activar.
+
+Desactivar **no esconde datos**: saca ruido de donde se elige. Por eso el
+filtro está en las consultas y no en RLS —si la base escondiera la empresa,
+sus guías viejas aparecerían sin nombre, que es peor que el problema que se
+quería resolver.
+
 ## Empresas que trabajan por bolsas
 
 Termomín y Termochemical no mandan un bulto de ropa: mandan **la bolsa de cada

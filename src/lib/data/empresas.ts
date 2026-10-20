@@ -21,7 +21,26 @@ export interface EmpresaResultado extends ClienteEmpresa {
   ultimo_pedido: string | null;
 }
 
-export async function searchEmpresas(query: string): Promise<EmpresaResultado[]> {
+/**
+ * Buscar empresas.
+ *
+ * Las inactivas no se muestran salvo que se pidan. Esa bandera existía desde
+ * el principio y el editor ya la escribía, pero no la leía nadie: se podía
+ * "desactivar" una empresa y seguía apareciendo en todos lados.
+ *
+ * La idea no es esconder datos sino sacar ruido de la lista: una empresa con
+ * la que no se trabaja más sigue estando en sus guías viejas, y entrar a
+ * verla desde ahí funciona igual. Lo que no se puede es elegirla para una
+ * guía nueva, que es donde alguien se confunde.
+ *
+ * Por eso el filtro va acá y no en RLS: si la base escondiera la empresa,
+ * sus guías viejas aparecerían sin nombre, que es peor que el problema que
+ * se quería resolver.
+ */
+export async function searchEmpresas(
+  query: string,
+  opciones: { incluirInactivas?: boolean } = {},
+): Promise<EmpresaResultado[]> {
   const supabase = await createClient();
   const q = query.trim();
 
@@ -29,6 +48,8 @@ export async function searchEmpresas(query: string): Promise<EmpresaResultado[]>
     .from("clientes_empresa")
     .select("*")
     .limit(SEARCH_LIMIT);
+
+  if (!opciones.incluirInactivas) baseQuery = baseQuery.eq("activo", true);
 
   if (q) {
     baseQuery = baseQuery.or(

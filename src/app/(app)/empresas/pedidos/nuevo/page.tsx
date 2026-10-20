@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaParaGuiaNueva, searchEmpresas } from "@/lib/data/empresas";
 import { ordenarProductos } from "@/lib/orden-productos";
@@ -24,6 +25,12 @@ export default async function NuevoPedidoEmpresaPage({
   const inicial = rut
     ? await getEmpresaParaGuiaNueva(decodeURIComponent(rut))
     : null;
+
+  // El botón de "nuevo pedido" no aparece en una empresa inactiva, pero la
+  // URL se puede escribir a mano o quedar en un favorito. Se corta acá, en el
+  // servidor, que es donde la regla vale de verdad.
+  if (inicial && !inicial.empresa.activo) notFound();
+
   const empresaInicial: ClienteEmpresa | null = inicial?.empresa ?? null;
 
   // Las empresas que trabajan por bolsa cargan la guia en una grilla y no con
@@ -55,6 +62,9 @@ export default async function NuevoPedidoEmpresaPage({
     );
   }
 
+  // A una empresa inactiva no se le abren guías nuevas, ni siquiera siendo
+  // admin: si hay que volver a trabajar con ella, se reactiva primero. Una
+  // sola regla es más fácil de explicar que una con excepciones.
   const empresas = await searchEmpresas("");
 
   // Cargo productos por empresa de TODAS las empresas. Es chico (10 empresas

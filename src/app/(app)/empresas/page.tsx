@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Phone, MapPin, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { searchEmpresas } from "@/lib/data/empresas";
+import { esAdmin } from "@/lib/data/perfil";
 import { formatDateShort } from "@/lib/format";
 import { NuevaEmpresaButton } from "./editor-empresa";
 import { Buscador } from "@/components/buscador";
@@ -14,7 +15,10 @@ export default async function EmpresasPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  const resultados = await searchEmpresas(q);
+  // Los admins ven también las inactivas, con su marca: alguien tiene que
+  // poder volver a activarlas.
+  const admin = await esAdmin();
+  const resultados = await searchEmpresas(q, { incluirInactivas: admin });
 
   return (
     <div className="p-4 sm:p-6">
@@ -52,7 +56,14 @@ export default async function EmpresasPage({
                 className="flex flex-col gap-2 rounded-lg border bg-background p-4 transition-colors hover:bg-accent"
               >
                 <div>
-                  <div className="font-medium">{e.nombre}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{e.nombre}</span>
+                    {!e.activo && (
+                      <span className="rounded border border-amber-500/40 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                        inactiva
+                      </span>
+                    )}
+                  </div>
                   {e.alias && e.alias !== e.nombre && (
                     <div className="text-xs text-muted-foreground">
                       Alias: {e.alias}
