@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCLP } from "@/lib/format";
 import { importeLinea } from "@/lib/medidas";
+import { tienePrecioLibre } from "@/lib/precio-libre";
 import type { Pedido, PedidoItem, Producto } from "@/lib/types";
 import {
   SelectorItems,
@@ -17,9 +18,19 @@ import {
 } from "../../nuevo/selector-items";
 import { actualizarPedido } from "../actions";
 
-/** Lo guardado se vuelve borrador: las medidas pasan a texto para poder tipear. */
-function aBorrador(it: PedidoItem): ItemDraft {
+/**
+ * Lo guardado se vuelve borrador: las medidas pasan a texto para poder tipear.
+ *
+ * `precio_libre` no está en la línea guardada —es una propiedad de la prenda,
+ * no del pedido— así que se vuelve a mirar en el catálogo. Sin esto, editar
+ * un pedido viejo con AA-Otro dejaba el precio congelado y había que borrar
+ * la línea y rehacerla.
+ */
+function aBorrador(it: PedidoItem, productos: Producto[]): ItemDraft {
+  const producto = productos.find((p) => p.id === it.producto_id);
   return {
+    precio_libre: tienePrecioLibre(producto),
+    precio_texto: it.precio_unidad ? String(Number(it.precio_unidad)) : "",
     key: `g${it.id}`,
     producto_id: it.producto_id ?? "",
     nombre: it.producto_nombre,
@@ -52,7 +63,7 @@ export function EditarPedidoForm({
 }) {
   const router = useRouter();
   const [items, setItems] = useState<ItemDraft[]>(
-    itemsGuardados.map(aBorrador),
+    itemsGuardados.map((it) => aBorrador(it, productos)),
   );
   const [fechaEntrega, setFechaEntrega] = useState(
     aDiaInput(pedido.fecha_entrega),

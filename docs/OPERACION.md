@@ -486,6 +486,31 @@ Hace UPSERT de lo que viene del Access y no toca nada más. Sobreviven los
 precios por empresa y la unidad de cobro de los productos, que no existen en
 el Access.
 
+## El comodín y el descuento
+
+Dos prendas del catálogo no tienen precio de lista y nunca lo van a tener:
+
+```
+AA001   AA-Otro     para lo que no está en la lista
+SC080   Descuento   el monto depende de por qué se descuenta
+```
+
+Las dos están cargadas con **precio 0**, y de ahí sale la regla: una prenda
+con precio 0 en el catálogo **pide el precio al agregarla al pedido**. El
+resto del catálogo sigue con su precio fijo y no se puede tocar desde el
+pedido.
+
+Se decidió por el precio y no por una lista de códigos a propósito: si mañana
+hace falta otro comodín, alcanza con crearlo en 0. Una lista de ids habría
+que acordarse de tocarla.
+
+El **descuento se escribe en negativo** —`-5000`— para que reste del total. La
+base lo contempla desde el primer día.
+
+Al editar un pedido viejo el campo sigue estando: `precio_libre` se vuelve a
+mirar en el catálogo, porque es una propiedad de la prenda y no de la línea
+guardada.
+
 ## Nombres de producto: el problema de fondo
 
 En el Access el nombre del producto es **texto libre** y no se valida contra el

@@ -13,6 +13,7 @@ import {
   medidasQueRequiere,
   type UnidadCobro,
 } from "@/lib/medidas";
+import { tienePrecioLibre } from "@/lib/precio-libre";
 import type { Producto } from "@/lib/types";
 import { TIPO_SERVICIO_LABELS } from "@/lib/types";
 
@@ -23,6 +24,18 @@ export interface ItemDraft {
   tipo_servicio: Producto["tipo_servicio"];
   unidad_cobro: UnidadCobro;
   precio_unidad: number;
+  /**
+   * El precio se escribe acá y no sale del catálogo. Es el caso de AA-Otro y
+   * de Descuento: ver lib/precio-libre.
+   */
+  precio_libre: boolean;
+  /**
+   * Lo que se va tipeando en el campo de precio, como texto y no como número.
+   * Mismo motivo que ancho y largo: mientras se escribe tiene que poder
+   * quedar vacío, y un descuento empieza por "-", que como número todavía no
+   * es nada y haría desaparecer el signo recién puesto.
+   */
+  precio_texto: string;
   /** Piezas. La medida de cada pieza va en ancho/largo. */
   cantidad: number;
   /** Se guardan como texto: es lo que la persona va tipeando. */
@@ -91,6 +104,8 @@ export function SelectorItems({
       tipo_servicio: p.tipo_servicio,
       unidad_cobro: p.unidad_cobro,
       precio_unidad: p.precio,
+      precio_libre: tienePrecioLibre(p),
+      precio_texto: p.precio ? String(p.precio) : "",
       cantidad: 1,
       ancho: "",
       largo: "",
@@ -184,9 +199,14 @@ export function SelectorItems({
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{it.nombre}</div>
                   <div className="text-xs text-muted-foreground">
-                    {TIPO_SERVICIO_LABELS[it.tipo_servicio]} ·{" "}
-                    {formatCLP(it.precio_unidad)}{" "}
-                    {UNIDAD_PRECIO_LABELS[it.unidad_cobro]}
+                    {TIPO_SERVICIO_LABELS[it.tipo_servicio]}
+                    {!it.precio_libre && (
+                      <>
+                        {" · "}
+                        {formatCLP(it.precio_unidad)}{" "}
+                        {UNIDAD_PRECIO_LABELS[it.unidad_cobro]}
+                      </>
+                    )}
                     {describirMedida(
                       it.unidad_cobro,
                       parseMedida(it.ancho),
@@ -213,6 +233,39 @@ export function SelectorItems({
                   <X className="size-4" />
                 </Button>
               </div>
+
+              {it.precio_libre && (
+                <div className="mt-2 flex flex-col gap-1">
+                  <label
+                    htmlFor={`precio-${it.key}`}
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Precio {UNIDAD_PRECIO_LABELS[it.unidad_cobro]}
+                  </label>
+                  <InputNumero
+                    id={`precio-${it.key}`}
+                    value={it.precio_texto}
+                    permitirNegativo
+                    onValueChange={(v) =>
+                      updateItem(it.key, {
+                        precio_texto: v,
+                        precio_unidad: Number(v) || 0,
+                      })
+                    }
+                    placeholder={
+                      it.tipo_servicio === "descuento" ? "-5000" : "12000"
+                    }
+                    className="h-10"
+                  />
+                  {/* El descuento se carga en negativo: es un importe que
+                      resta del total, no un precio. */}
+                  <p className="text-xs text-muted-foreground">
+                    {it.tipo_servicio === "descuento"
+                      ? "En negativo, para que reste del total."
+                      : "Esta prenda no tiene precio de lista: ponelo acá."}
+                  </p>
+                </div>
+              )}
 
               {(() => {
                 const pide = medidasQueRequiere(it.unidad_cobro);
