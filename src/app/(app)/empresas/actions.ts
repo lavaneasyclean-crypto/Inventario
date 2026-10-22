@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
+import { esAdmin } from "@/lib/data/perfil";
 
 const RUT_RE = /^\d{1,8}-[\dkK]$/;
 
@@ -149,5 +150,42 @@ export async function actualizarEmpresa(
     return { ok: true };
   } catch (err) {
     return fallo("actualizarEmpresa", step, err);
+  }
+}
+
+/**
+ * Activar o desactivar una empresa.
+ *
+ * Desactivar es lo que reemplaza al borrado cuando la empresa ya tiene guías:
+ * deja de ofrecerse al abrir una guía nueva y queda en gris en la lista, pero
+ * sus guías viejas siguen enteras.
+ *
+ * Solo admins. Esconder el botón no alcanza: un server action se puede llamar
+ * igual, así que la regla se verifica acá, que es donde se ejecuta.
+ */
+export async function cambiarActivoEmpresa(
+  rut: string,
+  activo: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  let step = "init";
+  try {
+    step = "permiso";
+    if (!(await esAdmin())) {
+      return { ok: false, error: "No tenés permiso para cambiar eso." };
+    }
+
+    step = "update";
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("clientes_empresa")
+      .update({ activo })
+      .eq("rut", rut);
+    if (error) return fallo("cambiarActivoEmpresa", step, error);
+
+    revalidatePath("/empresas");
+    revalidatePath(`/empresas/${rut}`);
+    return { ok: true };
+  } catch (err) {
+    return fallo("cambiarActivoEmpresa", step, err);
   }
 }

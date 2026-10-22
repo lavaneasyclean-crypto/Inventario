@@ -275,17 +275,20 @@ Una empresa con la que no se trabaja más ensucia la lista y, peor, se puede
 elegir por error al abrir una guía. Se saca del medio destildando **Activa**
 en Editar.
 
+Se hace desde el botón **Desactivar** en la tarjeta de la empresa, en la
+lista. Solo lo ven los admins, y el permiso se verifica en el servidor: no
+alcanza con esconder el botón.
+
 Desactivada:
 
-- no aparece en la lista de Empresas para quien no es admin;
+- aparece en la lista **en gris**, marcada *inactiva*, y quien no es admin no
+  la puede abrir. No desaparece: esconderla dejaba a quien la buscaba
+  pensando que se había borrado;
 - no se puede elegir al abrir una guía nueva, **ni siquiera siendo admin** —si
   hay que volver a trabajar con ella, se reactiva primero. Una sola regla es
   más fácil de explicar que una con excepciones;
 - sus guías viejas **siguen enteras**, se ven y se editan igual, y entrar a la
   ficha desde una de ellas funciona.
-
-Los admins la siguen viendo en la lista, marcada como *inactiva*, que es por
-donde se vuelve a activar.
 
 Desactivar **no esconde datos**: saca ruido de donde se elige. Por eso el
 filtro está en las consultas y no en RLS —si la base escondiera la empresa,

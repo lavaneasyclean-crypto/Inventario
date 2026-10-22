@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import {
   Dialog,
   DialogContent,
@@ -220,12 +221,16 @@ export function EditorGasto({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button
+          <BotonGuardar
             onClick={guardar}
-            disabled={pending || !descripcion.trim() || Number(monto || 0) <= 0}
+            pending={pending}
+            faltan={[
+              !descripcion.trim() && "la descripción",
+              Number(monto || 0) <= 0 && "el monto",
+            ]}
           >
             {pending ? "Guardando…" : gasto ? "Guardar" : "Registrar"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>
