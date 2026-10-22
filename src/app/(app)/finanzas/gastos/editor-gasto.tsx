@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BotonGuardar } from "@/components/boton-guardar";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -110,7 +111,7 @@ export function EditorGasto({
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="categoria">Categoría</Label>
+              <Label htmlFor="categoria">Categoría<Obligatorio /></Label>
               <Select
                 value={categoria}
                 onValueChange={(v) =>
@@ -130,7 +131,7 @@ export function EditorGasto({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="monto">Monto</Label>
+              <Label htmlFor="monto">Monto<Obligatorio /></Label>
               <InputNumero
                 id="monto"
                 value={monto}
@@ -142,7 +143,9 @@ export function EditorGasto({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="descripcion">Descripción</Label>
+            <Label htmlFor="descripcion">
+              Descripción{proveedorId === null && <Obligatorio />}
+            </Label>
             <Input
               id="descripcion"
               value={descripcion}
@@ -225,7 +228,9 @@ export function EditorGasto({
             onClick={guardar}
             pending={pending}
             faltan={[
-              !descripcion.trim() && "la descripción",
+              !descripcion.trim() &&
+                proveedorId === null &&
+                "la descripción o el proveedor",
               Number(monto || 0) <= 0 && "el monto",
             ]}
           >

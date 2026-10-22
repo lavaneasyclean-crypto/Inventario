@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -194,7 +195,7 @@ function ProductoDialog({
 
         <div className="grid gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="prod-nombre">Nombre</Label>
+            <Label htmlFor="prod-nombre">Nombre<Obligatorio /></Label>
             <Input
               id="prod-nombre"
               value={nombre}

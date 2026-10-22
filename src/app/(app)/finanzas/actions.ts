@@ -544,7 +544,17 @@ export async function reactivarFactura(id: number): Promise<FinanzasResult> {
 
 const gastoSchema = z.object({
   categoria: z.enum(CATEGORIAS_GASTO as [(typeof CATEGORIAS_GASTO)[number]]),
-  descripcion: z.string().min(1, "Poné una descripción"),
+  // Opcional si hay proveedor: ver el refine de abajo. Si ya elegiste "Aguas
+  // Cordillera", escribir "Agua" al lado no agrega nada.
+  //
+  // Vacía queda como "" y no como NULL: la columna es `not null` desde 0009 y
+  // cambiarla pediría una migración para distinguir dos formas de decir lo
+  // mismo. En la lista, el `||` las trata igual.
+  descripcion: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => v?.trim() ?? ""),
   // Ficha del proveedor en vez del texto que había antes: ver migrations/0016.
   proveedor_id: z
     .number()
@@ -562,6 +572,11 @@ const gastoSchema = z.object({
     .or(z.literal("").transform(() => null)),
   monto: z.number().int().min(1, "El monto tiene que ser mayor a cero"),
   notas: textoOpcional,
+}).refine((g) => g.descripcion !== "" || g.proveedor_id !== null, {
+  // Algo tiene que nombrar al gasto: si no, en la lista aparece una fila sin
+  // titulo y no hay forma de saber que es. Con cualquiera de los dos alcanza.
+  message: "Poné una descripción o elegí un proveedor",
+  path: ["descripcion"],
 });
 
 export type GastoInput = z.input<typeof gastoSchema>;

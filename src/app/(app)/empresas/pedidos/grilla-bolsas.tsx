@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Save } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -475,11 +475,15 @@ export function GrillaBolsas({
           </strong>{" "}
           neto
         </div>
-        <Button
-          type="button"
+        <BotonGuardar
           size="lg"
           onClick={guardar}
-          disabled={loading || (items.length === 0 && itemsOtros.length === 0)}
+          pending={loading}
+          faltan={[
+            items.length === 0 &&
+              itemsOtros.length === 0 &&
+              "cargar al menos una prenda en la grilla",
+          ]}
           className="h-11 px-6 text-base"
         >
           <Save className="size-5" />
@@ -488,7 +492,7 @@ export function GrillaBolsas({
             : editando
               ? "Guardar cambios"
               : "Guardar guía"}
-        </Button>
+        </BotonGuardar>
       </div>
     </div>
   );

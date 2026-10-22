@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Undo2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import {
   Dialog,
   DialogContent,
@@ -223,9 +224,15 @@ function EditarFacturaDialog({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={guardar} disabled={pending || !fecha}>
+          <BotonGuardar
+            onClick={guardar}
+            pending={pending}
+            faltan={[
+              !fecha && "la fecha",
+            ]}
+          >
             {pending ? "Guardando…" : "Guardar"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>

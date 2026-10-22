@@ -529,3 +529,63 @@ describe("crearGasto", () => {
     expect(res.ok).toBe(false);
   });
 });
+
+describe("gasto — la descripción deja de ser obligatoria si hay proveedor", () => {
+  const base = {
+    categoria: "agua" as const,
+    documento: null,
+    fecha: "2026-10-22",
+    fecha_vence: "2026-11-06",
+    periodo: "2026-08",
+    monto: 396470,
+    notas: null,
+  };
+
+  function montarGastos() {
+    const fake = crearSupabaseFake({ "gastos.insert": { data: [{ id: 7 }] } });
+    estado.supabase = fake;
+    return fake;
+  }
+
+  it("con proveedor y sin descripción, se guarda", async () => {
+    // El caso real: elegiste "Aguas Cordillera", escribir "Agua" al lado no
+    // agrega nada.
+    const fake = montarGastos();
+    const res = await crearGasto({ ...base, descripcion: "", proveedor_id: 3 });
+
+    expect(res.ok).toBe(true);
+    expect(fake.ultima("gastos", "insert")?.payload).toMatchObject({
+      descripcion: "",
+      proveedor_id: 3,
+    });
+  });
+
+  it("con descripción y sin proveedor, también", async () => {
+    const fake = montarGastos();
+    const res = await crearGasto({
+      ...base,
+      descripcion: "Sueldos octubre",
+      proveedor_id: null,
+    });
+    expect(res.ok).toBe(true);
+    expect(fake.ultima("gastos", "insert")?.payload).toMatchObject({
+      descripcion: "Sueldos octubre",
+    });
+  });
+
+  it("sin ninguno de los dos, NO: quedaría una fila sin título", async () => {
+    const fake = montarGastos();
+    const res = await crearGasto({ ...base, descripcion: "", proveedor_id: null });
+
+    expect(res.ok).toBe(false);
+    expect((res as { error: string }).error).toMatch(/descripción o.*proveedor/i);
+    expect(fake.llamadas).toHaveLength(0);
+  });
+
+  it("una descripción de puros espacios no cuenta como descripción", async () => {
+    const fake = montarGastos();
+    const res = await crearGasto({ ...base, descripcion: "   ", proveedor_id: null });
+    expect(res.ok).toBe(false);
+    expect(fake.llamadas).toHaveLength(0);
+  });
+});

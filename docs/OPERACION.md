@@ -188,6 +188,21 @@ rota a propósito, la guía se escribe completa y lo único que se pierde es el
 registro de ese cambio. Al revés —que no se pueda recibir ropa porque el
 historial está caído— sería mucho peor.
 
+## Formularios: qué es obligatorio
+
+Los campos obligatorios llevan un **asterisco rojo**. Los opcionales dicen
+"(opcional)". Antes solo estaban marcados los opcionales y había que deducir
+los otros por descarte.
+
+Y el botón de guardar **ya no se apaga en silencio**. Si falta algo, se puede
+apretar igual y dice qué: *"Falta la descripción"*, *"Faltan la empresa y el
+neto"*. Solo queda apagado mientras guarda, que es la única razón honesta.
+
+Esto arregla un callejón sin salida que estaba en 17 pantallas: el botón gris
+sin explicación. En crear pedido era peor —había tres mensajes escritos
+("Seleccioná o creá un cliente", "Agregá al menos un item", "Falta la medida
+de…") que el botón deshabilitado **nunca dejaba llegar a mostrar**.
+
 ## Cobros y gastos
 
 En **Finanzas**:

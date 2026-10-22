@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import {
   Dialog,
   DialogContent,
@@ -648,12 +649,13 @@ function AgregarProductoDialog({
               >
                 Cancelar
               </Button>
-              <Button
+              <BotonGuardar
                 onClick={submitExistente}
-                disabled={loading || !seleccionado}
+                pending={loading}
+                faltan={[!seleccionado && "elegir una prenda"]}
               >
                 {loading ? "Guardando…" : "Agregar"}
-              </Button>
+              </BotonGuardar>
             </DialogFooter>
           </div>
         ) : (

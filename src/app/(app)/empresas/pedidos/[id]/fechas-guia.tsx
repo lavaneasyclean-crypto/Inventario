@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, PackageCheck, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import { Input } from "@/components/ui/input";
 import { formatDateShort } from "@/lib/format";
 import { marcarEntregaGuia, marcarPagoGuia } from "./actions";
@@ -128,13 +129,14 @@ function Fila({
               onChange={(e) => setFecha(e.target.value)}
               className="h-9 w-auto"
             />
-            <Button
+            <BotonGuardar
               size="sm"
-              disabled={pending || !fecha}
+              pending={pending}
+              faltan={[!fecha && "la fecha"]}
               onClick={() => correr(fecha, `${etiqueta} el ${fecha}`)}
             >
               <Check className="size-4" /> Guardar
-            </Button>
+            </BotonGuardar>
             <Button
               variant="ghost"
               size="sm"

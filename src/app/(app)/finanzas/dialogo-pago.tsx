@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -71,7 +73,7 @@ export function DialogoPago({
 
         <div className="grid gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fecha_pago">Fecha del pago</Label>
+            <Label htmlFor="fecha_pago">Fecha del pago<Obligatorio /></Label>
             <Input
               id="fecha_pago"
               type="date"
@@ -104,9 +106,15 @@ export function DialogoPago({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={confirmar} disabled={pending || !fecha}>
+          <BotonGuardar
+            onClick={confirmar}
+            pending={pending}
+            faltan={[
+              !fecha && "la fecha",
+            ]}
+          >
             {pending ? "Guardando…" : "Registrar pago"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>

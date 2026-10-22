@@ -98,7 +98,13 @@ function FilaGasto({
             </span>
             <BadgeEstadoGasto gasto={gasto} hoy={hoy} />
           </div>
-          <p className="mt-1.5 font-medium">{gasto.descripcion}</p>
+          {/* Sin descripcion el titulo lo pone el proveedor: un gasto
+              puede quedar nombrado por cualquiera de los dos. */}
+          <p className="mt-1.5 font-medium">
+            {gasto.descripcion ||
+              gasto.proveedor_nombre ||
+              CATEGORIA_GASTO_LABELS[gasto.categoria]}
+          </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {gasto.proveedor_nombre && (
               <span className="inline-flex items-center gap-1">

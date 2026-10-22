@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Banknote, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -249,7 +251,7 @@ function DialogoAbono({
 
         <div className="grid gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="abono-monto">Monto</Label>
+            <Label htmlFor="abono-monto">Monto<Obligatorio /></Label>
             <InputNumero
               id="abono-monto"
               value={monto}
@@ -272,7 +274,7 @@ function DialogoAbono({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="abono-fecha">Fecha del pago</Label>
+            <Label htmlFor="abono-fecha">Fecha del pago<Obligatorio /></Label>
             <Input
               id="abono-fecha"
               type="date"
@@ -317,9 +319,17 @@ function DialogoAbono({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={guardar} disabled={pending || valor <= 0 || excede || !fecha}>
+          <BotonGuardar
+            onClick={guardar}
+            pending={pending}
+            faltan={[
+              !fecha && "la fecha",
+              valor <= 0 && "el monto",
+              excede && "un monto que no supere el saldo",
+            ]}
+          >
             {pending ? "Guardando…" : "Registrar pago"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Download, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import {
   Dialog,
   DialogContent,
@@ -170,9 +171,16 @@ export function DialogoRegistrarFactura({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={guardar} disabled={pending || !fecha || guiaIds.length === 0}>
+          <BotonGuardar
+            onClick={guardar}
+            pending={pending}
+            faltan={[
+              !fecha && "la fecha",
+              guiaIds.length === 0 && "al menos una guía",
+            ]}
+          >
             {pending ? "Registrando…" : "Registrar"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>

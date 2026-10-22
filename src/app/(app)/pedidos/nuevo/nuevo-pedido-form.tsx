@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { mediodiaChile } from "@/lib/fecha";
 import { Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,8 +47,6 @@ export function NuevoPedidoForm({
   const total = items.reduce((s, it) => s + (importeDeItem(it) ?? 0), 0);
   // Una alfombra sin medidas no tiene precio: no se puede cerrar el pedido.
   const sinMedida = itemsSinMedida(items);
-  const canSubmit =
-    !!cliente && items.length > 0 && sinMedida.length === 0 && !loading;
 
   const handleSubmit = async () => {
     if (!cliente) {
@@ -230,16 +228,21 @@ export function NuevoPedidoForm({
               ? "Sin items"
               : `${items.length} item${items.length === 1 ? "" : "s"}`}
           </p>
-          <Button
-            type="button"
+          <BotonGuardar
             size="lg"
-            disabled={!canSubmit}
+            pending={loading}
+            faltan={[
+              !cliente && "elegir o crear el cliente",
+              items.length === 0 && "agregar al menos un item",
+              sinMedida.length > 0 &&
+                `la medida de ${sinMedida.map((it) => it.nombre).join(", ")}`,
+            ]}
             onClick={handleSubmit}
             className="h-11 w-full text-base"
           >
             <Check className="size-5" />
             {loading ? "Creando…" : "Crear pedido"}
-          </Button>
+          </BotonGuardar>
         </div>
       </div>
 
@@ -252,16 +255,21 @@ export function NuevoPedidoForm({
                 { style: "currency", currency: "CLP", maximumFractionDigits: 0 },
               )}`}
         </div>
-        <Button
-          type="button"
+        <BotonGuardar
           size="lg"
-          disabled={!canSubmit}
+          pending={loading}
+          faltan={[
+            !cliente && "elegir o crear el cliente",
+            items.length === 0 && "agregar al menos un item",
+            sinMedida.length > 0 &&
+              `la medida de ${sinMedida.map((it) => it.nombre).join(", ")}`,
+          ]}
           onClick={handleSubmit}
           className="h-11 px-6 text-base"
         >
           <Check className="size-5" />
           {loading ? "Creando…" : "Crear pedido"}
-        </Button>
+        </BotonGuardar>
       </div>
     </div>
   );

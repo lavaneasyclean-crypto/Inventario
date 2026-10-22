@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCLP } from "@/lib/format";
@@ -172,16 +172,16 @@ export function EditarPedidoForm({
               {formatCLP(total)}
             </span>
           </div>
-          <Button
-            type="button"
+          <BotonGuardar
             size="lg"
-            disabled={guardando || items.length === 0}
+            pending={guardando}
+            faltan={[items.length === 0 && "al menos un item"]}
             onClick={guardar}
             className="h-11 w-full text-base"
           >
             <Check className="size-5" />
             {guardando ? "Guardando…" : "Guardar cambios"}
-          </Button>
+          </BotonGuardar>
         </div>
       </div>
     </div>

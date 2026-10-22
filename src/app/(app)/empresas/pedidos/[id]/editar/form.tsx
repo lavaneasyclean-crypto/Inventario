@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { fechaEnChile, mediodiaChile } from "@/lib/fecha";
 import { Check, Plus, Search, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import { Input } from "@/components/ui/input";
 import { InputNumero } from "@/components/input-numero";
 import { Label } from "@/components/ui/label";
@@ -75,7 +76,6 @@ export function EditarPedidoEmpresaForm({
     0,
   );
   const algunSinPrecio = items.some((it) => it.precio_unidad === null);
-  const canSubmit = items.length > 0 && !loading;
 
   const addItem = (p: ProductoEmpresaAdquirido) => {
     setItems((prev) => [
@@ -328,16 +328,16 @@ export function EditarPedidoEmpresaForm({
             </>
           )}
         </div>
-        <Button
-          type="button"
+        <BotonGuardar
           size="lg"
-          disabled={!canSubmit}
+          pending={loading}
+          faltan={[items.length === 0 && "al menos una prenda"]}
           onClick={handleSubmit}
           className="h-11 px-6 text-base"
         >
           <Check className="size-5" />
           {loading ? "Guardando…" : "Guardar cambios"}
-        </Button>
+        </BotonGuardar>
       </div>
     </div>
   );

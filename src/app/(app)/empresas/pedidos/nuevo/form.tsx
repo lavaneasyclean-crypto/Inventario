@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
 import { Input } from "@/components/ui/input";
 import { InputNumero } from "@/components/input-numero";
 import { Label } from "@/components/ui/label";
@@ -91,11 +92,6 @@ export function NuevoPedidoEmpresaForm({
     0,
   );
   const algunItemSinPrecio = items.some((it) => it.precio_unidad === null);
-  const canSubmit =
-    !!empresa &&
-    items.length > 0 &&
-    items.every((it) => it.cantidad >= 1) &&
-    !loading;
 
   const cambiarEmpresa = (e: ClienteEmpresa | null) => {
     // Las empresas que trabajan por bolsas cargan la guia en una grilla, que
@@ -491,16 +487,22 @@ export function NuevoPedidoEmpresaForm({
             </>
           )}
         </div>
-        <Button
-          type="button"
+        <BotonGuardar
           size="lg"
-          disabled={!canSubmit}
+          pending={loading}
+          faltan={[
+            !empresa && "elegir la empresa",
+            items.length === 0 && "agregar al menos una prenda",
+            items.length > 0 &&
+              !items.every((it) => it.cantidad >= 1) &&
+              "que todas las prendas tengan cantidad",
+          ]}
           onClick={handleSubmit}
           className="h-11 px-6 text-base"
         >
           <Check className="size-5" />
           {loading ? "Creando…" : "Crear pedido"}
-        </Button>
+        </BotonGuardar>
       </div>
     </div>
   );

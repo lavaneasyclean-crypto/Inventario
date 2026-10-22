@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -109,7 +111,7 @@ export function NuevaFacturaButton({
 
           <div className="grid gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="empresa">Empresa</Label>
+              <Label htmlFor="empresa">Empresa<Obligatorio /></Label>
               <Select value={rut} onValueChange={(v) => setRut(v ?? "")}>
                 <SelectTrigger id="empresa" className="h-10">
                   <SelectValue placeholder="Elegí una empresa" />
@@ -154,7 +156,7 @@ export function NuevaFacturaButton({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="f-emision">Emisión</Label>
+                <Label htmlFor="f-emision">Emisión<Obligatorio /></Label>
                 <Input
                   id="f-emision"
                   type="date"
@@ -179,7 +181,7 @@ export function NuevaFacturaButton({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="neto">Monto neto (sin IVA)</Label>
+              <Label htmlFor="neto">Monto neto (sin IVA)<Obligatorio /></Label>
               <InputNumero
                 id="neto"
                 value={neto}
@@ -211,12 +213,17 @@ export function NuevaFacturaButton({
             <Button variant="ghost" onClick={() => setAbierto(false)} disabled={pending}>
               Cancelar
             </Button>
-            <Button
+            <BotonGuardar
               onClick={guardar}
-              disabled={pending || !rut || !fecha || Number(neto || 0) <= 0}
+              pending={pending}
+              faltan={[
+                !rut && "la empresa",
+                !fecha && "la fecha",
+                Number(neto || 0) <= 0 && "el neto",
+              ]}
             >
               {pending ? "Guardando…" : "Registrar"}
-            </Button>
+            </BotonGuardar>
           </DialogFooter>
         </DialogContent>
       </Dialog>

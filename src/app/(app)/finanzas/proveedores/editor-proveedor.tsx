@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -130,7 +132,7 @@ export function EditorProveedor({
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-nombre">Nombre</Label>
+              <Label htmlFor="p-nombre">Nombre<Obligatorio /></Label>
               <Input
                 id="p-nombre"
                 value={nombre}
@@ -294,9 +296,13 @@ export function EditorProveedor({
           >
             Cancelar
           </Button>
-          <Button onClick={guardar} disabled={pending || !nombre.trim()}>
+          <BotonGuardar
+            onClick={guardar}
+            pending={pending}
+            faltan={[!nombre.trim() && "el nombre"]}
+          >
             {pending ? "Guardando…" : proveedor ? "Guardar" : "Crear"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>

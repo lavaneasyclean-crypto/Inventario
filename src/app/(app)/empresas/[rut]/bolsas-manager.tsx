@@ -6,6 +6,8 @@ import { EyeOff, Package2, Pencil, Plus, Rows3 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BotonGuardar } from "@/components/boton-guardar";
+import { Obligatorio } from "@/components/obligatorio";
 import {
   Dialog,
   DialogContent,
@@ -234,7 +236,7 @@ function EditorBolsa({
 
         <div className="grid gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bolsa-codigo">Número o nombre</Label>
+            <Label htmlFor="bolsa-codigo">Número o nombre<Obligatorio /></Label>
             <Input
               id="bolsa-codigo"
               value={codigo}
@@ -259,9 +261,15 @@ function EditorBolsa({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={guardar} disabled={pending || !codigo.trim()}>
+          <BotonGuardar
+            onClick={guardar}
+            pending={pending}
+            faltan={[
+              !codigo.trim() && "el código de la bolsa",
+            ]}
+          >
             {pending ? "Guardando…" : "Guardar"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -311,7 +319,7 @@ function DialogoRango({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="rango-desde">Desde</Label>
+            <Label htmlFor="rango-desde">Desde<Obligatorio /></Label>
             <InputNumero
               id="rango-desde"
               value={desde}
@@ -320,7 +328,7 @@ function DialogoRango({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="rango-hasta">Hasta</Label>
+            <Label htmlFor="rango-hasta">Hasta<Obligatorio /></Label>
             <InputNumero
               id="rango-hasta"
               value={hasta}
@@ -334,12 +342,18 @@ function DialogoRango({
           <Button variant="ghost" onClick={() => onAbrir(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button
+          <BotonGuardar
             onClick={guardar}
-            disabled={pending || !desde || !hasta || Number(hasta) < Number(desde)}
+            pending={pending}
+            faltan={[
+              !desde && "el número inicial",
+              !hasta && "el número final",
+              Boolean(desde && hasta && Number(hasta) < Number(desde)) &&
+              "que el final sea mayor que el inicial",
+            ]}
           >
             {pending ? "Creando…" : "Crear"}
-          </Button>
+          </BotonGuardar>
         </DialogFooter>
       </DialogContent>
     </Dialog>
