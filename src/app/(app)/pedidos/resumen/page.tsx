@@ -60,17 +60,20 @@ export default async function ResumenPage({
   const totalPedidos = grupos.reduce((s, g) => s + g.filas.length, 0);
 
   return (
-    <div className="p-4 sm:p-6 print:p-0">
+    /* En pantalla se lee ancho; en papel sale por la misma térmica de 5
+       pulgadas que las guías, así que toma su ancho y su cuerpo de letra.
+       Ver components/ticket.tsx, que define el formato. */
+    <div className="p-4 sm:p-6 print:max-w-[119mm] print:p-0 print:text-[12px] print:leading-tight print:text-black">
       <div className="print:hidden">
         <BackButton />
       </div>
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight print:text-base">
             {soloPlanchado ? "Resumen de planchado" : "Resumen del día"}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground print:text-[11px] print:text-black">
             {formatDateShort(hoy)} · {totalPedidos} pedido
             {totalPedidos === 1 ? "" : "s"} ·{" "}
             {contarPrendas(grupos.flatMap((g) => g.filas))} prendas
@@ -89,7 +92,7 @@ export default async function ResumenPage({
         </div>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5 print:gap-3">
         {grupos.map((g) => (
           <Grupo
             key={g.clave}
@@ -104,7 +107,7 @@ export default async function ResumenPage({
       </div>
 
       {resumen.viejos > 0 && (
-        <p className="mt-6 border-t pt-3 text-xs text-muted-foreground">
+        <p className="mt-6 border-t pt-3 text-xs text-muted-foreground print:text-black">
           Además hay <strong>{resumen.viejos}</strong> pedidos en proceso de
           hace más de {VENTANA_DIAS} días, que no se listan acá para no tapar
           el trabajo del día.{" "}
@@ -139,26 +142,26 @@ function Grupo({
     <section className="break-inside-avoid">
       <h2
         className={cn(
-          "mb-2 flex items-center gap-2 border-b pb-1 text-base font-semibold",
-          urgente && filas.length > 0 && "text-destructive",
+          "mb-2 flex items-center gap-2 border-b border-black pb-1 text-base font-semibold print:mb-1 print:text-[13px]",
+          urgente && filas.length > 0 && "text-destructive print:text-black",
         )}
       >
-        <Icono className="size-4" aria-hidden />
+        <Icono className="size-4 print:hidden" aria-hidden />
         {titulo}
-        <span className="font-normal text-muted-foreground">
+        <span className="font-normal text-muted-foreground print:text-[11px] print:text-black">
           · {filas.length} pedido{filas.length === 1 ? "" : "s"} ·{" "}
           {contarPrendas(filas)} prendas
         </span>
       </h2>
 
       {filas.length === 0 ? (
-        <p className="py-1 text-sm text-muted-foreground">{vacio}</p>
+        <p className="py-1 text-sm text-muted-foreground print:text-black">{vacio}</p>
       ) : (
         <ul className="flex flex-col divide-y">
           {filas.map(({ pedido, items }) => (
             <li
               key={pedido.id}
-              className="break-inside-avoid py-2 text-sm print:py-1.5"
+              className="break-inside-avoid py-2 text-sm print:py-1 print:text-[11px]"
             >
               <div className="flex flex-wrap items-baseline gap-x-3">
                 {/* Una casilla para marcar a mano: el papel se trabaja
@@ -172,14 +175,14 @@ function Grupo({
                   {pedido.nombre_cliente || "Sin nombre"}
                 </span>
                 {pedido.contacto && (
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground print:text-black">
                     {pedido.contacto}
                   </span>
                 )}
                 <Entrega fecha={pedido.fecha_entrega} hoy={hoy} />
               </div>
 
-              <div className="mt-0.5 pl-1 text-muted-foreground">
+              <div className="mt-0.5 pl-1 text-muted-foreground print:text-[11px] print:text-black">
                 {items.length === 0
                   ? "Sin items cargados"
                   : items
@@ -193,7 +196,7 @@ function Grupo({
               </div>
 
               {pedido.notas && (
-                <div className="mt-0.5 pl-1 text-xs italic text-muted-foreground">
+                <div className="mt-0.5 pl-1 text-xs italic text-muted-foreground print:text-[10px] print:text-black">
                   {pedido.notas}
                 </div>
               )}
@@ -214,7 +217,7 @@ function Entrega({ fecha, hoy }: { fecha: string | null; hoy: string }) {
   });
   if (dia >= hoy) {
     return (
-      <span className="text-muted-foreground">
+      <span className="text-muted-foreground print:text-black">
         entrega {formatDateShort(fecha)}
       </span>
     );
@@ -226,7 +229,7 @@ function Entrega({ fecha, hoy }: { fecha: string | null; hoy: string }) {
       86_400_000,
   );
   return (
-    <span className="font-medium text-destructive">
+    <span className="font-medium text-destructive print:text-black print:underline">
       vencido hace {dias} día{dias === 1 ? "" : "s"}
     </span>
   );

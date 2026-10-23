@@ -448,6 +448,29 @@ pantalón y 1 polerón) y el precio no aparece.
 Si alguna línea sale bajo *Sin bolsa asignada*, es una guía que se cargó antes
 de armar el padrón. Se arregla editándola.
 
+## La impresora
+
+Hay una sola: una **térmica de 5 pulgadas con rollo continuo**. Eso manda
+sobre todo lo que se imprime, y son tres reglas:
+
+- **El ancho es fijo**: 127 mm de papel, 119 mm útiles. Todo va en una
+  columna; dos o tres no entran.
+- **Solo quema negro.** Un texto gris sale lavado y un fondo gris sale como
+  mancha. La jerarquía se hace con tamaño y con líneas, no con color.
+- **El alto lo define el contenido**: el rollo corta donde termina, no hay
+  "página siguiente".
+
+`components/ticket.tsx` tiene las piezas que ya respetan esto, y las usan las
+guías y los pedidos de mostrador. El **resumen del día** y la **hoja de
+devolución** arman su propio layout porque también se leen en pantalla: ahí
+las reglas se aplican con utilidades `print:`.
+
+La devolución llegó a imprimirse en tres columnas, que en 119 mm dan 37 mm
+cada una —menos de lo que mide el nombre de una prenda—. Ahora va en una.
+
+Medido sobre el resumen real del 22 de octubre (44 pedidos), a 119 mm en los
+dos casos: pasó de **1.113 mm a 681 mm de rollo**, 43 cm menos por resumen.
+
 ## Imprimir la guía
 
 Las guías se entregan al cliente, así que se imprimen desde su ficha con

@@ -37,7 +37,9 @@ export default async function DevolucionPage({
   const totalPrendas = contenido.reduce((s, b) => s + b.totalPrendas, 0);
 
   return (
-    <div className="p-4 sm:p-6 print:p-0">
+    /* Sale por la misma térmica de 5 pulgadas que las guías: ancho fijo de
+       119 mm y todo en negro. Ver components/ticket.tsx. */
+    <div className="p-4 sm:p-6 print:max-w-[119mm] print:p-0 print:text-[12px] print:leading-tight print:text-black">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <Link
           href={`/empresas/pedidos/${id}`}
@@ -49,10 +51,10 @@ export default async function DevolucionPage({
       </div>
 
       <header className="mb-4 border-b pb-3">
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-2xl font-semibold print:text-base">
           Devolución — guía #{data.pedido.id}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground print:text-black">
           {data.empresa?.nombre ?? "Empresa eliminada"} ·{" "}
           {formatDate(data.pedido.fecha)}
           {data.pedido.detalle ? ` · ${data.pedido.detalle}` : ""}
@@ -66,28 +68,28 @@ export default async function DevolucionPage({
       </header>
 
       {contenido.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground print:text-black">
           Esta guía no tiene prendas asignadas a una bolsa.
         </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-3 print:gap-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-1 print:gap-2">
           {contenido.map((b) => (
             <section
               key={b.codigo}
-              className="break-inside-avoid rounded-lg border p-3"
+              className="break-inside-avoid rounded-lg border p-3 print:rounded-none print:border-black print:p-2"
             >
               <div className="flex items-baseline justify-between gap-2 border-b pb-1">
                 <span className="font-mono text-lg font-bold">{b.codigo}</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground print:text-black">
                   {b.totalPrendas} prenda{b.totalPrendas === 1 ? "" : "s"}
                 </span>
               </div>
               {b.nombre && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground print:text-black">
                   {b.nombre}
                 </p>
               )}
-              <table className="mt-1.5 w-full text-sm">
+              <table className="mt-1.5 w-full text-sm print:text-[11px]">
                 <tbody>
                   {b.lineas.map((l) => (
                     <tr key={`${l.producto_empresa_id}-${l.nombre}`}>
