@@ -83,6 +83,7 @@ function EmpresaDialog({
   const [activo, setActivo] = useState(true);
   const [recargoExpress, setRecargoExpress] = useState("0");
   const [usaBolsas, setUsaBolsas] = useState(false);
+  const [preciosConIva, setPreciosConIva] = useState(false);
 
   // Reset al abrir. Se ajusta durante el render y no en un efecto: no hay
   // ningún sistema externo con el que sincronizar, y en un efecto React tiene
@@ -103,6 +104,7 @@ function EmpresaDialog({
         setActivo(empresa.activo);
         setRecargoExpress(String(empresa.recargo_express ?? 0));
         setUsaBolsas(empresa.usa_bolsas ?? false);
+        setPreciosConIva(empresa.precios_con_iva ?? false);
       } else {
         setRut("");
         setNombre("");
@@ -115,6 +117,7 @@ function EmpresaDialog({
         setActivo(true);
         setRecargoExpress("0");
         setUsaBolsas(false);
+        setPreciosConIva(false);
       }
       setError(null);
     }
@@ -151,6 +154,7 @@ function EmpresaDialog({
           activo,
           recargo_express: Number(recargoExpress || 0),
           usa_bolsas: usaBolsas,
+          precios_con_iva: preciosConIva,
         });
       } else {
         res = await actualizarEmpresa(empresa!.rut, {
@@ -164,6 +168,7 @@ function EmpresaDialog({
           activo,
           recargo_express: Number(recargoExpress || 0),
           usa_bolsas: usaBolsas,
+          precios_con_iva: preciosConIva,
         });
       }
       setLoading(false);
@@ -266,6 +271,27 @@ function EmpresaDialog({
               documento aparte de la factura del mes.
             </p>
           </div>
+
+          {/* Qué significa el número que se carga como precio. Sin esto hay
+              que dividir a mano, y ahí aparece el error de multiplicar por
+              0,81 en vez de dividir por 1,19. Ver migrations/0022. */}
+          <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={preciosConIva}
+              onChange={(e) => setPreciosConIva(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <span className="font-medium">Sus precios ya incluyen IVA</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Marcalo si lo acordado con el cliente es el precio final: por
+                ejemplo &ldquo;$2.000 el kilo, IVA incluido&rdquo;. Cargá los
+                $2.000 tal cual y la app saca el neto sola. Si no, los precios
+                se entienden netos y el IVA se suma al facturar.
+              </span>
+            </span>
+          </label>
 
           <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
             <input

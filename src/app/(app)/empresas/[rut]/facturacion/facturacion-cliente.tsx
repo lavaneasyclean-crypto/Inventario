@@ -104,8 +104,14 @@ export function FacturacionClient({
         pedidosVisibles,
         seleccionados,
         empresa.recargo_express,
+        empresa.precios_con_iva ? "con_iva" : "neto",
       ),
-    [pedidosVisibles, seleccionados, empresa.recargo_express],
+    [
+      pedidosVisibles,
+      seleccionados,
+      empresa.recargo_express,
+      empresa.precios_con_iva,
+    ],
   );
   const { principal, express, idsExpress } = facturacion;
 
@@ -357,7 +363,11 @@ export function FacturacionClient({
 
       <TablaConsolidado
         titulo="Consolidado para facturar"
-        ayuda="Todas las guías marcadas a precio base, incluidas las express."
+        ayuda={
+          empresa.precios_con_iva
+            ? "Todas las guías marcadas a precio base, incluidas las express. Los precios de esta empresa YA INCLUYEN IVA: el neto se calcula dividiendo por 1,19."
+            : "Todas las guías marcadas a precio base, incluidas las express."
+        }
         consolidado={principal}
         vacioTexto="Marcá al menos una guía arriba para ver el consolidado."
       >

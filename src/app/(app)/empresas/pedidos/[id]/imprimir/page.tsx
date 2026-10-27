@@ -14,7 +14,7 @@ import {
 } from "@/components/ticket";
 import { agruparPorBolsa } from "@/lib/bolsas";
 import { getPedidoEmpresaDetalle } from "@/lib/data/empresas";
-import { IVA_RATE } from "@/lib/facturacion";
+import { IVA_RATE, desglosar } from "@/lib/facturacion";
 import { ahoraEnChile } from "@/lib/fecha";
 import { formatCLP, formatFechaCorta } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -56,9 +56,12 @@ export default async function ImprimirPedidoEmpresaPage({
   const { pedido, empresa, items } = data;
   const totalUnidades = items.reduce((s, it) => s + it.cantidad, 0);
 
-  const neto = items.reduce((s, it) => s + (it.importe ?? 0), 0);
-  const iva = Math.round(neto * IVA_RATE);
-  const total = neto + iva;
+  // Los importes vienen en el modo de la empresa: si sus precios ya incluyen
+  // IVA, la suma es el total y el neto se calcula hacia atrás.
+  const { neto, iva, total } = desglosar(
+    items.reduce((s, it) => s + (it.importe ?? 0), 0),
+    empresa?.precios_con_iva ? "con_iva" : "neto",
+  );
   // Las guías cargadas desde el Access no traen precio: 7.970 líneas de las
   // 8.739 históricas. Valorizar esas daría un total mentiroso, así que se
   // avisa en el papel en vez de imprimir un número que no es.
@@ -172,6 +175,14 @@ export default async function ImprimirPedidoEmpresaPage({
 
         {valorizada && (
           <TicketSeccion>
+            {/* Qué significan los precios de la columna de arriba. Sin esto,
+                quien revisa el papel no puede saber si el unitario ya traía
+                el IVA, y la unica forma de averiguarlo es rehacer la cuenta. */}
+            {empresa?.precios_con_iva && (
+              <p className="mb-1 text-[11px]">
+                Precios unitarios con IVA incluido.
+              </p>
+            )}
             <TicketDato etiqueta="NETO" valor={formatCLP(neto)} siempre />
             <TicketDato
               etiqueta={`IVA ${Math.round(IVA_RATE * 100)}%`}

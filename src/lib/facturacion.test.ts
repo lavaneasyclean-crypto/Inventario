@@ -5,8 +5,10 @@ import {
   consolidarPedidos,
   debeRecordarRegistro,
   IVA_RATE,
+  desglosar,
   precioExpress,
 } from "./facturacion";
+import { desgloseIva } from "./finanzas";
 import type { PedidoEmpresa, PedidoEmpresaItem } from "./types";
 
 const BASE_PEDIDO: PedidoEmpresa = {
@@ -440,5 +442,57 @@ describe("debeRecordarRegistro", () => {
 
   it("sin guias no hay nada que registrar", () => {
     expect(debeRecordarRegistro({ ...base, guiaIds: [] })).toBe(false);
+  });
+});
+
+describe("desglosar — precios netos vs con IVA incluido", () => {
+  it("modo neto: suma el 19% encima, como siempre", () => {
+    expect(desglosar(10000, "neto")).toEqual({
+      neto: 10000,
+      iva: 1900,
+      total: 11900,
+    });
+  });
+
+  it("modo con_iva: el total es intocable y el neto sale de dividir", () => {
+    // Es lo que se le cobra al cliente: no se puede mover por un redondeo.
+    expect(desglosar(12000, "con_iva")).toEqual({
+      neto: 10084,
+      iva: 1916,
+      total: 12000,
+    });
+  });
+
+  it("neto + IVA siempre da el total, en los dos modos", () => {
+    // El IVA sale por diferencia justamente para esto: si se redondeara por
+    // su cuenta, la factura fallaria por un peso y no cuadraria con la base.
+    for (const monto of [1, 7, 999, 1261, 10935, 13500, 999999]) {
+      for (const modo of ["neto", "con_iva"] as const) {
+        const d = desglosar(monto, modo);
+        expect(d.neto + d.iva).toBe(d.total);
+      }
+    }
+  });
+
+  it("el caso de El Cubo: $2.000 el kilo con IVA da exacto", () => {
+    // 6 kilos a $2.000 + delivery $1.500 = $13.500, el numero acordado.
+    // Guardando los precios netos en entero daba $13.503: tres pesos de mas
+    // por los centavos que la columna no puede guardar.
+    const d = desglosar(2000 * 6 + 1500, "con_iva");
+    expect(d.total).toBe(13500);
+    expect(d.neto).toBe(11345);
+    expect(d.iva).toBe(2155);
+  });
+
+  it("x0,81 NO es sacar el IVA, y por eso estaba el error", () => {
+    // 1/1,19 = 0,8403, no 0,81. Multiplicar por 0,81 deja el neto corto y al
+    // sumarle el 19% no se vuelve al precio original.
+    const malNeto = Math.round(2000 * 0.81);        // 1620, lo que estaba cargado
+    expect(desglosar(malNeto, "neto").total).toBe(1928);   // faltan $72
+    expect(desglosar(2000, "con_iva").total).toBe(2000);   // asi da
+  });
+
+  it("por omision, neto: es lo que hace casi todo el padron", () => {
+    expect(desglosar(1000, "neto")).toEqual(desgloseIva(1000));
   });
 });

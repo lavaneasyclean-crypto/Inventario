@@ -114,6 +114,51 @@ El neto del período es la **suma de los dos**. La planilla vieja hacía lo
 mismo: su `Total Neto` sumaba el bloque principal y el bloque
 *Servicio express*.
 
+## Precios netos o con IVA
+
+Cada empresa dice qué significa el número que está cargado como precio. Es
+una casilla en Editar: **"Sus precios ya incluyen IVA"**.
+
+- **Sin marcar** (lo normal, y lo que hacen casi todas): el precio es neto y
+  el IVA se suma al facturar.
+- **Marcada**: el precio es lo que se le cobra al cliente, IVA adentro. Se
+  carga tal cual —$2.000 el kilo— y la app saca el neto dividiendo por 1,19.
+
+### Por qué existe esto
+
+Con El Cubo lo acordado son $2.000 el kilo con IVA incluido. Para meterlo en
+una columna que se interpretaba como neta había que dividir a mano, y se hizo
+mal: se multiplicó por 0,81 en vez de dividir por 1,19.
+
+```
+1 / 1,19 = 0,8403      y no      0,81
+```
+
+No son lo mismo, y la diferencia se cobra de menos:
+
+```
+$2.000 con IVA
+  mal   2.000 x 0,81 = 1.620  ->  +19% = 1.928   faltan $72
+  bien  2.000 / 1,19 = 1.681  ->  +19% = 2.000
+```
+
+Marcando la casilla y cargando $2.000, el total da **exacto**. El cálculo va
+hacia atrás: el total es el número acordado y el neto sale de dividir, así no
+se arrastran los centavos que una columna entera no puede guardar.
+
+```
+6 kilos a $2.000 + delivery $1.500, con IVA incluido
+  total  $13.500   <- exacto
+  neto   $11.345
+  IVA     $2.155   <- por diferencia, para que neto + IVA dé el total
+```
+
+Cargando los netos en entero daba $13.503: tres pesos de más.
+
+La guía valorizada avisa en el papel cuando los unitarios ya traen IVA, y la
+pantalla de facturación también. Sin eso, quien revisa no puede saberlo salvo
+rehaciendo la cuenta.
+
 ## Facturar el mes
 
 En la ficha de la empresa, **Facturar período**. Se elige el rango (por fechas

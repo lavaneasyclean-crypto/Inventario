@@ -31,6 +31,7 @@ const baseSchema = z.object({
     .default(0),
   // La ropa viene separada por bolsa de trabajador. Casi ninguna empresa
   // trabaja asi, de ahi el default.
+  precios_con_iva: z.boolean().default(false),
   usa_bolsas: z.boolean().default(false),
 });
 
@@ -97,6 +98,7 @@ export async function crearEmpresa(
       activo:     data.activo,
       recargo_express: data.recargo_express,
       usa_bolsas: data.usa_bolsas,
+      precios_con_iva: data.precios_con_iva,
     });
     if (error) return fallo("crearEmpresa", step, error);
 
@@ -140,6 +142,7 @@ export async function actualizarEmpresa(
         activo:     data.activo,
         recargo_express: data.recargo_express,
         usa_bolsas: data.usa_bolsas,
+        precios_con_iva: data.precios_con_iva,
       })
       .eq("rut", rut);
 

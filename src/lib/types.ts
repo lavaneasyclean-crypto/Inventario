@@ -101,6 +101,11 @@ export interface ClienteEmpresa {
    * Habilita la grilla de carga y la hoja de devolucion.
    */
   usa_bolsas: boolean;
+  /**
+   * true = los precios de esta empresa ya incluyen IVA. Ver
+   * migrations/0022 y `desglosar()` en lib/facturacion.
+   */
+  precios_con_iva: boolean;
 }
 
 /**

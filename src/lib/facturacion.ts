@@ -6,6 +6,52 @@ import type { PedidoEmpresa, PedidoEmpresaItem } from "./types";
 
 export const IVA_RATE = 0.19;
 
+/**
+ * Qué significa el precio que está guardado para una empresa.
+ *
+ * Casi todas trabajan a precio neto y el IVA se suma al facturar. Pero hay
+ * acuerdos cerrados al revés: "la carga de toallas son $2.000 el kilo, IVA
+ * incluido". Guardar eso como neto obliga a dividir a mano, y ahí aparece el
+ * error clásico —multiplicar por 0,81 en vez de dividir por 1,19, que no es
+ * lo mismo porque 1/1,19 = 0,8403— y la factura sale corta.
+ *
+ * Guardando el precio tal como se acordó y anotando en qué modo está, la
+ * cuenta la hace la app y el total da exacto.
+ */
+export type ModoPrecio = "neto" | "con_iva";
+
+export interface Desglose {
+  neto: number;
+  iva: number;
+  total: number;
+}
+
+/**
+ * Parte un monto en neto + IVA, según cómo esté expresado el precio.
+ *
+ * En modo `con_iva` se calcula **hacia atrás**: el total es intocable —es lo
+ * que se le cobra al cliente— y el neto sale de dividir. Así el total da
+ * siempre el número redondo acordado, en vez de arrastrar los centavos que
+ * la columna entera no puede guardar.
+ *
+ *   $2.000 el kilo, 6 kilos, con IVA incluido
+ *     total  12.000   <- exacto, es lo acordado
+ *     neto   10.084   (12.000 / 1,19, redondeado)
+ *     IVA     1.916   (la diferencia, no un redondeo aparte)
+ *
+ * El IVA se saca por diferencia y no redondeando por su cuenta, para que
+ * neto + IVA dé el total sin fallar por un peso.
+ */
+export function desglosar(monto: number, modo: ModoPrecio): Desglose {
+  const m = Math.round(monto);
+  if (modo === "con_iva") {
+    const neto = Math.round(m / (1 + IVA_RATE));
+    return { neto, iva: m - neto, total: m };
+  }
+  const iva = Math.round(m * IVA_RATE);
+  return { neto: m, iva, total: m + iva };
+}
+
 export interface LineaConsolidada {
   key: string;
   producto_empresa_id: string | null;
@@ -76,6 +122,11 @@ interface OpcionesConsolidado {
   soloExpress?: boolean;
   /** Convierte el precio guardado en el que se va a cobrar. */
   precio?: (base: number) => number;
+  /**
+   * Cómo están expresados los precios de esta empresa. Por omisión, netos:
+   * es lo que hace casi todo el padrón y lo que la app asumió siempre.
+   */
+  modo?: ModoPrecio;
 }
 
 /**
@@ -91,6 +142,7 @@ function consolidar(
 ): Consolidado {
   const map = new Map<string, LineaConsolidada>();
   const convertir = opciones.precio;
+  const modo = opciones.modo ?? "neto";
 
   for (const { pedido, items } of pedidos) {
     if (!seleccionadosIds.has(pedido.id)) continue;
@@ -153,9 +205,10 @@ function consolidar(
       a.nombre.localeCompare(b.nombre, "es") ||
       (a.precio_unidad ?? -1) - (b.precio_unidad ?? -1),
   );
-  const neto = lineas.reduce((s, l) => s + l.importe, 0);
-  const iva = Math.round(neto * IVA_RATE);
-  const total = neto + iva;
+  // `importe` está expresado en el modo de la empresa: si trabaja con IVA
+  // incluido, la suma de los importes es el total y el neto sale de ahí.
+  const suma = lineas.reduce((s, l) => s + l.importe, 0);
+  const { neto, iva, total } = desglosar(suma, modo);
   return { lineas, neto, iva, total };
 }
 
@@ -163,8 +216,9 @@ function consolidar(
 export function consolidarPedidos(
   pedidos: readonly PedidoConItems[],
   seleccionadosIds: ReadonlySet<number>,
+  modo: ModoPrecio = "neto",
 ): Consolidado {
-  return consolidar(pedidos, seleccionadosIds);
+  return consolidar(pedidos, seleccionadosIds, { modo });
 }
 
 /**
@@ -175,10 +229,12 @@ export function consolidarExpress(
   pedidos: readonly PedidoConItems[],
   seleccionadosIds: ReadonlySet<number>,
   recargoPct: number,
+  modo: ModoPrecio = "neto",
 ): Consolidado {
   return consolidar(pedidos, seleccionadosIds, {
     soloExpress: true,
     precio: (base) => precioExpress(base, recargoPct),
+    modo,
   });
 }
 
@@ -240,8 +296,9 @@ export function consolidarFacturacion(
   pedidos: readonly PedidoConItems[],
   seleccionadosIds: ReadonlySet<number>,
   recargoPct: number,
+  modo: ModoPrecio = "neto",
 ): Facturacion {
-  const principal = consolidarPedidos(pedidos, seleccionadosIds);
+  const principal = consolidarPedidos(pedidos, seleccionadosIds, modo);
 
   const idsExpress = pedidos
     .filter((p) => seleccionadosIds.has(p.pedido.id) && p.pedido.express)
@@ -255,7 +312,7 @@ export function consolidarFacturacion(
     return { principal, express: null, idsExpress };
   }
 
-  const express = consolidarExpress(pedidos, seleccionadosIds, recargoPct);
+  const express = consolidarExpress(pedidos, seleccionadosIds, recargoPct, modo);
   // Guías express sin ninguna línea con precio no dan documento: facturar un
   // recargo de cero es emitir un papel en blanco.
   if (express.neto === 0) {

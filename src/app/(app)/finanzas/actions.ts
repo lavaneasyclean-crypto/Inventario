@@ -131,10 +131,13 @@ export async function registrarFactura(
       };
     }
 
+    // El modo tiene que ser el mismo que mostró la pantalla: si no, lo que
+    // se registra no es lo que la persona vio antes de apretar.
+    const modo = empresa.precios_con_iva ? "con_iva" : "neto";
     const consolidado =
       data.tipo === "express"
-        ? consolidarExpress(pedidos, seleccion, empresa.recargo_express)
-        : consolidarPedidos(pedidos, seleccion);
+        ? consolidarExpress(pedidos, seleccion, empresa.recargo_express, modo)
+        : consolidarPedidos(pedidos, seleccion, modo);
 
     if (consolidado.lineas.length === 0) {
       return { ok: false, error: "Las guías marcadas no tienen items." };
