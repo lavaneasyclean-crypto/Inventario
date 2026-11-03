@@ -48,21 +48,20 @@ ROOT = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 # Que empresa y que precios. Es lo unico que se edita para volver a usarlo.
 # ---------------------------------------------------------------------------
-RUT_EMPRESA = "76095839-5"   # Inversiones Contesse y Donoso (Casa Vieja Vitacura)
+RUT_EMPRESA = "77594429-3"   # Inversiones El Cubo SpA (El Cubo)
 
-# Desde que guia se corrige. La #1646 del 29-08-2026 es la primera que se
-# cargo en la app; todo lo anterior vino del Access sin precio. El corte va
-# explicito y no se deduce de "tiene precio", para que el alcance quede
-# escrito y se pueda auditar despues.
-DESDE_GUIA = 1646
+# Desde que guia se corrige. El Cubo tiene dos guias, las dos sin facturar,
+# asi que el corte es la primera. Va explicito igual, para que el alcance
+# quede escrito y se pueda auditar despues.
+DESDE_GUIA = 1704
 
+# El Cubo tiene `precios_con_iva` marcado: estos numeros son lo ACORDADO con
+# el cliente, IVA adentro. La app saca el neto dividiendo por 1,19 al
+# facturar. No hay que pre-dividirlos a mano aca; ese fue el error original
+# (x 0,81 en vez de / 1,19) que dejo la lista en 1.681 y 1.261.
 PRECIOS = {
-    "002": ("Carpeta", 550),
-    "001": ("Mantel", 850),
-    "045": ("Mantel Blanco cuadrado", 850),
-    "019": ("Mantel Ovalado", 1800),
-    "038": ("Mantel Repaso", 500),
-    "003": ("Servilleta", 200),
+    "098": ("Carga Toallas Kg", 2000),
+    "099": ("Delivery", 1500),
 }
 
 
@@ -149,12 +148,16 @@ def main() -> int:
     print("=" * 74)
 
     empresa = supa.traer(
-        f"clientes_empresa?select=rut,nombre,alias&rut=eq.{RUT_EMPRESA}")
+        "clientes_empresa?select=rut,nombre,alias,precios_con_iva"
+        f"&rut=eq.{RUT_EMPRESA}")
     if not empresa:
         sys.exit(f"No existe la empresa {RUT_EMPRESA}")
     e = empresa[0]
     alias = e["alias"] or "sin alias"
     print(f"\nEmpresa: {e['nombre']}  ({alias})  {e['rut']}")
+    con_iva = bool(e.get("precios_con_iva"))
+    print("Modo:    " + ("los precios YA INCLUYEN IVA" if con_iva
+                         else "precios netos, el IVA se suma al facturar"))
 
     # ---------------- 1. la lista de precios ----------------
     actuales = {
@@ -179,7 +182,8 @@ def main() -> int:
         elif int(float(hoy)) == nuevo:
             que = "ya estaba bien"
         else:
-            que = f"baja {clp(hoy)} -> {clp(nuevo)}"
+            verbo = "sube" if nuevo > int(float(hoy)) else "baja"
+            que = f"{verbo} {clp(hoy)} -> {clp(nuevo)}"
             cambios_lista.append((pid, nombre, nuevo))
         print(f"  {nombre[:26]:<26} {clp(hoy):>12} {clp(nuevo):>12}   {que}")
 
@@ -242,7 +246,14 @@ def main() -> int:
         print("  " + "-" * 62)
         print(f"  {'TOTAL':<9} {len(pendientes):>7} {clp(th):>15} "
               f"{clp(td):>13} {clp(td - th):>13}")
-        print(f"\n  Con IVA 19%:  {clp(th * 1.19)}  ->  {clp(td * 1.19)}")
+        print()
+        if con_iva:
+            # El subtotal ES el total: sumarle 19% encima seria cobrarlo
+            # dos veces. El neto se saca dividiendo, igual que la app.
+            print(f'  Esos montos YA incluyen IVA. El neto seria '
+                  f'{clp(th / 1.19)}  ->  {clp(td / 1.19)}')
+        else:
+            print(f'  Con IVA 19%:  {clp(th * 1.19)}  ->  {clp(td * 1.19)}')
 
         print("\n  primeras diez lineas:")
         for l, nuevo, imp in pendientes[:10]:
