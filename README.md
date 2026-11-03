@@ -8,7 +8,7 @@ Sistema de gestión de pedidos para lavandería. Reemplaza la base de datos Acce
 - **Tailwind v4** + **shadcn/ui** + **lucide-react**
 - **Supabase** (Postgres + Auth + Storage)
 - **react-hook-form** + **zod** para formularios
-- Deploy: **Netlify**
+- Deploy: **Vercel**
 
 ## Cómo se usa
 
@@ -88,15 +88,27 @@ Inventario/
 
 ## Deploy
 
-Producción es **Netlify**. El repo también estuvo conectado a Vercel, que
-buildeaba en paralelo detrás de su propio SSO sin que nadie lo usara; `vercel.json`
-desactiva esos deploys. Para desconectarlo del todo hay que sacar el proyecto
-desde el dashboard de Vercel.
+Producción es **Vercel**: <https://inventario-dusky.vercel.app>
 
-### Netlify
+El repo está conectado, así que cada push a `main` despliega solo. El plan
+gratis no cobra por minutos de build.
 
-- Conectar el repo en Netlify
-- Variables de entorno: copiar las de `.env.local` (sin `SUPABASE_DB_URL`, no hace falta en runtime)
-- Build command: `npm run build`
-- Publish directory: `.next`
-- Plugin: `@netlify/plugin-nextjs` (se detecta automáticamente)
+- **Variables de entorno** (Settings → Environment Variables):
+  `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`, las dos como
+  *config* y no como secreto. La anon key es pública por diseño —viaja en el
+  bundle del navegador— y quien cuida los datos es RLS, no esconderla.
+- **No** están cargadas `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` ni
+  `OPENFACTURA_API_KEY`: el ETL corre en el PC, no en producción, y la service
+  role key saltea RLS. No tiene nada que hacer en un servidor web.
+- El framework y el build los detecta solo. No hace falta `vercel.json`.
+- El dominio tiene que estar en Supabase → Authentication → URL Configuration
+  → Redirect URLs como `https://inventario-dusky.vercel.app/**`. Sin eso el
+  login anda, pero el correo de "olvidé mi contraseña" no vuelve a la app.
+
+### Netlify (dado de baja)
+
+Vivió en `starlit-centaur-269e84.netlify.app`. Se cayó con 502 al agotar los
+créditos del plan gratis, y al renovarse volvió sirviendo un build viejo
+contra la misma base de producción. Esa es la peor combinación posible: la app
+se veía sana pero le faltaban columnas y arreglos, y nadie podía saber desde
+qué versión estaba escribiendo. Por eso quedó una sola dirección.

@@ -70,7 +70,7 @@ export function mensajeUsuario(error: unknown): string {
 }
 
 /**
- * Deja el detalle completo en el log del servidor (Netlify Functions). El
+ * Deja el detalle completo en el log del servidor (Vercel). El
  * `paso` es la traza que antes viajaba a la UI: acá sigue siendo útil.
  */
 export function registrarError(

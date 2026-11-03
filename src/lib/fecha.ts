@@ -1,7 +1,7 @@
 /**
  * Fechas ancladas a Chile continental.
  *
- * El negocio ocurre siempre en Chile, pero ningún proceso corre ahí: Netlify
+ * El negocio ocurre siempre en Chile, pero ningún proceso corre ahí: Vercel
  * ejecuta en UTC y el navegador usa la zona del equipo. Derivar un día de la
  * zona horaria del proceso hace que un pedido recibido a las 22:30 aparezca
  * como del día siguiente. Por eso toda conversión pasa por acá.

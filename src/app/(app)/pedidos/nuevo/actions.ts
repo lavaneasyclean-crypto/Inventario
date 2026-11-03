@@ -42,7 +42,7 @@ export type CrearPedidoResult =
 export async function crearPedido(
   input: CrearPedidoInput,
 ): Promise<CrearPedidoResult> {
-  // step trace para que aparezca en Netlify Functions logs
+  // step trace para que aparezca en los logs de Vercel
   let step = "init";
   try {
     step = "parse";

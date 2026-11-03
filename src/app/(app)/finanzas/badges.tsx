@@ -12,7 +12,7 @@ import type { Factura, Gasto } from "@/lib/types";
  * El estado que se muestra no es el que está guardado: "vencida" sale de
  * comparar el vencimiento con hoy. `hoy` llega por props y no se lee acá para
  * que el servidor y el cliente pinten lo mismo, y para que sea el día en
- * Chile y no el del reloj de Netlify.
+ * Chile y no el del reloj de Vercel.
  */
 
 function textoVencimiento(fechaVence: string | null, hoy: string): string {
