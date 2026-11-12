@@ -5,6 +5,7 @@ import {
   type SupabaseFake,
 } from "@/lib/testing/supabase-fake";
 import { MENSAJE_GENERICO, MENSAJE_SIN_CONEXION } from "@/lib/errores";
+import { hoyEnChile, mediodiaChile, sumarDias } from "@/lib/fecha";
 
 const estado = vi.hoisted(() => ({ supabase: null as unknown }));
 
@@ -474,5 +475,100 @@ describe("crearCliente", () => {
     const res = await crearCliente(clienteBase);
 
     expect((res as { error: string }).error).not.toMatch(/pkey|duplicate/i);
+  });
+});
+
+describe("crearPedido — fecha de recepción", () => {
+  const hoy = hoyEnChile();
+  const haceCinco = sumarDias(hoy, -5);
+
+  function p_pedidoDe(fake: SupabaseFake) {
+    return (fake.rpcs[0].args as { p_pedido: Record<string, unknown> }).p_pedido;
+  }
+
+  it("sin fecha, queda recibido en este instante", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido(pedidoBase());
+
+    const recibido = new Date(
+      p_pedidoDe(fake).fecha_recepcion as string,
+    ).getTime();
+    expect(Math.abs(recibido - Date.now())).toBeLessThan(5000);
+  });
+
+  it("con la fecha de hoy, guarda la hora real y no el mediodía", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({ ...pedidoBase(), fecha_recepcion: hoy });
+
+    const recibido = new Date(
+      p_pedidoDe(fake).fecha_recepcion as string,
+    ).getTime();
+    expect(Math.abs(recibido - Date.now())).toBeLessThan(5000);
+  });
+
+  it("un día pasado se ancla al mediodía de Chile", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({ ...pedidoBase(), fecha_recepcion: haceCinco });
+
+    // Mediodía y no medianoche: a las 00:00 un cambio de offset corre el día.
+    expect(p_pedidoDe(fake).fecha_recepcion).toBe(mediodiaChile(haceCinco));
+  });
+
+  it("rechaza una fecha futura, sin tocar la base", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    const res = await crearPedido({
+      ...pedidoBase(),
+      fecha_recepcion: sumarDias(hoy, 1),
+    });
+
+    expect(res).toEqual({
+      ok: false,
+      error: "La fecha de recepción no puede ser futura",
+    });
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it("rechaza una fecha que no existe", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    const res = await crearPedido({
+      ...pedidoBase(),
+      fecha_recepcion: "2026-02-31",
+    });
+
+    expect(res).toEqual({
+      ok: false,
+      error: "La fecha de recepción no es válida",
+    });
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it("si se cobró, el pago lleva la misma fecha que la recepción", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 1 } });
+    await crearPedido({
+      ...pedidoBase(),
+      pagado: true,
+      forma_pago: "efectivo",
+      fecha_recepcion: haceCinco,
+    });
+
+    const p = p_pedidoDe(fake);
+    expect(p.fecha_pago).toBe(p.fecha_recepcion);
+  });
+
+  it("el abono entra en la caja del día que se recibió, no en la de hoy", async () => {
+    const fake = montar({ "rpc.crear_pedido": { data: 7 } });
+    await crearPedido({
+      ...pedidoBase(),
+      pagado: true,
+      forma_pago: "efectivo",
+      fecha_recepcion: haceCinco,
+    });
+
+    const abono = fake.ultima("pedidos_abonos", "insert");
+    expect(abono?.payload).toMatchObject({
+      pedido_id: 7,
+      fecha: haceCinco,
+      monto: 10600,
+    });
   });
 });

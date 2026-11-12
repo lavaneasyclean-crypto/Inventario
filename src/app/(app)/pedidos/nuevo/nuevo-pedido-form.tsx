@@ -29,9 +29,11 @@ import { crearPedido } from "./actions";
 export function NuevoPedidoForm({
   productos,
   clienteInicial,
+  hoy,
 }: {
   productos: Producto[];
   clienteInicial: Cliente | null;
+  hoy: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -39,6 +41,9 @@ export function NuevoPedidoForm({
 
   const [cliente, setCliente] = useState<Cliente | null>(clienteInicial);
   const [items, setItems] = useState<ItemDraft[]>([]);
+  // Arranca en hoy, que es el caso de siempre: la ropa se carga cuando
+  // entra. Se puede retroceder para los pedidos que se cargan atrasados.
+  const [fechaRecepcion, setFechaRecepcion] = useState(hoy);
   const [fechaEntrega, setFechaEntrega] = useState("");
   const [notas, setNotas] = useState("");
   const [pagar, setPagar] = useState(false);
@@ -75,6 +80,7 @@ export function NuevoPedidoForm({
         direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
           .filter(Boolean)
           .join(", ") || null,
+        fecha_recepcion: fechaRecepcion || hoy,
         fecha_entrega:  fechaEntrega ? mediodiaChile(fechaEntrega) : null,
         notas:          notas.trim() || null,
         pagado:         pagar,
@@ -145,6 +151,22 @@ export function NuevoPedidoForm({
       <div className="flex w-full flex-col gap-6 lg:sticky lg:top-20 lg:w-[22rem] lg:shrink-0">
         <Section title="3. Detalles">
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fecha_recepcion">Fecha de recepción</Label>
+            <Input
+              id="fecha_recepcion"
+              type="date"
+              value={fechaRecepcion}
+              max={hoy}
+              onChange={(e) => setFechaRecepcion(e.target.value)}
+              className="h-10"
+            />
+            {fechaRecepcion !== hoy && (
+              <p className="text-xs text-muted-foreground">
+                Se va a guardar como recibido ese día, no hoy.
+              </p>
+            )}
+          </div>
+          <div className="mt-3 flex flex-col gap-1.5">
             <Label htmlFor="fecha_entrega">Fecha de entrega</Label>
             <Input
               id="fecha_entrega"

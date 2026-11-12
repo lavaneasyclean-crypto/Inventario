@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProductosActivos } from "@/lib/data/productos";
+import { hoyEnChile } from "@/lib/fecha";
 import type { Cliente } from "@/lib/types";
 import { NuevoPedidoForm } from "./nuevo-pedido-form";
 import { BackButton } from "@/components/back-button";
@@ -38,7 +39,14 @@ export default async function NuevoPedidoPage({
         Buscá al cliente, agregá los productos y confirmá.
       </p>
 
-      <NuevoPedidoForm productos={productos} clienteInicial={clientePrefill} />
+      {/* El dia lo calcula el servidor y viaja por props: si lo sacara el
+          navegador, un equipo con la zona corrida abriria el formulario con
+          otra fecha que la que despues valida el servidor. */}
+      <NuevoPedidoForm
+        productos={productos}
+        clienteInicial={clientePrefill}
+        hoy={hoyEnChile()}
+      />
     </div>
   );
 }

@@ -3,6 +3,12 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
+import {
+  esFechaValida,
+  fechaEnChile,
+  hoyEnChile,
+  mediodiaChile,
+} from "@/lib/fecha";
 import { importeLinea } from "@/lib/medidas";
 import { normalizeRut, rutValido } from "@/lib/rut";
 import type { TipoServicio } from "@/lib/types";
@@ -14,6 +20,7 @@ const inputSchema = z.object({
   nombre_cliente: z.string().min(1, "Nombre requerido").nullable(),
   contacto:       z.string().nullable(),
   direccion:      z.string().nullable(),
+  fecha_recepcion: z.string().nullable().optional(),
   fecha_entrega:  z.string().nullable(),
   notas:          z.string().nullable(),
   pagado:         z.boolean(),
@@ -85,6 +92,27 @@ export async function crearPedido(
 
     const ahora = new Date().toISOString();
 
+    // Cuando se carga un pedido atrasado, la recepcion es el dia que la ropa
+    // entro de verdad y no el que se tipeo. Para hoy se guarda el instante
+    // exacto, que es lo que ordena los pedidos dentro del dia; para un dia
+    // pasado se guarda el mediodia de Chile, la hora que ningun cambio de
+    // offset alcanza a correr al dia anterior o al siguiente.
+    const hoy = hoyEnChile();
+    const elegida = data.fecha_recepcion;
+    let recibido = ahora;
+    if (elegida && elegida !== hoy) {
+      if (!esFechaValida(elegida)) {
+        return { ok: false, error: "La fecha de recepción no es válida" };
+      }
+      if (elegida > hoy) {
+        return {
+          ok: false,
+          error: "La fecha de recepción no puede ser futura",
+        };
+      }
+      recibido = mediodiaChile(elegida);
+    }
+
     step = "rpc-crear-pedido";
     // crear_pedido (migrations/0006) inserta el pedido y sus items en una
     // sola transacción y deja que la secuencia asigne el id. Antes esto eran
@@ -101,8 +129,8 @@ export async function crearPedido(
         forma_pago:      data.pagado ? data.forma_pago : "no_pago",
         monto_abonado:   data.pagado ? total : 0,
         total_venta:     total,
-        fecha_recepcion: ahora,
-        fecha_pago:      data.pagado ? ahora : null,
+        fecha_recepcion: recibido,
+        fecha_pago:      data.pagado ? recibido : null,
         fecha_entrega:   data.fecha_entrega ?? null,
         notas:           data.notas,
       },
@@ -135,7 +163,10 @@ export async function crearPedido(
       step = "abono-inicial";
       const { error: eAbono } = await supabase.from("pedidos_abonos").insert({
         pedido_id: pedidoId,
-        fecha: ahora.slice(0, 10),
+        // El dia del abono sale de la recepcion leida en Chile, no de
+        // cortar el ISO: un pedido tomado a las 22:30 ya es del dia
+        // siguiente en UTC, y la caja de ese dia lo perdia.
+        fecha: fechaEnChile(new Date(recibido)),
         monto: total,
         forma_pago: data.forma_pago,
         notas: "Cobrado al tomar el pedido",
