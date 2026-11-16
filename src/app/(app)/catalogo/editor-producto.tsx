@@ -234,9 +234,21 @@ function ProductoDialog({
                 permitirNegativo
                 placeholder="0"
               />
-              <p className="text-xs text-muted-foreground">
-                Puede ser negativo si es un descuento.
-              </p>
+              {/* La regla vivia solo en el codigo: precio 0 = el precio se
+                  pregunta en el pedido. Al no estar escrita aca, ponerle
+                  precio a AA-Otro apagaba el comodin sin ningun aviso. */}
+              {Number(precio) === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  En <strong>$0</strong> el precio se escribe al cargar el
+                  pedido. Es lo que hace que AA-Otro y Descuento sirvan de
+                  comodín. Si le ponés un precio acá, deja de preguntarlo.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Puede ser negativo si es un descuento. Dejalo en $0 si el
+                  precio se escribe al cargar el pedido.
+                </p>
+              )}
             </div>
           </div>
 

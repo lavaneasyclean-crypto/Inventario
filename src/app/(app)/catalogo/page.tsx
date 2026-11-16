@@ -3,6 +3,7 @@ import { TIPO_SERVICIO_LABELS } from "@/lib/types";
 import type { Producto, TipoServicio } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { formatCLP } from "@/lib/format";
+import { tienePrecioLibre } from "@/lib/precio-libre";
 import { EditarProductoButton, NuevoProductoButton } from "./editor-producto";
 import { FiltroCatalogo } from "./filtro-catalogo";
 
@@ -84,9 +85,19 @@ export default async function CatalogoPage({
                     <div className="mt-0.5 font-mono text-xs text-muted-foreground">
                       {p.id}
                     </div>
-                    <div className="mt-2 font-mono text-base font-semibold tabular-nums">
-                      {formatCLP(p.precio)}
-                    </div>
+                    {/* El 0 no es "gratis": es la marca de que el precio se
+                        escribe al cargar el pedido. Mostrarlo como $0 hace
+                        que parezca un precio sin poner, y el que lo ve
+                        "arregla" el catalogo y rompe el comodin. */}
+                    {tienePrecioLibre(p) ? (
+                      <div className="mt-2 text-sm font-medium text-muted-foreground">
+                        Precio al cargar el pedido
+                      </div>
+                    ) : (
+                      <div className="mt-2 font-mono text-base font-semibold tabular-nums">
+                        {formatCLP(p.precio)}
+                      </div>
+                    )}
                   </div>
                   <EditarProductoButton producto={p} />
                 </li>
