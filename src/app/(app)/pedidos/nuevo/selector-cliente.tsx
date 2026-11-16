@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Search, X, UserPlus, User, Phone, Loader2 } from "lucide-react";
+import { Search, X, UserPlus, UserX, User, Phone, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -29,30 +29,51 @@ import { crearCliente } from "./actions";
 // puntos y no miraba el digito verificador, asi que daba por bueno cualquier
 // numero bien formateado.
 
+/**
+ * A quien se le hace el pedido.
+ *
+ * El mostrador atiende gente que no quiere dejar su RUT y que igual da un
+ * nombre y a veces un telefono. Eso es un pedido valido, no un cliente a
+ * medio cargar: en el Access se escribia "Sin Registro" a mano en el campo
+ * del cliente, y asi quedaron 695 pedidos historicos sin RUT.
+ *
+ * Va como union y no como un Cliente con el rut vacio a proposito. Un
+ * centinela escondido adentro de un valor se apaga sin aviso el dia que
+ * alguien edita ese valor por otro motivo.
+ */
+export type Destinatario =
+  | { tipo: "registrado"; cliente: Cliente }
+  | { tipo: "sin_registro"; nombre: string; telefono: string | null };
+
 export function SelectorCliente({
-  cliente,
+  destinatario,
   onSelect,
+  onSinRegistro,
   onClear,
 }: {
-  cliente: Cliente | null;
+  destinatario: Destinatario | null;
   onSelect: (c: Cliente) => void;
+  onSinRegistro: (nombre: string, telefono: string | null) => void;
   onClear: () => void;
 }) {
+  const cliente =
+    destinatario?.tipo === "registrado" ? destinatario.cliente : null;
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Cliente[]>([]);
   const [searching, setSearching] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [sinRegistroOpen, setSinRegistroOpen] = useState(false);
 
   // Al elegir un cliente el buscador se limpia. Ajustado durante el render en
   // vez de en un efecto: no hay sistema externo con el que sincronizar.
-  const [clientePrevio, setClientePrevio] = useState(cliente);
-  if (cliente !== clientePrevio) {
-    setClientePrevio(cliente);
-    if (cliente) setQuery("");
+  const [elegidoPrevio, setElegidoPrevio] = useState(destinatario);
+  if (destinatario !== elegidoPrevio) {
+    setElegidoPrevio(destinatario);
+    if (destinatario) setQuery("");
   }
 
   useEffect(() => {
-    if (cliente || !query.trim()) return;
+    if (destinatario || !query.trim()) return;
 
     // El propio cleanup del efecto cancela el debounce pendiente.
     const debounce = setTimeout(async () => {
@@ -75,7 +96,33 @@ export function SelectorCliente({
     }, 200);
 
     return () => clearTimeout(debounce);
-  }, [query, cliente]);
+  }, [query, destinatario]);
+
+  if (destinatario?.tipo === "sin_registro") {
+    return (
+      <div className="rounded-lg border bg-background p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 font-medium">
+              <UserX className="size-4 text-muted-foreground" />
+              {destinatario.nombre}
+            </div>
+            <div className="ml-6 mt-0.5 text-xs text-muted-foreground">
+              Sin registro — no queda ficha de cliente
+            </div>
+            {destinatario.telefono && (
+              <div className="ml-6 mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="size-3" /> {destinatario.telefono}
+              </div>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClear}>
+            <X className="size-4" /> Cambiar
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (cliente) {
     return (
@@ -155,20 +202,37 @@ export function SelectorCliente({
         </p>
       )}
 
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setCreateOpen(true)}
-        className="self-start"
-      >
-        <UserPlus className="size-4" /> Crear cliente nuevo
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setCreateOpen(true)}
+        >
+          <UserPlus className="size-4" /> Crear cliente nuevo
+        </Button>
+        {/* Para el que no quiere dejar el RUT. El pedido se identifica por su
+            numero, que es lo que se lleva impreso. */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setSinRegistroOpen(true)}
+        >
+          <UserX className="size-4" /> Sin registro
+        </Button>
+      </div>
 
       <CrearClienteDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={onSelect}
         rutHint={query.match(/\d/) ? (normalizeRut(query) ?? "") : ""}
+      />
+
+      <SinRegistroDialog
+        open={sinRegistroOpen}
+        onOpenChange={setSinRegistroOpen}
+        onConfirmar={onSinRegistro}
+        nombreHint={query.match(/\d/) ? "" : query.trim()}
       />
     </div>
   );
@@ -353,5 +417,114 @@ function Field({
         autoFocus={autoFocus}
       />
     </div>
+  );
+}
+
+/**
+ * Un pedido sin ficha de cliente.
+ *
+ * El nombre es obligatorio —algo hay que gritar cuando la ropa esta lista— y
+ * el telefono no: el que no quiere dejar el RUT a veces tampoco deja el
+ * numero, y el pedido se encuentra igual por el suyo, que va impreso.
+ */
+function SinRegistroDialog({
+  open,
+  onOpenChange,
+  onConfirmar,
+  nombreHint,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onConfirmar: (nombre: string, telefono: string | null) => void;
+  nombreHint: string;
+}) {
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset al abrir, durante el render y no en un efecto, como los demas.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) {
+      setNombre(nombreHint || "Sin registro");
+      setTelefono("");
+      setError(null);
+    }
+  }
+
+  const handleSubmit = () => {
+    setError(null);
+    const n = nombre.trim();
+    if (!n) {
+      setError("Poné un nombre, aunque sea una referencia.");
+      return;
+    }
+    // Opcional, pero a medias no sirve: un telefono de 4 digitos es peor que
+    // ninguno, porque parece que se puede llamar.
+    const tel = telefono.trim();
+    if (tel) {
+      const partes = partirTelefono(tel);
+      const ok = partes.esChileno
+        ? telefonoChilenoCompleto(partes.numero)
+        : telefonoExtranjeroCompleto(partes.numero);
+      if (!ok) {
+        setError(
+          partes.esChileno
+            ? "El teléfono va con 9 dígitos, como 9 1234 5678. Dejalo vacío si no lo dio."
+            : "Poné el número con su código de país, o dejalo vacío.",
+        );
+        return;
+      }
+    }
+    onConfirmar(n, tel || null);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Pedido sin registro</DialogTitle>
+          <DialogDescription>
+            No se crea ficha de cliente ni se guarda el RUT. El pedido se busca
+            por su número, el que sale impreso en el comprobante.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="sr-nombre">Nombre</Label>
+            <Input
+              id="sr-nombre"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Sin registro"
+            />
+            <p className="text-xs text-muted-foreground">
+              Puede ser un nombre de pila o una referencia, como la dirección.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="sr-telefono">Teléfono (opcional)</Label>
+            <InputTelefono
+              id="sr-telefono"
+              value={telefono}
+              onChange={setTelefono}
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit}>
+            <UserX className="size-4" /> Usar sin registro
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

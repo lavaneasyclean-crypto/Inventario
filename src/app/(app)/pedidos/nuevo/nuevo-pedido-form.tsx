@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import type { Cliente, FormaPago, Producto } from "@/lib/types";
 import { FORMA_PAGO_LABELS } from "@/lib/types";
-import { SelectorCliente } from "./selector-cliente";
+import { SelectorCliente, type Destinatario } from "./selector-cliente";
 import {
   SelectorItems,
   importeDeItem,
@@ -39,7 +39,11 @@ export function NuevoPedidoForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [cliente, setCliente] = useState<Cliente | null>(clienteInicial);
+  // Quien recibe el pedido: un cliente con ficha, o el del mostrador que
+  // no deja su RUT. Las dos formas cierran un pedido valido.
+  const [destinatario, setDestinatario] = useState<Destinatario | null>(
+    clienteInicial ? { tipo: "registrado", cliente: clienteInicial } : null,
+  );
   const [items, setItems] = useState<ItemDraft[]>([]);
   // Arranca en hoy, que es el caso de siempre: la ropa se carga cuando
   // entra. Se puede retroceder para los pedidos que se cargan atrasados.
@@ -54,8 +58,8 @@ export function NuevoPedidoForm({
   const sinMedida = itemsSinMedida(items);
 
   const handleSubmit = async () => {
-    if (!cliente) {
-      setError("Seleccioná o creá un cliente.");
+    if (!destinatario) {
+      setError("Elegí un cliente o marcá el pedido como sin registro.");
       return;
     }
     if (items.length === 0) {
@@ -74,12 +78,27 @@ export function NuevoPedidoForm({
     try {
       console.log("[nuevo-pedido] enviando crearPedido");
       const res = await crearPedido({
-        rut_cliente:    cliente.rut,
-        nombre_cliente: cliente.nombre,
-        contacto:       cliente.telefono,
-        direccion:      [cliente.calle, cliente.dpto, cliente.comuna]
-          .filter(Boolean)
-          .join(", ") || null,
+        // Sin registro va sin RUT y con el nombre escrito a mano: es lo que
+        // el servidor ya aceptaba (basta rut o nombre) y la forma que tienen
+        // los 695 pedidos que vinieron del Access.
+        rut_cliente:    destinatario.tipo === "registrado"
+          ? destinatario.cliente.rut
+          : null,
+        nombre_cliente: destinatario.tipo === "registrado"
+          ? destinatario.cliente.nombre
+          : destinatario.nombre,
+        contacto:       destinatario.tipo === "registrado"
+          ? destinatario.cliente.telefono
+          : destinatario.telefono,
+        direccion:      destinatario.tipo === "registrado"
+          ? [
+              destinatario.cliente.calle,
+              destinatario.cliente.dpto,
+              destinatario.cliente.comuna,
+            ]
+              .filter(Boolean)
+              .join(", ") || null
+          : null,
         fecha_recepcion: fechaRecepcion || hoy,
         fecha_entrega:  fechaEntrega ? mediodiaChile(fechaEntrega) : null,
         notas:          notas.trim() || null,
@@ -133,9 +152,12 @@ export function NuevoPedidoForm({
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         <Section title="1. Cliente">
           <SelectorCliente
-            cliente={cliente}
-            onSelect={setCliente}
-            onClear={() => setCliente(null)}
+            destinatario={destinatario}
+            onSelect={(c) => setDestinatario({ tipo: "registrado", cliente: c })}
+            onSinRegistro={(nombre, telefono) =>
+              setDestinatario({ tipo: "sin_registro", nombre, telefono })
+            }
+            onClear={() => setDestinatario(null)}
           />
         </Section>
 
@@ -254,7 +276,7 @@ export function NuevoPedidoForm({
             size="lg"
             pending={loading}
             faltan={[
-              !cliente && "elegir o crear el cliente",
+              !destinatario && "elegir el cliente o marcarlo sin registro",
               items.length === 0 && "agregar al menos un item",
               sinMedida.length > 0 &&
                 `la medida de ${sinMedida.map((it) => it.nombre).join(", ")}`,
@@ -281,7 +303,7 @@ export function NuevoPedidoForm({
           size="lg"
           pending={loading}
           faltan={[
-            !cliente && "elegir o crear el cliente",
+            !destinatario && "elegir el cliente o marcarlo sin registro",
             items.length === 0 && "agregar al menos un item",
             sinMedida.length > 0 &&
               `la medida de ${sinMedida.map((it) => it.nombre).join(", ")}`,
