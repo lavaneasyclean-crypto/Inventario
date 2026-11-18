@@ -24,7 +24,7 @@ export default async function EditarPedidoPage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        <BackButton href={`/pedidos/${id}`} label="Volver al pedido" />
       </div>
 
       <div className="mb-6">

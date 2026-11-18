@@ -74,7 +74,10 @@ export default async function FacturacionPage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        <BackButton
+          href={`/empresas/${encodeURIComponent(rut)}`}
+          label="Volver a la empresa"
+        />
       </div>
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">
         Facturación — {empresa.alias || empresa.nombre}

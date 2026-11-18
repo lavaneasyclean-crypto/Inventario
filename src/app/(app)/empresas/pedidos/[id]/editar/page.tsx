@@ -49,7 +49,10 @@ export default async function EditarPedidoEmpresaPage({
     return (
       <div className="p-4 sm:p-6">
         <div className="mb-4">
-          <BackButton />
+          <BackButton
+            href={`/empresas/pedidos/${data.pedido.id}`}
+            label="Volver a la guía"
+          />
         </div>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">
           Editar guía #{data.pedido.id}
@@ -102,7 +105,10 @@ export default async function EditarPedidoEmpresaPage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        <BackButton
+          href={`/empresas/pedidos/${data.pedido.id}`}
+          label="Volver al pedido"
+        />
       </div>
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">
         Editar pedido #{data.pedido.id}

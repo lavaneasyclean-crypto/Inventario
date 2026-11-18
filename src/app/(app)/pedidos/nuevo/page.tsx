@@ -30,7 +30,7 @@ export default async function NuevoPedidoPage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        <BackButton href="/pedidos" label="Volver a pedidos" />
       </div>
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">
         Nuevo pedido

@@ -45,7 +45,7 @@ export default async function PedidoDetallePage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        <BackButton href="/pedidos" label="Volver a pedidos" />
       </div>
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">

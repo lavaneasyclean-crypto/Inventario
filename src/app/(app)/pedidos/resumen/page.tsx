@@ -65,7 +65,7 @@ export default async function ResumenPage({
        Ver components/ticket.tsx, que define el formato. */
     <div className="p-4 sm:p-6 print:max-w-[119mm] print:p-0 print:text-[12px] print:leading-tight print:text-black">
       <div className="print:hidden">
-        <BackButton />
+        <BackButton href="/pedidos" label="Volver a pedidos" />
       </div>
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">

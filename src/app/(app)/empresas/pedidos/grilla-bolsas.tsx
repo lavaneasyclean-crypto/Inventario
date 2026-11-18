@@ -282,17 +282,33 @@ export function GrillaBolsas({
           </p>
         </header>
 
-        <div className="hidden overflow-x-auto lg:block">
+        {/* El alto acotado no es estetica: es lo que hace posible el
+            encabezado fijo. `overflow-x-auto` por si solo ya convierte al div
+            en contenedor de scroll en los dos ejes —el navegador calcula
+            overflow-y: auto— asi que un sticky de adentro se ancla a el y no
+            a la pagina. Como el div crecia con la tabla, no tenia scroll
+            vertical propio y el encabezado se iba igual al bajar. Con un alto
+            maximo, el scroll vertical pasa a ser de la caja y el sticky
+            agarra. */}
+        <div className="hidden max-h-[70vh] overflow-auto lg:block">
           <table className="w-full border-separate border-spacing-0 text-sm">
+            {/* El encabezado se queda pegado al bajar: la grilla tiene una
+                fila por bolsa y en una empresa grande son varias pantallas.
+                Sin esto, a la fila 12 ya no se sabe que columna es cual y hay
+                que subir a mirar. El `top-0` es contra la caja de arriba, no
+                contra la ventana. La esquina va en z-30 porque se cruza en
+                las dos direcciones: la columna de bolsas se le mete por abajo
+                al scrollear a la derecha, y el resto del encabezado por el
+                costado. */}
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 border-b bg-background px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <th className="sticky left-0 top-0 z-30 border-b bg-background px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Bolsa
                 </th>
                 {productos.map((p) => (
                   <th
                     key={p.producto_empresa_id}
-                    className="border-b px-1 py-2 text-center text-xs font-medium text-muted-foreground"
+                    className="sticky top-0 z-20 border-b bg-background px-1 py-2 text-center text-xs font-medium text-muted-foreground"
                   >
                     <span className="block max-w-20 truncate" title={p.nombre}>
                       {p.nombre}

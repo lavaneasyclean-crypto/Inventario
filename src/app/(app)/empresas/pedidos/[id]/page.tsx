@@ -37,7 +37,14 @@ export default async function PedidoEmpresaDetallePage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        <BackButton
+          href={
+            empresa
+              ? `/empresas/${encodeURIComponent(empresa.rut)}`
+              : "/empresas"
+          }
+          label={empresa ? "Volver a la empresa" : "Volver a empresas"}
+        />
       </div>
 
       <header className="mb-6">

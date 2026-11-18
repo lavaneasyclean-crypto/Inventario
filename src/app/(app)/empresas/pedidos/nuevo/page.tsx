@@ -42,7 +42,10 @@ export default async function NuevoPedidoEmpresaPage({
     return (
       <div className="p-4 sm:p-6">
         <div className="mb-4">
-          <BackButton />
+          <BackButton
+            href={`/empresas/${encodeURIComponent(empresaInicial.rut)}`}
+            label="Volver a la empresa"
+          />
         </div>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">
           Nueva guía — {empresaInicial.alias || empresaInicial.nombre}
@@ -109,7 +112,17 @@ export default async function NuevoPedidoEmpresaPage({
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4">
-        <BackButton />
+        {/* Aca tambien se puede llegar con la empresa ya elegida por la
+            URL, cuando no trabaja por bolsas: en ese caso se sube a su ficha
+            y no al listado. */}
+        <BackButton
+          href={
+            empresaInicial
+              ? `/empresas/${encodeURIComponent(empresaInicial.rut)}`
+              : "/empresas"
+          }
+          label={empresaInicial ? "Volver a la empresa" : "Volver a empresas"}
+        />
       </div>
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">
         Nuevo pedido de empresa
