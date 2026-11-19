@@ -267,8 +267,9 @@ function EmpresaDialog({
             />
             <p className="text-xs text-muted-foreground">
               Porcentaje adicional que paga esta empresa por una guía express.
-              Dejalo en 0 si no cobra express. El recargo se factura como
-              documento aparte de la factura del mes.
+              Dejalo en 0 si no cobra express. Las guías express se facturan
+              enteras en un documento aparte, con el recargo ya aplicado: no
+              aparecen en la factura del mes.
             </p>
           </div>
 

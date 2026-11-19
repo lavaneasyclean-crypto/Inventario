@@ -113,20 +113,13 @@ export function FacturacionClient({
       empresa.precios_con_iva,
     ],
   );
-  const { principal, express, idsExpress } = facturacion;
+  const { principal, express, idsExpress, idsNormales } = facturacion;
 
-  const idsSeleccionados = useMemo(
-    () =>
-      pedidosVisibles
-        .filter((p) => seleccionados.has(p.pedido.id))
-        .map((p) => p.pedido.id),
-    [pedidosVisibles, seleccionados],
-  );
 
-  // Choques por tipo: una guía puede estar legítimamente en la factura normal
-  // y en la de recargo, pero no dos veces en la misma.
+  // Choques por tipo. Cada guía va a un documento y a uno solo, asi que
+  // `idsNormales` ya viene sin las express cuando esas se facturan aparte.
   const choques = (tipo: TipoFactura) => {
-    const ids = tipo === "express" ? idsExpress : idsSeleccionados;
+    const ids = tipo === "express" ? idsExpress : idsNormales;
     return ids
       .map((id) => ({ guia: id, factura: facturadasPorGuia.get(id)?.[tipo] ?? null }))
       .filter((c): c is { guia: number; factura: number } => c.factura !== null);
@@ -180,11 +173,8 @@ export function FacturacionClient({
   const exportar = async (tipo: TipoFactura) => {
     const consolidado = tipo === "express" ? express : principal;
     if (!consolidado) return;
-    const incluidos = pedidosVisibles.filter(
-      (p) =>
-        seleccionados.has(p.pedido.id) &&
-        (tipo === "normal" || p.pedido.express),
-    );
+    const ids = new Set(tipo === "express" ? idsExpress : idsNormales);
+    const incluidos = pedidosVisibles.filter((p) => ids.has(p.pedido.id));
     try {
       await exportFacturacionExcel({
         empresa,
@@ -208,7 +198,7 @@ export function FacturacionClient({
     debeRecordarRegistro({
       exportado: exportados.has(tipo),
       ocultado: avisoOculto.has(tipo),
-      guiaIds: tipo === "express" ? idsExpress : idsSeleccionados,
+      guiaIds: tipo === "express" ? idsExpress : idsNormales,
       idsYaFacturadas: choques(tipo).map((c) => c.guia),
     });
 
@@ -365,8 +355,8 @@ export function FacturacionClient({
         titulo="Consolidado para facturar"
         ayuda={
           empresa.precios_con_iva
-            ? "Todas las guías marcadas a precio base, incluidas las express. Los precios de esta empresa YA INCLUYEN IVA: el neto se calcula dividiendo por 1,19."
-            : "Todas las guías marcadas a precio base, incluidas las express."
+            ? "Las guías marcadas a precio base. Las express van completas en su propio documento, más abajo. Los precios de esta empresa YA INCLUYEN IVA: el neto se calcula dividiendo por 1,19."
+            : "Las guías marcadas a precio base. Las express van completas en su propio documento, más abajo."
         }
         consolidado={principal}
         vacioTexto="Marcá al menos una guía arriba para ver el consolidado."
@@ -401,8 +391,8 @@ export function FacturacionClient({
 
       {express && (
         <TablaConsolidado
-          titulo={`Servicio express — recargo ${empresa.recargo_express}%`}
-          ayuda={`${idsExpress.length} guía${idsExpress.length === 1 ? "" : "s"} express. Este documento cobra solo el adicional: las mismas guías ya van a precio base en el consolidado de arriba.`}
+          titulo={`Servicio express — ${empresa.recargo_express}% de recargo`}
+          ayuda={`${idsExpress.length} guía${idsExpress.length === 1 ? "" : "s"} express, completas y con el recargo ya aplicado. No entran en el consolidado de arriba: cada guía se factura en un documento y en uno solo.`}
           consolidado={express}
           acento
           vacioTexto=""
@@ -419,7 +409,7 @@ export function FacturacionClient({
               disabled={choquesExpress.length > 0}
               onClick={() => setRegistrando("express")}
             >
-              <Save className="size-4" /> Registrar recargo express
+              <Save className="size-4" /> Registrar factura express
             </Button>
           </div>
           {faltaRegistrar("express") && (
@@ -461,7 +451,7 @@ export function FacturacionClient({
           onAbrir={(v) => !v && setRegistrando(null)}
           rut={empresa.rut}
           tipo={registrando}
-          guiaIds={registrando === "express" ? idsExpress : idsSeleccionados}
+          guiaIds={registrando === "express" ? idsExpress : idsNormales}
           total={
             registrando === "express" ? (express?.total ?? 0) : principal.total
           }

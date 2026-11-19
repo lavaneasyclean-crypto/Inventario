@@ -105,10 +105,9 @@ function styleTotalRow(cell: ExcelJS.Cell, big = false) {
 /**
  * Baja la planilla de un periodo.
  *
- * Con `tipo: "express"` baja la del recargo: mismas guias express, pero cada
- * precio unitario es el porcentaje adicional y no el precio base. Es el
- * equivalente al bloque "Servicio express" de las planillas que se venian
- * armando a mano.
+ * Con `tipo: "express"` baja la de las guias express: las mismas prendas con
+ * el precio completo, base mas recargo. Esas guias no salen en la planilla
+ * normal; cada guia va a un documento y a uno solo.
  */
 export async function exportFacturacionExcel({
   empresa,
@@ -157,7 +156,7 @@ export async function exportFacturacionExcel({
   ws.mergeCells("E1:R2");
   const sub = ws.getCell("E1");
   sub.value = esExpress
-    ? `Easy Clean — Recargo ${recargoExpress}% sobre precio base`
+    ? `Easy Clean — Servicio express (incluye ${recargoExpress}% de recargo)`
     : "Easy Clean — Lavandería";
   sub.font = {
     italic: true,
@@ -235,8 +234,7 @@ export async function exportFacturacionExcel({
     const col = day - startDay;
     for (const it of items) {
       // El precio tiene que pasar por la misma conversion que uso el
-      // consolidado; si no, la linea del recargo no se encuentra y el grid
-      // sale en cero.
+      // consolidado; si no, la linea no se encuentra y el grid sale en cero.
       const precio =
         it.precio_unidad === null || !esExpress
           ? it.precio_unidad
@@ -337,7 +335,7 @@ export async function exportFacturacionExcel({
   ws.mergeCells(`A${r}:D${r}`);
   const facturaHeader = ws.getCell(`A${r}`);
   facturaHeader.value = esExpress
-    ? `RECARGO EXPRESS ${recargoExpress}%`
+    ? `SERVICIO EXPRESS — RECARGO ${recargoExpress}%`
     : "FACTURACIÓN";
   facturaHeader.font = {
     bold: true,
@@ -356,9 +354,7 @@ export async function exportFacturacionExcel({
   // Header columnas
   ws.getCell(`A${r}`).value = "Producto";
   ws.getCell(`B${r}`).value = "CANTIDAD";
-  ws.getCell(`C${r}`).value = esExpress
-    ? "RECARGO UNITARIO"
-    : "PRECIO UNITARIO";
+  ws.getCell(`C${r}`).value = "PRECIO UNITARIO";
   ws.getCell(`D${r}`).value = "PRECIO TOTAL";
   for (const col of ["A", "B", "C", "D"]) {
     styleHeader(ws.getCell(`${col}${r}`));

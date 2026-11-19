@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fallo } from "@/lib/errores";
 import { getPedidosEmpresaPorIds } from "@/lib/data/empresas";
-import { consolidarExpress, consolidarPedidos } from "@/lib/facturacion";
+import { consolidarFacturacion } from "@/lib/facturacion";
 import {
   desgloseIva,
   rangoDeFechas,
@@ -119,37 +119,39 @@ export async function registrarFactura(
 
     step = "consolidar";
     const seleccion = new Set(data.guiaIds);
-    const idsIncluidas =
-      data.tipo === "express"
-        ? pedidos.filter((p) => p.pedido.express).map((p) => p.pedido.id)
-        : data.guiaIds;
-
-    if (data.tipo === "express" && idsIncluidas.length === 0) {
-      return {
-        ok: false,
-        error: "Ninguna de las guías marcadas es express.",
-      };
-    }
 
     // El modo tiene que ser el mismo que mostró la pantalla: si no, lo que
     // se registra no es lo que la persona vio antes de apretar.
     const modo = empresa.precios_con_iva ? "con_iva" : "neto";
-    const consolidado =
-      data.tipo === "express"
-        ? consolidarExpress(pedidos, seleccion, empresa.recargo_express, modo)
-        : consolidarPedidos(pedidos, seleccion, modo);
 
-    if (consolidado.lineas.length === 0) {
-      return { ok: false, error: "Las guías marcadas no tienen items." };
-    }
-    if (data.tipo === "express" && consolidado.neto === 0) {
+    // Se arma la facturación completa y no cada documento por separado,
+    // aunque acá se registre uno solo: el reparto de las guías entre los dos
+    // papeles lo decide esa función, y si el servidor lo dedujera por su
+    // cuenta podría registrar un corte distinto del que se vio en pantalla.
+    const facturacion = consolidarFacturacion(
+      pedidos,
+      seleccion,
+      empresa.recargo_express,
+      modo,
+    );
+    const consolidado =
+      data.tipo === "express" ? facturacion.express : facturacion.principal;
+    const idsIncluidas =
+      data.tipo === "express" ? facturacion.idsExpress : facturacion.idsNormales;
+
+    if (data.tipo === "express" && consolidado === null) {
       return {
         ok: false,
         error:
-          empresa.recargo_express <= 0
-            ? "Esta empresa no tiene recargo express configurado."
-            : "El recargo de estas guías da cero: no hay nada que facturar.",
+          facturacion.idsExpress.length === 0
+            ? "Ninguna de las guías marcadas es express."
+            : empresa.recargo_express <= 0
+              ? "Esta empresa no tiene recargo express configurado."
+              : "Las guías express marcadas no tienen líneas con precio: no hay nada que facturar.",
       };
+    }
+    if (consolidado === null || consolidado.lineas.length === 0) {
+      return { ok: false, error: "Las guías marcadas no tienen items." };
     }
 
     step = "periodo";

@@ -166,7 +166,7 @@ describe("registrarFactura", () => {
     expect(factura.periodo_hasta).toBe("2026-07-20");
   });
 
-  it("la express cobra solo el recargo y solo las guias express", async () => {
+  it("la express lleva la guia entera y solo las guias express", async () => {
     conPedidos([
       guia(1, false, [{ cantidad: 10, precio_unidad: 500 }]),
       guia(2, true, [{ cantidad: 4, precio_unidad: 500 }]),
@@ -189,11 +189,40 @@ describe("registrarFactura", () => {
     expect(res.ok).toBe(true);
     const rpc = fake.rpcs.at(-1)!;
     const factura = rpc.args.p_factura as Record<string, unknown>;
-    // 4 unidades x 300 (60% de 500) = 1.200, no las 14 del consolidado normal.
-    expect(factura.neto).toBe(1200);
+    // 4 unidades x 800 (500 + 60%) = 3.200: la guia completa, no solo el
+    // adicional. La guia normal no entra.
+    expect(factura.neto).toBe(3200);
     expect(factura.folio).toBe("1686");
-    // Solo la guia express queda amarrada al documento de recargo.
+    // Y solo la express queda amarrada a este documento.
     expect(rpc.args.p_guias).toEqual([2]);
+  });
+
+  it("la normal deja fuera la express, aunque venga marcada", async () => {
+    conPedidos([
+      guia(1, false, [{ cantidad: 10, precio_unidad: 500 }]),
+      guia(2, true, [{ cantidad: 4, precio_unidad: 500 }]),
+    ]);
+    const fake = montar({
+      "clientes_empresa.select": { data: EMPRESA },
+      "rpc.registrar_factura": { data: 89 },
+    });
+
+    const res = await registrarFactura({
+      rut: EMPRESA.rut,
+      tipo: "normal",
+      guiaIds: [1, 2],
+      folio: "1687",
+      fecha: "2026-09-08",
+      fecha_vence: null,
+      notas: null,
+    });
+
+    expect(res.ok).toBe(true);
+    const rpc = fake.rpcs.at(-1)!;
+    // Solo la guia 1: la 2 se factura entera en el documento express. Si el
+    // servidor decidiera el corte por su cuenta, la 2 quedaria en los dos.
+    expect(rpc.args.p_guias).toEqual([1]);
+    expect((rpc.args.p_factura as Record<string, unknown>).neto).toBe(5000);
   });
 
   it("rechaza el express si ninguna guia marcada lo es", async () => {

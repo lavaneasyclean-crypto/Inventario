@@ -114,12 +114,14 @@ export function claveLinea(
  * subtotal impreso.
  */
 export function precioExpress(precioBase: number, recargoPct: number): number {
-  return Math.round((precioBase * recargoPct) / 100);
+  return precioBase + Math.round((precioBase * recargoPct) / 100);
 }
 
 interface OpcionesConsolidado {
   /** Deja fuera las guías que no vinieron express. */
   soloExpress?: boolean;
+  /** Deja fuera las express: se facturan enteras en su propio documento. */
+  excluirExpress?: boolean;
   /** Convierte el precio guardado en el que se va a cobrar. */
   precio?: (base: number) => number;
   /**
@@ -147,6 +149,7 @@ function consolidar(
   for (const { pedido, items } of pedidos) {
     if (!seleccionadosIds.has(pedido.id)) continue;
     if (opciones.soloExpress && !pedido.express) continue;
+    if (opciones.excluirExpress && pedido.express) continue;
     for (const it of items) {
       // La clave lleva el precio ya convertido: es el que se imprime, y dos
       // precios base distintos que caen en el mismo recargo son una sola
@@ -212,18 +215,25 @@ function consolidar(
   return { lineas, neto, iva, total };
 }
 
-/** Consolidado de la factura normal: todas las guías marcadas, a precio base. */
+/**
+ * Consolidado de la factura normal: las guías marcadas, a precio base.
+ *
+ * Con `excluirExpress` deja fuera las express, que van enteras en su propio
+ * documento. Quién decide eso es `consolidarFacturacion`, que es la que sabe
+ * si ese segundo documento existe de verdad.
+ */
 export function consolidarPedidos(
   pedidos: readonly PedidoConItems[],
   seleccionadosIds: ReadonlySet<number>,
   modo: ModoPrecio = "neto",
+  excluirExpress = false,
 ): Consolidado {
-  return consolidar(pedidos, seleccionadosIds, { modo });
+  return consolidar(pedidos, seleccionadosIds, { modo, excluirExpress });
 }
 
 /**
- * Consolidado de la factura de recargo: solo las guías express, y solo el
- * porcentaje adicional.
+ * Consolidado del documento express: solo las guías express, con el precio
+ * completo —base más recargo—, no solo el adicional.
  */
 export function consolidarExpress(
   pedidos: readonly PedidoConItems[],
@@ -273,24 +283,41 @@ export function debeRecordarRegistro({
 }
 
 export interface Facturacion {
-  /** Todas las guías marcadas, a precio base. Siempre existe. */
+  /** Las guías normales, a precio base. Siempre existe. */
   principal: Consolidado;
   /**
-   * El recargo de las express. `null` cuando la empresa no cobra express o
-   * cuando ninguna de las guías marcadas lo es: ahí no hay segundo documento
-   * que emitir.
+   * Las guías express, enteras y con el recargo ya aplicado. `null` cuando la
+   * empresa no cobra express, cuando ninguna de las guías marcadas lo es, o
+   * cuando esas guías no tienen ni una línea con precio: ahí no hay segundo
+   * documento que emitir.
    */
   express: Consolidado | null;
-  /** Ids de las guías express incluidas, para registrar la segunda factura. */
+  /** Ids de las guías que van en el documento express. */
   idsExpress: number[];
+  /** Ids de las guías que van en el documento normal. */
+  idsNormales: number[];
 }
 
 /**
  * Los dos documentos de un período en una sola pasada.
  *
- * Ojo con el total: el neto de `principal` ya incluye las guías express a
- * precio base, así que lo que factura el período es la suma de los dos netos,
- * no uno u otro.
+ * Cada guía va a un documento y a uno solo: las express completas en el suyo,
+ * el resto en el normal. Antes se partía por monto —todas las guías a precio
+ * base en el normal, y el adicional de las express en un segundo documento—
+ * pero el cliente pedía la guía entera en la factura que le corresponde.
+ *
+ * Lo facturado en total no cambia, solo en qué papel cae:
+ *
+ *   antes   base de todas          + (base express x recargo)
+ *   ahora   base de las normales   + (base express x (1 + recargo))
+ *
+ * Son el mismo número, y lo son peso a peso porque `precioExpress` suma el
+ * recargo redondeado al base en vez de redondear el producto completo.
+ *
+ * La excepción importante: si no hay documento express —la empresa no cobra
+ * recargo, o ninguna guía marcada es express, o las express no tienen ni una
+ * línea con precio— las express se quedan en el normal. Sacarlas de los dos
+ * sería no cobrarlas.
  */
 export function consolidarFacturacion(
   pedidos: readonly PedidoConItems[],
@@ -298,25 +325,42 @@ export function consolidarFacturacion(
   recargoPct: number,
   modo: ModoPrecio = "neto",
 ): Facturacion {
-  const principal = consolidarPedidos(pedidos, seleccionadosIds, modo);
-
-  const idsExpress = pedidos
-    .filter((p) => seleccionadosIds.has(p.pedido.id) && p.pedido.express)
+  const marcadas = pedidos.filter((p) => seleccionadosIds.has(p.pedido.id));
+  const idsExpress = marcadas
+    .filter((p) => p.pedido.express)
     .map((p) => p.pedido.id);
 
   // Si el codigo se despliega antes de aplicar 0010_pedidos_express, la
   // columna no existe todavia y el recargo llega undefined. Sin esta guarda
   // `undefined <= 0` es false, el calculo sigue, y la pantalla muestra NaN en
   // vez de simplemente no ofrecer el documento express.
-  if (!Number.isFinite(recargoPct) || recargoPct <= 0 || idsExpress.length === 0) {
-    return { principal, express: null, idsExpress };
-  }
+  const cobraExpress =
+    Number.isFinite(recargoPct) && recargoPct > 0 && idsExpress.length > 0;
 
-  const express = consolidarExpress(pedidos, seleccionadosIds, recargoPct, modo);
-  // Guías express sin ninguna línea con precio no dan documento: facturar un
-  // recargo de cero es emitir un papel en blanco.
-  if (express.neto === 0) {
-    return { principal, express: null, idsExpress };
-  }
-  return { principal, express, idsExpress };
+  const express = cobraExpress
+    ? consolidarExpress(pedidos, seleccionadosIds, recargoPct, modo)
+    : null;
+
+  // Guías express sin ninguna línea con precio no dan documento: facturar
+  // cero es emitir un papel en blanco. Y como no hay donde ponerlas, vuelven
+  // al normal.
+  const hayDocumentoExpress = express !== null && express.neto !== 0;
+
+  const principal = consolidarPedidos(
+    pedidos,
+    seleccionadosIds,
+    modo,
+    hayDocumentoExpress,
+  );
+  const idsNormales = marcadas
+    .filter((p) => !hayDocumentoExpress || !p.pedido.express)
+    .map((p) => p.pedido.id);
+
+  return {
+    principal,
+    express: hayDocumentoExpress ? express : null,
+    idsExpress,
+    idsNormales,
+  };
 }
+

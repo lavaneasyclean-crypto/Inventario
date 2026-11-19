@@ -203,45 +203,53 @@ describe("consolidarPedidos", () => {
 });
 
 describe("precioExpress", () => {
-  it("cobra solo el porcentaje adicional, no el precio con recargo", () => {
-    // Sabana 1,5plz de Hotel Acacias: base 500, recargo 60% -> la factura
-    // express dice 300, que es el extra, no 800.
-    expect(precioExpress(500, 60)).toBe(300);
+  it("cobra el precio completo: base mas recargo", () => {
+    // Sabana 1,5plz de Hotel Acacias: base 500, recargo 60%. La guia express
+    // se factura entera, asi que la linea dice 800 y no 300. El cliente pidio
+    // ver la guia completa en su factura, no solo el adicional.
+    expect(precioExpress(500, 60)).toBe(800);
+  });
+
+  it("es el base mas el recargo redondeado, no el producto redondeado", () => {
+    // Importa para que el total facturado no se mueva ni un peso respecto
+    // del reparto viejo, que sumaba base + round(base * pct) en dos papeles.
+    const base = 333;
+    expect(precioExpress(base, 60)).toBe(base + Math.round(base * 0.6));
   });
 
   it("reproduce la factura N 1686 de Acacias linea por linea", () => {
     const casos: Array<[number, number]> = [
-      [500, 300],    // Sabana 1,5plz
-      [700, 420],    // Sabana SuperKing
-      [1950, 1170],  // Cubre Plumon 1,5plz
-      [2100, 1260],  // Cubre plumon SuperKing
-      [140, 84],     // Funda Almohada
-      [550, 330],    // Toalla Cuerpo
-      [400, 240],    // Toalla Mano
-      [750, 450],    // Mantel Repaso
-      [7000, 4200],  // Cobertores
-      [4000, 2400],  // Pieceras
-      [1200, 720],   // Pantalon
-      [850, 510],    // Mantel azul cuadrado
-      [1500, 900],   // Mantel azul rectangular 1,5x4
-      [800, 480],    // Funda cojin larga
-      [1100, 660],   // Faldon
-      [2500, 1500],  // Cubre colchon
+      [500, 800],     // Sabana 1,5plz
+      [700, 1120],    // Sabana SuperKing
+      [1950, 3120],   // Cubre Plumon 1,5plz
+      [2100, 3360],   // Cubre plumon SuperKing
+      [140, 224],     // Funda Almohada
+      [550, 880],     // Toalla Cuerpo
+      [400, 640],     // Toalla Mano
+      [750, 1200],    // Mantel Repaso
+      [7000, 11200],  // Cobertores
+      [4000, 6400],   // Pieceras
+      [1200, 1920],   // Pantalon
+      [850, 1360],    // Mantel azul cuadrado
+      [1500, 2400],   // Mantel azul rectangular 1,5x4
+      [800, 1280],    // Funda cojin larga
+      [1100, 1760],   // Faldon
+      [2500, 4000],   // Cubre colchon
     ];
     for (const [base, esperado] of casos) {
       expect(precioExpress(base, 60)).toBe(esperado);
     }
   });
 
-  it("redondea al peso", () => {
+  it("redondea el recargo al peso antes de sumarlo", () => {
     // 175 * 0,6 = 105 exacto; 174 * 0,6 = 104,4 -> 104
-    expect(precioExpress(175, 60)).toBe(105);
-    expect(precioExpress(174, 60)).toBe(104);
-    expect(precioExpress(125, 60)).toBe(75);
+    expect(precioExpress(175, 60)).toBe(280);
+    expect(precioExpress(174, 60)).toBe(278);
+    expect(precioExpress(125, 60)).toBe(200);
   });
 
-  it("sin recargo no cobra nada", () => {
-    expect(precioExpress(1000, 0)).toBe(0);
+  it("sin recargo cobra el precio base", () => {
+    expect(precioExpress(1000, 0)).toBe(1000);
   });
 });
 
@@ -260,8 +268,8 @@ describe("consolidarExpress", () => {
     const r = consolidarExpress(pedidos, new Set([1, 2]), 60);
     expect(r.lineas).toHaveLength(1);
     expect(r.lineas[0].cantidad).toBe(4);
-    expect(r.lineas[0].precio_unidad).toBe(300);
-    expect(r.neto).toBe(1200);
+    expect(r.lineas[0].precio_unidad).toBe(800); // 500 + 60%
+    expect(r.neto).toBe(3200);
   });
 
   it("respeta la seleccion: una express desmarcada no entra", () => {
@@ -289,10 +297,10 @@ describe("consolidarExpress", () => {
     const r = consolidarExpress(pedidos, new Set([1458, 1475]), 60);
     expect(r.lineas).toHaveLength(1);
     expect(r.lineas[0].cantidad).toBe(36);
-    expect(r.lineas[0].importe).toBe(10_800);
+    expect(r.lineas[0].importe).toBe(28_800); // 36 x 800
   });
 
-  it("un item sin precio no puede generar recargo", () => {
+  it("un item sin precio sigue sin precio", () => {
     const pedidos = [
       {
         pedido: { ...BASE_PEDIDO, id: 1, express: true },
@@ -304,9 +312,10 @@ describe("consolidarExpress", () => {
     expect(r.neto).toBe(0);
   });
 
-  it("dos precios base que caen en el mismo recargo son una sola linea", () => {
-    // 100 y 101 al 60% dan 60 y 61: distintos. 100 y 100 dan la misma.
-    // Con 10% : 104 -> 10 y 105 -> 11 (Math.round(10.4)=10, round(10.5)=11).
+  it("dos precios base distintos son dos lineas aunque coincida el recargo", () => {
+    // 101 y 102 al 10% dan el mismo recargo redondeado —10 los dos— y antes
+    // se fusionaban, porque la factura mostraba solo el adicional. Ahora
+    // muestra el precio final, que es distinto, y son dos lineas.
     const pedidos = [
       {
         pedido: { ...BASE_PEDIDO, id: 1, express: true },
@@ -316,11 +325,11 @@ describe("consolidarExpress", () => {
         ],
       },
     ];
-    // 101*0,1 = 10,1 -> 10 ; 102*0,1 = 10,2 -> 10. Misma linea.
     const r = consolidarExpress(pedidos, new Set([1]), 10);
-    expect(r.lineas).toHaveLength(1);
-    expect(r.lineas[0].cantidad).toBe(2);
-    expect(r.lineas[0].precio_unidad).toBe(10);
+    expect(r.lineas).toHaveLength(2);
+    expect(r.lineas.map((l) => l.precio_unidad).sort((a, b) => a! - b!)).toEqual(
+      [111, 112],
+    );
   });
 });
 
@@ -336,28 +345,42 @@ describe("consolidarFacturacion", () => {
     },
   ];
 
-  it("la principal incluye las express a precio base", () => {
+  it("la principal deja fuera las express", () => {
     const r = consolidarFacturacion(pedidos, new Set([1, 2]), 60);
     expect(r.principal.lineas).toHaveLength(1);
-    expect(r.principal.lineas[0].cantidad).toBe(14);
-    expect(r.principal.neto).toBe(7000);
+    expect(r.principal.lineas[0].cantidad).toBe(10); // solo la guia normal
+    expect(r.principal.neto).toBe(5000);
   });
 
-  it("la express cobra solo el recargo de las express", () => {
+  it("la express lleva la guia entera, con el recargo aplicado", () => {
     const r = consolidarFacturacion(pedidos, new Set([1, 2]), 60);
-    expect(r.express?.neto).toBe(1200); // 4 x 300
+    expect(r.express?.neto).toBe(3200); // 4 x 800, no 4 x 300
     expect(r.idsExpress).toEqual([2]);
   });
 
-  it("lo facturado del periodo es la suma de los dos netos", () => {
+  it("cada guia va a un documento y a uno solo", () => {
+    const r = consolidarFacturacion(pedidos, new Set([1, 2]), 60);
+    expect(r.idsNormales).toEqual([1]);
+    expect(r.idsExpress).toEqual([2]);
+    // Ninguna en los dos: es la regla que pidio el cliente.
+    expect(r.idsNormales.filter((id) => r.idsExpress.includes(id))).toEqual([]);
+  });
+
+  it("lo facturado del periodo no cambia, solo en que papel cae", () => {
+    // El reparto viejo daba 7000 (todas a base) + 1200 (solo el recargo).
+    // El nuevo da 5000 (la normal) + 3200 (la express entera). Mismo total:
+    // partir distinto no puede cambiar lo que paga el cliente.
     const r = consolidarFacturacion(pedidos, new Set([1, 2]), 60);
     expect(r.principal.neto + (r.express?.neto ?? 0)).toBe(8200);
   });
 
-  it("sin recargo configurado no hay segundo documento", () => {
+  it("sin recargo configurado la express se queda en la normal", () => {
+    // No hay segundo documento, asi que sacarla de la principal seria no
+    // cobrarla nunca.
     const r = consolidarFacturacion(pedidos, new Set([1, 2]), 0);
     expect(r.express).toBeNull();
     expect(r.principal.neto).toBe(7000);
+    expect(r.idsNormales).toEqual([1, 2]);
   });
 
   it("sin guias express no hay segundo documento", () => {
@@ -366,14 +389,19 @@ describe("consolidarFacturacion", () => {
     expect(r.idsExpress).toEqual([]);
   });
 
-  it("un recargo que da cero no genera documento en blanco", () => {
+  it("una express sin precios no genera documento en blanco, y no se pierde", () => {
     const sinPrecio = [
       {
         pedido: { ...BASE_PEDIDO, id: 2, express: true },
         items: [makeItem(2, { precio_unidad: null, importe: null })],
       },
     ];
-    expect(consolidarFacturacion(sinPrecio, new Set([2]), 60).express).toBeNull();
+    const r = consolidarFacturacion(sinPrecio, new Set([2]), 60);
+    expect(r.express).toBeNull();
+    // Sin documento express al que mandarla, vuelve a la normal: una guia
+    // que no esta en ninguno de los dos es una guia que no se factura.
+    expect(r.idsNormales).toEqual([2]);
+    expect(r.principal.lineas).toHaveLength(1);
   });
 });
 
@@ -394,6 +422,7 @@ describe("consolidarFacturacion sin la migracion aplicada", () => {
     );
     expect(r.express).toBeNull();
     expect(r.principal.neto).toBe(1000);
+    expect(r.idsNormales).toEqual([1]);
     expect(Number.isNaN(r.principal.neto)).toBe(false);
   });
 
