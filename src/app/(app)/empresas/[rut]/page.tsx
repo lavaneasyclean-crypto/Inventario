@@ -10,6 +10,7 @@ import {
   Package,
   Plus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   getBolsasDeEmpresa,
@@ -193,15 +194,36 @@ export default async function EmpresaDetallePage({
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {pedidos.map((p) => (
               <li key={p.id}>
+                {/* Una guia anulada no se borra, se marca: sigue en la
+                    lista pero no se factura. Si se ve igual que las demas,
+                    el unico modo de saberlo es abrirla de a una. */}
                 <Link
                   href={`/empresas/pedidos/${p.id}`}
-                  className="block rounded-lg border bg-background p-4 transition-colors hover:bg-accent"
+                  className={cn(
+                    "block rounded-lg border bg-background p-4 transition-colors hover:bg-accent",
+                    p.anulado && "border-dashed opacity-60",
+                  )}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-base font-semibold">
-                      #{p.id}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={cn(
+                          "font-mono text-base font-semibold",
+                          p.anulado && "line-through",
+                        )}
+                      >
+                        #{p.id}
+                      </span>
+                      {p.anulado && (
+                        <Badge variant="destructive">Anulado</Badge>
+                      )}
+                      {p.express && !p.anulado && (
+                        <Badge className="bg-violet-600 text-white dark:bg-violet-700">
+                          Express
+                        </Badge>
+                      )}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       {formatDate(p.fecha)}
                     </span>
                   </div>
