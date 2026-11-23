@@ -87,6 +87,10 @@ REGLAS = [
         "hacia": "095",          # Tablero 2,6x6
         "nombres": [
             "mantel blanco gigante",
+            # el codigo 042 es el mismo tablero con otra medida escrita, y la
+            # empresa no lo tiene asignado: sin esto queda sin precio.
+            "tablero blanco 2,5x6",
+            "tablero blanco 6,6",
             # como quedo escrito:
             "manel blanco gigante",
             "mantel blnco gigante",
@@ -106,8 +110,17 @@ REGLAS = [
         ],
     },
     {
+        "hacia": "038",          # Mantel Repaso
+        "nombres": [
+            "repasadores",
+            "repasos",
+        ],
+    },
+    {
         "hacia": "045",          # Mantel Blanco cuadrado
         "nombres": [
+            # "Mantel" pelado, sin color ni forma: es el cuadrado blanco.
+            "mantel",
             "mantel bolanco cuadrado",
         ],
     },
